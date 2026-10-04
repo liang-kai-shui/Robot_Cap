@@ -2,6 +2,13 @@
 
 在普通电脑上测量 Code-as-Policy 机器人 Agent 的最小实验项目。用户给出自然语言任务，Provider 生成 Python Policy；系统校验语法、在独立子进程运行，再由二维虚拟世界判定任务结果并记录指标。V0 不连接真实硬件。
 
+## 版本
+
+- **V0.1**：冻结于 Git 标签 `v0.1-baseline`，用于与后续实验公平比较。
+- **V0.2 Hardening**：收紧生成 Prompt 与受限 Policy DSL 的契约；保留对函数定义和 `+=`、`-=` 等增强赋值的禁止。测距按 9 位小数归一（分辨率 `1e-9` 米）；非零且小于该分辨率的 `move` 抛出 `MoveBelowResolutionError`，不计 Action。显式 `move(0)` 仍是计数、记录日志的空动作。正常小距离移动（如 `0.01` 米）不受影响。
+
+V0.2 不新增 Policy reuse、Replan、Skill Library、Vision 或 ESP32，也不改变固定 Benchmark 任务。冻结版本的真实模型结果保留作对比；本版本的代码修改仅进行离线验证。
+
 ## 架构
 
 ```text

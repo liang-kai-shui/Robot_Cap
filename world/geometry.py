@@ -2,6 +2,11 @@ import math
 from world.obstacle import Obstacle
 
 
+# Sensor readings and commanded movement share one practical spatial resolution.
+NUMERIC_DECIMALS = 9
+NUMERIC_RESOLUTION = 10 ** -NUMERIC_DECIMALS
+
+
 def ray_box_distance(x: float, y: float, dx: float, dy: float, box: Obstacle) -> float:
     """Distance along a unit ray to an axis-aligned rectangle, or infinity."""
     near, far = -math.inf, math.inf

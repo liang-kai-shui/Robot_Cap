@@ -2,7 +2,7 @@ import math
 import pytest
 from robot.state import Pose
 from robot.virtual import VirtualRobot
-from runtime.errors import CollisionError, WorldBoundaryError, MoveLimitExceeded, TurnLimitExceeded
+from runtime.errors import CollisionError, WorldBoundaryError, MoveLimitExceeded, MoveBelowResolutionError, TurnLimitExceeded
 from runtime.limits import RuntimeLimits
 from world.geometry import ray_box_distance
 from world.obstacle import Obstacle
@@ -43,3 +43,26 @@ def test_distance_and_limits():
     robot.turn(90)
     assert robot.get_distance() == pytest.approx(9)
     assert ray_box_distance(1, 1, 1, 0, world.obstacles[0]) == pytest.approx(2)
+
+
+def test_distance_rounds_float_boundary():
+    world = VirtualWorld(obstacles=(Obstacle(4, .5, .5, 1),))
+    robot = VirtualRobot(world, Pose(3.4, 1, 0))
+    assert 4 - 3.4 > 0.6  # The raw binary-float artifact that caused repeated tiny moves.
+    assert world.distance_ahead(robot.snapshot().pose) == 0.6
+    assert robot.get_distance() == 0.6
+
+
+def test_sub_resolution_move_is_rejected_but_normal_small_move_works():
+    robot = VirtualRobot(VirtualWorld(), Pose(1, 1, 0))
+    with pytest.raises(MoveBelowResolutionError):
+        robot.move(1e-16)
+    assert robot.snapshot().pose == Pose(1, 1, 0)
+    assert robot.snapshot().action_count == 0
+    assert robot.logs[-1]["error"] == "MoveBelowResolutionError"
+    robot.move(0.01)
+    assert robot.snapshot().pose.x == pytest.approx(1.01)
+    assert robot.snapshot().action_count == 1
+    robot.move(0.0)  # An explicit zero move remains a logged no-op action.
+    assert robot.snapshot().pose.x == pytest.approx(1.01)
+    assert robot.snapshot().action_count == 2

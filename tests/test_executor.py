@@ -29,3 +29,27 @@ def test_collision_result():
     result = PolicyExecutor().execute("robot.move(2)", world, Pose(1, 1, 0))
     assert result.error_type == "CollisionError"
     assert result.final_state.collision
+
+
+def test_feedback_threshold_does_not_repeat_sub_resolution_moves():
+    world = VirtualWorld(obstacles=(Obstacle(4, .5, .5, 1),))
+    policy = """while robot.get_distance() >= 0.6:
+    d = robot.get_distance()
+    step = min(0.2, d - 0.6)
+    if step <= 0:
+        break
+    robot.move(step)
+robot.stop()"""
+    result = PolicyExecutor(RuntimeLimits(timeout_seconds=2, max_actions=100)).execute(policy, world, Pose(1, 1, 0))
+    assert result.success
+    assert result.final_state.action_count < 20
+    assert world.distance_ahead(result.final_state.pose) == 0.6
+    assert result.final_state.stopped
+
+
+def test_repeated_sub_resolution_move_stops_on_first_call():
+    result = PolicyExecutor(RuntimeLimits(timeout_seconds=2)).execute(
+        "while True:\n    robot.move(1e-16)", VirtualWorld(), Pose(1, 1, 0))
+    assert result.error_type == "MoveBelowResolutionError"
+    assert result.final_state.action_count == 0
+    assert len(result.logs) == 1

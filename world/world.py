@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass, field
-from world.geometry import ray_box_distance, segment_hits_box
+from world.geometry import NUMERIC_DECIMALS, ray_box_distance, segment_hits_box
 from world.obstacle import Obstacle
 from runtime.errors import CollisionError, WorldBoundaryError
 from robot.state import Pose
@@ -41,4 +41,4 @@ class VirtualWorld:
         if dy > 1e-12: distances.append((self.height - pose.y) / dy)
         if dy < -1e-12: distances.append(-pose.y / dy)
         distances.extend(ray_box_distance(pose.x, pose.y, dx, dy, box) for box in self.obstacles)
-        return min(distances)
+        return round(min(distances), NUMERIC_DECIMALS)

@@ -26,3 +26,15 @@ def test_rejected(policy):
 
 def test_syntax_error():
     with pytest.raises(PolicySyntaxError): PolicyValidator().validate("if:")
+
+
+@pytest.mark.parametrize("policy", ["x = 2\nx -= 1", "x = 2\nx += 1"])
+def test_augmented_assignment_remains_forbidden(policy):
+    with pytest.raises(UnsafePolicyError, match="Forbidden syntax: AugAssign"):
+        PolicyValidator().validate(policy)
+
+
+def test_model_style_helper_function_remains_forbidden():
+    policy = "def safe_move(distance):\n    robot.move(distance)\nsafe_move(1)"
+    with pytest.raises(UnsafePolicyError, match="Forbidden syntax: FunctionDef"):
+        PolicyValidator().validate(policy)

@@ -2,8 +2,9 @@ import math
 import time
 from robot.base import RobotBase
 from robot.state import Pose, RobotState
-from runtime.errors import ActionLimitExceeded, MoveLimitExceeded, TurnLimitExceeded, CollisionError
+from runtime.errors import ActionLimitExceeded, MoveLimitExceeded, MoveBelowResolutionError, TurnLimitExceeded, CollisionError
 from runtime.limits import RuntimeLimits
+from world.geometry import NUMERIC_RESOLUTION
 from world.world import VirtualWorld
 
 
@@ -40,6 +41,9 @@ class VirtualRobot(RobotBase):
         if not math.isfinite(distance) or abs(distance) > self._limits.max_move_distance:
             self._record("MOVE", distance=distance, error="MoveLimitExceeded")
             raise MoveLimitExceeded(f"Move exceeds {self._limits.max_move_distance} m")
+        if 0 < abs(distance) < NUMERIC_RESOLUTION:
+            self._record("MOVE", distance=distance, error="MoveBelowResolutionError")
+            raise MoveBelowResolutionError(f"Move is below {NUMERIC_RESOLUTION:g} m resolution")
         self._act("MOVE")
         angle = math.radians(self._pose.heading)
         end = Pose(self._pose.x + distance * math.cos(angle), self._pose.y + distance * math.sin(angle), self._pose.heading)
