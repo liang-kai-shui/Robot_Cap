@@ -1,0 +1,11 @@
+.deps/
+.distcheck/
+.tmp/
+build/
+*.egg-info/
+.pytest_cache/
+.pytest-tmp/
+__pycache__/
+*.pyc
+runs/*.json
+runs/benchmark/
