@@ -1,4 +1,5 @@
 .deps/
+.env
 .distcheck/
 .tmp/
 build/
