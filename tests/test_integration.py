@@ -1,4 +1,5 @@
 import json
+import time
 from agent.runner import run_task
 from providers.mock import MockProvider
 from robot.state import Pose
@@ -37,3 +38,24 @@ def test_feedback_loop(tmp_path):
     result = run_task(task, MockProvider(), run_dir=tmp_path)
     assert result.execution_success and result.task_success
     assert result.metrics.action_count > 1
+
+
+def test_confirmation_wait_is_excluded_from_total(tmp_path):
+    def confirm(policy):
+        time.sleep(.12)
+        return True
+    started = time.perf_counter()
+    result = run_task(BENCHMARK_TASKS[0], MockProvider(), run_dir=tmp_path, on_validated=confirm)
+    wall_ms = (time.perf_counter() - started) * 1000
+    assert result.execution_success and result.task_success
+    assert result.metrics.confirmation_wait_ms >= 100
+    assert abs(result.metrics.total_ms + result.metrics.confirmation_wait_ms - wall_ms) < 50
+
+
+def test_auto_presentation_has_no_confirmation_wait(tmp_path):
+    shown = []
+    result = run_task(BENCHMARK_TASKS[0], MockProvider(), run_dir=tmp_path,
+                      on_policy=shown.append)
+    assert shown == [result.policy]
+    assert result.metrics.presentation_ms is not None
+    assert result.metrics.confirmation_wait_ms is None

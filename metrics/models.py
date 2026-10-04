@@ -13,6 +13,8 @@ class RunMetrics:
     validation_ms: float = 0.0
     execution_ms: float = 0.0
     evaluation_ms: float = 0.0
+    presentation_ms: float | None = None
+    confirmation_wait_ms: float | None = None
     total_ms: float = 0.0
     action_count: int = 0
     execution_success: bool = False

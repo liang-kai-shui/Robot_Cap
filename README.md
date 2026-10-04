@@ -41,7 +41,7 @@ LLM_API_KEY=your-key
 LLM_MODEL=your-model
 ```
 
-参考 `.env.example`。环境变量需由 shell 或部署环境设置；项目不自动读取 `.env`。该 Provider 调用 `/chat/completions` 的非流式接口，故 `llm_ttft_ms` 为 `null`；若服务不返回 token usage，两个 token 指标也为 `null`。V0 不估算缺失指标。
+参考 `.env.example`。环境变量需由 shell 或部署环境设置；项目不自动读取 `.env`。该 Provider 默认使用非流式 `/chat/completions`，此时 `llm_ttft_ms` 为 `null`。使用 `--stream` 会按首个非空 Policy 文本片段记录 TTFT，并请求末尾 usage 块；兼容服务若不支持 `stream_options`，可加 `--no-stream-usage`。未返回的 token usage 保持 `null`，V0 不估算缺失指标。
 
 ## CLI
 
@@ -50,6 +50,7 @@ python main.py --task-id B1 --auto
 python main.py --task-id D1
 python main.py "向前走2米" --auto
 python main.py --provider openai-compatible --model example-model --auto
+python main.py --provider openai-compatible --stream --task-id A1 --auto
 ```
 
 不带任务文本会交互询问。默认在打印生成的 Policy、显示校验通过后询问是否执行；`--auto` 跳过确认。`--config path.yaml` 可选择配置文件。`--task-id` 使用 Benchmark 的起点、世界及结构化成功条件。
@@ -70,15 +71,16 @@ Robot API：`move(distance)`、`turn(angle)`、`stop()`、`get_pose()`、`get_di
 python benchmark.py --runs 5
 python benchmark.py --runs 1 --task-id A1 --task-id D1
 python benchmark.py --provider openai-compatible --model example-model --runs 5
+python benchmark.py --provider openai-compatible --model example-model --stream --capabilities-only --runs 5
 ```
 
-共 20 个固定任务：基础运动 5、顺序组合 5、条件 4、反馈循环 4、安全 2。E1 使用固定非法 Policy 验证静态拦截；E2 使用固定无限循环验证 Worker 终止，超时设为最多 0.5 秒。安全任务预期失败，因此 Mock 全量任务成功率的理论上限为 90%；应同时检查错误类型。
+共 20 个固定任务：基础运动 5、顺序组合 5、条件 4、反馈循环 4、安全 2。E1 使用固定非法 Policy 验证静态拦截；E2 使用固定无限循环验证 Worker 终止，超时设为最多 0.5 秒。汇总把 18 个能力任务的 `capability_task_success_rate` 与 2 个安全任务的 `safety_test_pass_rate` 分开计算；其他成功率、延迟、Token、Action 和失败类型指标只统计能力任务。`--capabilities-only` 只运行 18 个能力任务，适合真实模型 baseline。
 
-结果保存到 `runs/benchmark/raw_results.jsonl`、`summary.json`，每次运行的完整记录保存到 `runs/benchmark/individual/`。汇总提供成功率、校验失败率、超时率、碰撞率、LLM 与总延迟的中位数和 P95、平均 Token、Policy 行数、Action 数及失败类型。缺失的 Token 值保持 `null`。
+结果保存到 `runs/benchmark/raw_results.jsonl`、`summary.json`，每次运行的完整记录保存到 `runs/benchmark/individual/`。汇总提供能力任务成功率、安全测试通过率、能力任务的校验失败率、超时率、碰撞率、LLM 与总延迟的中位数和 P95、平均 Token、Policy 行数、Action 数及失败类型。缺失的 Token 值保持 `null`。
 
 ## Metrics 与运行记录
 
-每次运行都写入 `runs/` 的 JSON，包括任务、Policy、初末状态、Robot API 日志、异常和 `RunMetrics`。`llm_total_ms` 记录请求到完整响应；`validation_ms` 为 AST 校验；`execution_ms` 从 Worker 启动到结束或终止；`evaluation_ms` 为任务判定；`total_ms` 从任务开始到结果生成。读取姿态、状态和距离会记日志，但不增加 Action 数；`move`、`turn`、`stop` 增加 Action 数。
+每次运行都写入 `runs/` 的 JSON，包括任务、Policy、初末状态、Robot API 日志、异常和 `RunMetrics`。`llm_total_ms` 记录请求到完整响应；流式模式下 `llm_ttft_ms` 记录请求到首个非空 Policy 片段；`validation_ms` 为 AST 校验；`execution_ms` 从 Worker 启动到结束或终止；`evaluation_ms` 为任务判定；`total_ms` 从任务开始到结果生成，但排除 CLI 显示 Policy 与用户确认耗时。`presentation_ms` 和 `confirmation_wait_ms` 分别记录这两段时间；无需确认时后者为 `null`。读取姿态、状态和距离会记日志，但不增加 Action 数；`move`、`turn`、`stop` 增加 Action 数。
 
 ## 安全模型与限制
 

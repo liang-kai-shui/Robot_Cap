@@ -13,7 +13,7 @@ from task.task import Task
 
 
 def run_task(task: Task, provider: LLMProvider, limits: RuntimeLimits | None = None,
-             run_dir: str | None = "runs", on_validated=None) -> ExecutionResult:
+             run_dir: str | None = "runs", on_validated=None, on_policy=None) -> ExecutionResult:
     started = time.perf_counter()
     initial = RobotState(Pose(task.initial.x, task.initial.y, task.initial.heading % 360))
     metrics = RunMetrics()
@@ -39,7 +39,20 @@ def run_task(task: Task, provider: LLMProvider, limits: RuntimeLimits | None = N
             PolicyValidator().validate(policy)
         finally:
             metrics.validation_ms = (time.perf_counter() - validation_started) * 1000
-        if on_validated is not None and not on_validated(policy):
+        if on_policy is not None:
+            presentation_started = time.perf_counter()
+            try:
+                on_policy(policy)
+            finally:
+                metrics.presentation_ms = (time.perf_counter() - presentation_started) * 1000
+        should_execute = True
+        if on_validated is not None:
+            confirmation_started = time.perf_counter()
+            try:
+                should_execute = on_validated(policy)
+            finally:
+                metrics.confirmation_wait_ms = (time.perf_counter() - confirmation_started) * 1000
+        if not should_execute:
             error_type, error_message = "ExecutionDeclined", "Execution declined by user"
         else:
             outcome = PolicyExecutor(limits).execute(policy, task.world, task.initial, validated=True)
@@ -56,7 +69,8 @@ def run_task(task: Task, provider: LLMProvider, limits: RuntimeLimits | None = N
     except Exception as exc:
         error_type, error_message = type(exc).__name__, str(exc)
     metrics.execution_success, metrics.task_success, metrics.error_type = execution_success, task_success, error_type
-    metrics.total_ms = (time.perf_counter() - started) * 1000
+    metrics.total_ms = ((time.perf_counter() - started) * 1000
+                        - (metrics.presentation_ms or 0.0) - (metrics.confirmation_wait_ms or 0.0))
     result = ExecutionResult(execution_success, task_success, error_type, error_message,
                              initial, final, logs, metrics, policy)
     if run_dir is not None:
