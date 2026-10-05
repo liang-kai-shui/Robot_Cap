@@ -1,27 +1,31 @@
-# Robot CaP V0
+# Robot CaP V1 Runtime Foundation
 
-在普通电脑上测量 Code-as-Policy 机器人 Agent 的最小实验项目。用户给出自然语言任务，Provider 生成 Python Policy；系统校验语法、在独立子进程运行，再由二维虚拟世界判定任务结果并记录指标。V0 不连接真实硬件。
+在普通电脑上测量 Code-as-Policy 机器人 Agent 的实验项目。用户给出自然语言任务，Provider 生成 Python Policy；系统校验语法，在独立子进程运行 Policy，由可信主进程执行机器人请求，再由二维虚拟世界判定任务结果并记录指标。当前仍不连接真实硬件。
 
 ## 版本
 
 - **V0.1**：冻结于 Git 标签 `v0.1-baseline`，用于与后续实验公平比较。
 - **V0.2 Hardening**：收紧生成 Prompt 与受限 Policy DSL 的契约；保留对函数定义和 `+=`、`-=` 等增强赋值的禁止。测距按 9 位小数归一（分辨率 `1e-9` 米）；非零且小于该分辨率的 `move` 抛出 `MoveBelowResolutionError`，不计 Action。显式 `move(0)` 仍是计数、记录日志的空动作。正常小距离移动（如 `0.01` 米）不受影响。
+- **V1 Runtime Foundation**：Policy Worker 只持有 `RobotProxy`；可信主进程持有 `RobotRuntime` 和 `VirtualBackend`，负责能力注册、参数与速度限制、动作分发、状态、trace 和紧急停止。保留旧 Robot API 及原有 20 个 Benchmark 任务。
 
-V0.2 不新增 Policy reuse、Replan、Skill Library、Vision 或 ESP32，也不改变固定 Benchmark 任务。冻结版本的真实模型结果保留作对比；本版本的代码修改仅进行离线验证。
+V1 保存未来 Policy reuse 所需的 episode 数据，但不检索或复用历史 Policy；也不实现视觉、音频、机械臂或 ESP32 驱动。冻结版本的真实模型结果保留作对比。
 
 ## 架构
 
 ```text
-Natural Language Task → LLMProvider → Python Policy → AST Validator
+Natural Language Task → LLMProvider → Python Policy → AST/API Validator
                                                ↓
-                                Spawned Worker / Restricted Globals
+                              Spawned Worker → RobotProxy
+                                               │ JSON Pipe / command_id
+                                      ─────────┼───────── trust boundary
                                                ↓
-                                  RobotBase → VirtualRobot → VirtualWorld
-                                               ↓
-                                     TaskEvaluator → Result + Metrics
+                      Parent: RobotRuntime → VirtualBackend → VirtualRobot → VirtualWorld
+                                  │ safety / state / trace
+                                  ↓
+                       TaskEvaluator → Result + Metrics + Episode
 ```
 
-Agent 只依赖稳定的 Robot API。`TaskEvaluator` 在 Worker 返回状态后独立判断任务完成情况；`execution_success` 和 `task_success` 是不同字段。Provider 可以替换，Robot API 上层不需要知道机器人具体实现。
+Worker 不接收 World 或 Backend 实例。`RobotRuntime` 在父进程中校验请求，并缓存最近 128 个 command ID 的结果；同一 ID 重试不会重复执行动作。`TaskEvaluator` 使用父进程最终状态独立判断任务完成情况；`execution_success` 和 `task_success` 是不同字段。`PhysicalBackend` 目前只是接口占位。
 
 ## 安装
 
@@ -31,7 +35,7 @@ Agent 只依赖稳定的 Robot API。`TaskEvaluator` 在 Worker 返回状态后�
 python -m venv .venv
 # 激活虚拟环境后：
 python -m pip install -e ".[dev]"
-pytest
+python -m pytest
 ```
 
 也可执行 `python -m pip install -r requirements.txt` 并从项目根目录运行脚本。Windows PowerShell 可使用 `.venv\Scripts\Activate.ps1` 激活环境。
@@ -39,6 +43,8 @@ pytest
 ## 配置与环境变量
 
 `config/default.yaml` 定义世界大小、起始姿态、矩形障碍物与 Runtime 限额。角度采用 `[0, 360)`；0° 指向 +X，90° 指向 +Y。前进距离和世界坐标单位为米。
+
+旧配置的 `timeout_seconds` 继续表示 Policy 超时，默认 5 秒。`RuntimeLimits` 还提供 `default_action_timeout_seconds`（默认 2 秒）、`communication_timeout_seconds`（默认 2 秒）、`max_linear_speed`（默认 0.5 m/s）和 `max_angular_speed`（默认 90 deg/s）；旧配置无需增加这些字段。
 
 默认 Provider 为离线 `mock`，无需 API Key。`openai-compatible` 使用以下环境变量：
 
@@ -70,7 +76,20 @@ python main.py --provider openai-compatible --stream --task-id A1 --auto
 
 没有成功条件的自定义任务仍会生成并执行 Policy，但 `task_success` 固定为 `false`，CLI 会显示未验证提示。`MockProvider` 只识别固定 Benchmark 与几个简单示例；任意文本应使用真实 Provider。
 
-Robot API：`move(distance)`、`turn(angle)`、`stop()`、`get_pose()`、`get_distance()`、`get_state()`。`move` 和 `turn` 的正负方向遵循需求文档。`get_distance()` 返回当前方向上最近障碍物或世界边界的距离。
+Robot API 保留旧调用，并支持可选速度：
+
+```python
+robot.move(0.5)                         # 米；正数前进，负数后退
+robot.move(0.5, 0.2)                    # 速度单位 m/s
+robot.move(distance=0.5, speed=0.2)
+robot.turn(angle=90, speed=45)          # 角度为度，速度单位 deg/s
+robot.stop()
+robot.get_distance()
+robot.get_pose()
+robot.get_state()
+```
+
+`move` 和 `turn` 是阻塞的有限动作，正常完成后 `state.stopped == True`；单次距离上限 2 米、转角上限 180 度。速度必须是安全范围内的正数，或省略为 `None`。`get_distance()` 返回当前方向上最近障碍物或世界边界的距离。Prompt 与 AST Validator 允许的方法及参数名称由 `robot/capabilities.py` 统一定义；函数定义、导入、增强赋值和未知调用仍被禁止。
 
 ## Benchmark
 
@@ -87,22 +106,25 @@ python benchmark.py --provider openai-compatible --model example-model --stream 
 
 ## Metrics 与运行记录
 
-每次运行都写入 `runs/` 的 JSON，包括任务、Policy、初末状态、Robot API 日志、异常和 `RunMetrics`。`llm_total_ms` 记录请求到完整响应；流式模式下 `llm_ttft_ms` 记录请求到首个非空 Policy 片段；`validation_ms` 为 AST 校验；`execution_ms` 从 Worker 启动到结束或终止；`evaluation_ms` 为任务判定；`total_ms` 从任务开始到结果生成，但排除 CLI 显示 Policy 与用户确认耗时。`presentation_ms` 和 `confirmation_wait_ms` 分别记录这两段时间；无需确认时后者为 `null`。读取姿态、状态和距离会记日志，但不增加 Action 数；`move`、`turn`、`stop` 增加 Action 数。
+每次运行都写入 `runs/` 的 JSON，包括任务、Policy、初末状态、兼容旧调用的 Robot API 日志、异常、`RunMetrics` 和 `episode`。Episode 包含 `api_version="v1"`、`capability_signature`、执行与任务结果、指标和统一 trace；默认 Benchmark 不读取 episode，也不进行 Policy reuse。Trace 记录动作的 `started`、`completed` 或 `failed`、观测及紧急停止事件，并附 command ID、请求参数、结果或错误及可用的状态快照。
+
+`llm_total_ms` 记录请求到完整响应；流式模式下 `llm_ttft_ms` 记录请求到首个非空 Policy 片段；`validation_ms` 为 AST 校验；`execution_ms` 从 Worker 启动到结束或终止；`evaluation_ms` 为任务判定；`total_ms` 从任务开始到结果生成，但排除 CLI 显示 Policy 与用户确认耗时。`presentation_ms` 和 `confirmation_wait_ms` 分别记录这两段时间；无需确认时后者为 `null`。读取姿态、状态和距离不增加 Action 数；`move`、`turn`、`stop` 增加 Action 数。
 
 ## 安全模型与限制
 
-V0 Runtime 仅用于运行受约束、由可信模型生成的实验 Policy，不适合作为不受信任代码的安全执行环境。它使用 AST 白名单、受限 builtins、独立 `spawn` 子进程、超时、Action 上限及单次 API 限额；不能替代操作系统级沙箱。Worker 超时后会被终止，必要时强制杀死。超时发生时无法回传 Worker 的中途状态，结果使用初始状态；正常异常会回传最终状态和日志。
+V1 的 Worker 与 Backend 有进程边界，但 AST 白名单、受限 builtins 和 `spawn` 子进程仍不能替代操作系统级沙箱；不要将其视为可安全运行任意恶意 Python 的环境。Policy 超时或 Worker 异常退出时，父进程终止 Worker 并调用 Backend 的 `emergency_stop()`，最终状态从父进程读取。Action deadline 与 Policy 超时分开配置；当前同步 Backend 的 Action deadline 在 Backend 调用返回后检查，不能抢占一个持续阻塞的 Backend 调用。接入真实硬件前必须补足驱动层可中断停止和设备级安全保障。
 
 世界使用点机器人和轴对齐矩形障碍物，不含动力学、机器人半径或物理引擎。普通文本任务若无结构化成功条件，无法客观证明任务完成。OpenAI Compatible Provider 的网络端点需自行配置；本项目的离线 Mock 测试不验证外部 API 可用性。
 
 ## 测试
 
 ```bash
-pytest
+python -m pytest
+python benchmark.py --provider mock
 ```
 
-测试覆盖世界、碰撞、测距、Robot API、任务判定、AST 拒绝、独立 Worker、死循环终止、Action 上限、Mock 端到端链路、Metrics 和 JSON 落盘。
+测试覆盖世界、碰撞、测距、Robot API、任务判定、AST 拒绝、Worker/Backend 隔离、超时与异常退出后的紧急停止、速度限制、command ID 幂等、trace、episode、Mock 端到端链路、Metrics 和 JSON 落盘。V1 的一次离线 Mock Benchmark 结果为 18/18 个能力任务成功、2/2 个安全任务通过；结果在 `runs/benchmark-v1/`（运行产物，未纳入代码提交）。
 
 ## Roadmap
 
-先用 V0 固定任务和真实 Provider 建立基线，再依据成功率、延迟和失败类型决定下一步。可选后续方向依次为二维可视化、反馈修补、Policy 复用以及真实机器人和感知接入；这些均不属于 V0。
+后续可在独立阶段实现硬件 Backend、设备级停止、感知能力和 Policy reuse。当前版本只提供扩展接口与可比较的运行记录。
