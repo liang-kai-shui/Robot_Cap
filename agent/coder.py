@@ -33,3 +33,15 @@ class AgentCoder:
         response = self.provider.generate_policy(task.instruction, generate_robot_api_prompt(registry),
                                                  world_state, generate_system_prompt(registry))
         return extract_policy(response.text), response
+
+    def generate_from_observation(self, instruction: str, observation: dict,
+                                  registry: CapabilityRegistry | None = None) -> tuple[str, LLMResponse]:
+        """Generate one short policy from local observations, without a map dump."""
+        registry = registry if registry is not None else DEFAULT_REGISTRY
+        context = json.dumps({"observation_only": True, "current": observation}, ensure_ascii=False)
+        system = (generate_system_prompt(registry) + "\nPlan only the next local step from the current "
+                  "observation. Use a short policy with finite actions. Do not assume an unseen map is known. "
+                  "The task will be observed again after this policy returns.")
+        response = self.provider.generate_policy(
+            instruction, generate_robot_api_prompt(registry), context, system)
+        return extract_policy(response.text), response

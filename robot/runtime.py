@@ -6,7 +6,7 @@ import time
 from robot.capabilities import CapabilityRegistry, RegisteredCapability, build_default_registry
 from robot.trace import TraceEvent
 from runtime.errors import (RobotActionError, RobotActionTimeoutError, RobotBackendError,
-                            RobotEmergencyStopError, RobotError)
+                            RobotEmergencyStopError, RobotError, ActionLimitExceeded)
 from runtime.limits import RuntimeLimits
 
 
@@ -20,7 +20,18 @@ class RobotRuntime:
         self.registry = registry if registry is not None else build_default_registry(backend)
         self.trace: list[dict] = []
         self.recent_command_results: OrderedDict[int, dict] = OrderedDict()
+        self.next_command_id = 1
+        self._decision_actions_remaining: int | None = None
         self._poisoned = False
+
+    def begin_decision(self, max_actions: int) -> None:
+        """Bound action calls inside one generated policy, independently of mission limits."""
+        if max_actions < 1:
+            raise ValueError("Decision action budget must be positive")
+        self._decision_actions_remaining = max_actions
+
+    def end_decision(self) -> None:
+        self._decision_actions_remaining = None
 
     def snapshot(self):
         """Read a backend state without recording a policy observation."""
@@ -68,6 +79,7 @@ class RobotRuntime:
         command_id = request.get("command_id")
         if isinstance(command_id, bool) or not isinstance(command_id, int) or command_id < 1:
             return {"ok": False, "error_type": "RobotCommunicationError", "error_message": "Invalid command ID"}
+        self.next_command_id = max(self.next_command_id, command_id + 1)
         if command_id in self.recent_command_results:
             return self.recent_command_results[command_id]
         item = self._resolve(request)
@@ -95,6 +107,10 @@ class RobotRuntime:
                 if self.backend is not None and hasattr(self.backend, "record_rejection"):
                     self.backend.record_rejection(spec.canonical_id, raw, type(exc).__name__)
                 raise
+            if not spec.observation and self._decision_actions_remaining is not None:
+                if self._decision_actions_remaining == 0:
+                    raise ActionLimitExceeded("Generated policy exceeded its per-decision action budget")
+                self._decision_actions_remaining -= 1
             result = self._run_handler(item, values, command_id)
             if is_dataclass(result):
                 result = asdict(result)

@@ -118,6 +118,17 @@ python complex_benchmark.py --provider openai-compatible --task-id N1 --task-id 
 
 新评测区分 `execution_success`、仅检查最终状态的 `task_success`，以及额外检查 trace 的 `complex_success`。后者可检查检查点顺序、测距时机与次数、动作数、累计移动距离和逐段速度。输出写在 `runs/complex-benchmark/`，按任务类别分别汇总。`reference` Provider 使用预先写好的参考策略，只用于验证任务可解和评分器正确；参考策略不会出现在真实模型 Prompt 中，**reference 成功率不是模型成绩**。真实模型评测须选择 `openai-compatible`，按原有环境变量配置。
 
+## 交互式局部观测实验
+
+```bash
+python interactive_benchmark.py --provider reference
+python interactive_benchmark.py --provider openai-compatible --model example-model --runs 5
+```
+
+这套独立软件实验让相同目标面对四种隐藏地图。模型每轮只收到当前位姿估计、最多 2 米的前向测距、上一轮执行结果和剩余预算；完整障碍物表只供可信模拟器与评测器使用。`InteractiveRunner` 在同一任务内保留可信 Runtime、虚拟机器人状态、累积 trace 和单调递增的 command ID，每轮短 Policy 仍在新 Worker 中校验并执行。默认每任务最多 8 次决策、累计 20 个动作、每段 Policy 最多 3 个动作；失败或耗尽决策预算会触发紧急停止。每轮成功后重新观测，终点由可信侧 `TaskEvaluator` 判定。
+
+`reference` 是使用局部观测的确定性规则，仅用于检查多轮机制和场景可解性，不代表 LLM 成绩。此阶段的位姿仍是模拟器真值，测距是有限范围的理想值；尚无相机图像、视觉模型接口、定位误差或真实物理控制。未来接视觉模型时，需要扩展 Provider 的多模态输入并接入实际已注册的观测来源；当前交互式实验不实现 Policy Reuse。
+
 ## Metrics 与运行记录
 
 每次运行都写入 `runs/` 的 JSON，包括任务、Policy、初末状态、兼容旧调用的 Robot API 日志、异常、`RunMetrics` 和 `episode`。Episode 包含 `api_version="v1"`、本次暴露的完整 `api_surface_signature`、从 trace 提取的实际 `used_capabilities`、执行与任务结果及指标；默认 Benchmark 不读取 episode，也不进行 Policy reuse。Trace 记录 `started`、`completed`、`failed` 或 `cancelled`、观测及紧急停止事件，并附稳定的 `capability_id`、command ID、请求参数、结果或错误及可用的状态快照。

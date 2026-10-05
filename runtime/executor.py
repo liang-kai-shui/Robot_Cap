@@ -34,16 +34,21 @@ class PolicyExecutor:
         self.limits = limits or RuntimeLimits()
 
     def execute(self, policy: str, world: VirtualWorld, initial: Pose, validated: bool = False,
-                backend=None, registry: CapabilityRegistry | None = None) -> WorkerOutcome:
+                backend=None, registry: CapabilityRegistry | None = None,
+                runtime: RobotRuntime | None = None) -> WorkerOutcome:
         """Validate and run one policy; validated is a legacy, non-bypass hint."""
-        runtime = RobotRuntime(backend or VirtualBackend(world, initial, self.limits), self.limits, registry)
+        runtime = runtime if runtime is not None else RobotRuntime(
+            backend or VirtualBackend(world, initial, self.limits), self.limits, registry)
         # Validation is a trust boundary, so a caller's validated hint cannot skip it.
         PolicyValidator(runtime.registry).validate(policy)
+        trace_start = len(runtime.trace)
+        logs_start = len(getattr(runtime.backend, "logs", []))
         context = mp.get_context("spawn")
         parent, child = context.Pipe(duplex=True)
         process = context.Process(target=run_worker,
                                   args=(policy, child, runtime.registry.manifest(),
-                                        self.limits.communication_timeout_seconds))
+                                        self.limits.communication_timeout_seconds,
+                                        runtime.next_command_id))
         start = time.perf_counter()
         success, error_type, message = False, "PolicyExecutionError", "Worker exited without result"
         emergency = False
@@ -112,8 +117,9 @@ class PolicyExecutor:
             if emergency or process.exitcode not in (0, None):
                 runtime.emergency_stop()
             logs = getattr(runtime.backend, "logs", [])
-            return WorkerOutcome(success, error_type, message, runtime.snapshot() or RobotState(initial), list(logs),
-                                 (time.perf_counter() - start) * 1000, runtime.trace,
+            return WorkerOutcome(success, error_type, message, runtime.snapshot() or RobotState(initial),
+                                 list(logs[logs_start:]), (time.perf_counter() - start) * 1000,
+                                 list(runtime.trace[trace_start:]),
                                  runtime.registry.api_surface_signature())
         finally:
             parent.close()

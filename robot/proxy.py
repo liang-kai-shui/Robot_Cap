@@ -34,11 +34,12 @@ class CapabilityProxyNode:
 class RobotProxy(CapabilityProxyNode):
     """Resolve only paths present in the worker's data-only capability manifest."""
 
-    def __init__(self, connection, manifest: dict, communication_timeout_seconds: float):
+    def __init__(self, connection, manifest: dict, communication_timeout_seconds: float,
+                 first_command_id: int = 1):
         self._connection = connection
         self._paths = dict(manifest["paths"])
         self._timeout = communication_timeout_seconds
-        self._next_id = 1
+        self._next_id = first_command_id
         super().__init__(self, ())
 
     def _known_prefix(self, path: tuple[str, ...]) -> bool:
