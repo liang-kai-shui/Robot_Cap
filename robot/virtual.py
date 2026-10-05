@@ -29,7 +29,7 @@ class VirtualRobot(RobotBase):
         self._action_count += 1
         self._last_action = action
 
-    def move(self, distance: float) -> None:
+    def move(self, distance: float, speed: float | None = None) -> None:
         if isinstance(distance, bool) or not isinstance(distance, (int, float)):
             self._record("MOVE", error="TypeError")
             raise TypeError("Move distance must be a number")
@@ -57,10 +57,10 @@ class VirtualRobot(RobotBase):
             self._record("MOVE", distance=distance, error=type(exc).__name__)
             raise
         self._pose = end
-        self._stopped = False
-        self._record("MOVE", distance=distance)
+        self._stopped = True
+        self._record("MOVE", distance=distance, speed=speed)
 
-    def turn(self, angle: float) -> None:
+    def turn(self, angle: float, speed: float | None = None) -> None:
         if isinstance(angle, bool) or not isinstance(angle, (int, float)):
             self._record("TURN", error="TypeError")
             raise TypeError("Turn angle must be a number")
@@ -74,8 +74,8 @@ class VirtualRobot(RobotBase):
             raise TurnLimitExceeded(f"Turn exceeds {self._limits.max_turn_angle} degrees")
         self._act("TURN")
         self._pose = Pose(self._pose.x, self._pose.y, (self._pose.heading + angle) % 360)
-        self._stopped = False
-        self._record("TURN", angle=angle)
+        self._stopped = True
+        self._record("TURN", angle=angle, speed=speed)
 
     def stop(self) -> None:
         self._act("STOP")

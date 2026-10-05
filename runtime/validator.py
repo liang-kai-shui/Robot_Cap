@@ -1,8 +1,9 @@
 import ast
+from robot.capabilities import CAPABILITIES
 from runtime.errors import PolicySyntaxError, UnsafePolicyError
 
 
-ROBOT_METHODS = {"move", "turn", "stop", "get_pose", "get_distance", "get_state"}
+ROBOT_METHODS = set(CAPABILITIES)
 BUILTINS = {"range", "min", "max", "abs"}
 DATA_FIELDS = {"x", "y", "heading", "pose", "stopped", "collision", "last_action", "action_count"}
 BLOCKED_NAMES = {"os", "sys", "subprocess", "socket", "pathlib", "requests", "httpx", "shutil", "pickle", "marshal", "ctypes", "multiprocessing", "threading", "open", "eval", "exec", "compile", "globals", "locals", "vars", "dir", "getattr", "setattr", "delattr", "input", "help", "breakpoint", "__import__"}
@@ -56,17 +57,28 @@ class PolicyValidator(ast.NodeVisitor):
         for part in (*node.body, *node.orelse): self.visit(part)
 
     def visit_Call(self, node):
-        if node.keywords:
-            raise UnsafePolicyError("Keyword arguments are forbidden")
         if isinstance(node.func, ast.Name):
             if node.func.id not in BUILTINS:
                 raise UnsafePolicyError(f"Forbidden function: {node.func.id}")
+            if node.keywords:
+                raise UnsafePolicyError("Keyword arguments are forbidden for builtins")
         elif isinstance(node.func, ast.Attribute):
             if not isinstance(node.func.value, ast.Name) or node.func.value.id != "robot" or node.func.attr not in ROBOT_METHODS:
                 raise UnsafePolicyError("Only documented robot methods may be called")
+            capability = CAPABILITIES[node.func.attr]
+            try:
+                capability.bind(tuple(node.args), {item.arg: item.value for item in node.keywords if item.arg is not None})
+            except TypeError as exc:
+                raise UnsafePolicyError(str(exc)) from exc
+            if any(item.arg is None for item in node.keywords):
+                raise UnsafePolicyError("Keyword expansion is forbidden")
+            names = [item.arg for item in node.keywords]
+            if len(names) != len(set(names)):
+                raise UnsafePolicyError("Duplicate keyword argument")
         else:
             raise UnsafePolicyError("Indirect calls are forbidden")
         for arg in node.args: self.visit(arg)
+        for item in node.keywords: self.visit(item.value)
 
     def visit_Attribute(self, node):
         if node.attr.startswith("__") or node.attr not in DATA_FIELDS:

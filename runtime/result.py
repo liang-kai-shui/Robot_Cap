@@ -14,3 +14,4 @@ class ExecutionResult:
     logs: list[dict] = field(default_factory=list)
     metrics: RunMetrics = field(default_factory=RunMetrics)
     policy: str = ""
+    trace: list[dict] = field(default_factory=list)

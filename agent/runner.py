@@ -18,7 +18,7 @@ def run_task(task: Task, provider: LLMProvider, limits: RuntimeLimits | None = N
     initial = RobotState(Pose(task.initial.x, task.initial.y, task.initial.heading % 360))
     metrics = RunMetrics()
     policy = ""
-    final, logs = initial, []
+    final, logs, trace = initial, [], []
     execution_success = task_success = False
     error_type = error_message = None
     try:
@@ -60,6 +60,7 @@ def run_task(task: Task, provider: LLMProvider, limits: RuntimeLimits | None = N
             execution_success = outcome.success
             error_type, error_message = outcome.error_type, outcome.error_message
             final, logs = outcome.final_state, outcome.logs
+            trace = outcome.trace
             metrics.action_count = final.action_count
             evaluation_started = time.perf_counter()
             try:
@@ -72,7 +73,7 @@ def run_task(task: Task, provider: LLMProvider, limits: RuntimeLimits | None = N
     metrics.total_ms = ((time.perf_counter() - started) * 1000
                         - (metrics.presentation_ms or 0.0) - (metrics.confirmation_wait_ms or 0.0))
     result = ExecutionResult(execution_success, task_success, error_type, error_message,
-                             initial, final, logs, metrics, policy)
+                             initial, final, logs, metrics, policy, trace)
     if run_dir is not None:
         save_run(task, result, run_dir)
     return result

@@ -18,7 +18,7 @@ robot-cap-benchmark = "benchmark:main"
 
 [tool.setuptools]
 py-modules = ["main", "benchmark"]
-packages = ["agent", "robot", "runtime", "world", "task", "providers", "metrics", "config"]
+packages = ["agent", "robot", "robot.backends", "runtime", "world", "task", "providers", "metrics", "config", "policy"]
 
 [tool.setuptools.package-data]
 config = ["default.yaml"]

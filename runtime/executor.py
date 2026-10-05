@@ -1,6 +1,10 @@
+"""Parent-owned sandbox lifecycle and robot command service."""
+import json
 import multiprocessing as mp
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from robot.backends.virtual import VirtualBackend
+from robot.runtime import RobotRuntime
 from robot.state import Pose, RobotState
 from runtime.limits import RuntimeLimits
 from runtime.validator import PolicyValidator
@@ -10,48 +14,83 @@ from world.world import VirtualWorld
 
 @dataclass
 class WorkerOutcome:
+    """Execution state and compatibility logs from one policy run."""
+
     success: bool
     error_type: str | None
     error_message: str | None
     final_state: RobotState
     logs: list[dict]
     execution_ms: float
+    trace: list[dict] = field(default_factory=list)
 
 
 class PolicyExecutor:
+    """Spawn a policy worker while retaining backend ownership in the parent."""
+
     def __init__(self, limits: RuntimeLimits | None = None):
         self.limits = limits or RuntimeLimits()
 
-    def execute(self, policy: str, world: VirtualWorld, initial: Pose, validated: bool = False) -> WorkerOutcome:
+    def execute(self, policy: str, world: VirtualWorld, initial: Pose, validated: bool = False,
+                backend=None) -> WorkerOutcome:
+        """Validate and run one policy against a trusted backend."""
         if not validated:
             PolicyValidator().validate(policy)
-        initial_state = RobotState(Pose(initial.x, initial.y, initial.heading % 360))
+        runtime = RobotRuntime(backend or VirtualBackend(world, initial, self.limits), self.limits)
         context = mp.get_context("spawn")
-        receiving, sending = context.Pipe(duplex=False)
-        process = context.Process(target=run_worker, args=(policy, world, initial, self.limits, sending))
+        parent, child = context.Pipe(duplex=True)
+        process = context.Process(target=run_worker,
+                                  args=(policy, child, self.limits.communication_timeout_seconds))
         start = time.perf_counter()
+        success, error_type, message = False, "PolicyExecutionError", "Worker exited without result"
+        emergency = False
         try:
             process.start()
-            sending.close()
-            remaining = max(0.0, self.limits.timeout_seconds - (time.perf_counter() - start))
-            if receiving.poll(remaining):
-                try:
-                    success, error_type, message, state, logs = receiving.recv()
-                except EOFError:
-                    success, error_type, message, state, logs = False, "PolicyExecutionError", "Worker exited without result", None, []
-                process.join(timeout=0.05)
-                if process.is_alive():
-                    process.terminate()
-                    process.join(timeout=0.2)
-                return WorkerOutcome(success, error_type, message, state or initial_state, logs, (time.perf_counter()-start)*1000)
-            process.terminate()
-            process.join(timeout=0.5)
+            child.close()
+            deadline = start + self.limits.policy_timeout_seconds
+            while True:
+                remaining = deadline - time.perf_counter()
+                if remaining <= 0:
+                    error_type, message = "PolicyTimeoutError", "Policy exceeded execution timeout"
+                    emergency = True
+                    break
+                if parent.poll(min(remaining, 0.05)):
+                    try:
+                        packet = json.loads(parent.recv_bytes().decode("utf-8"))
+                    except (EOFError, OSError, ValueError):
+                        emergency = True
+                        break
+                    if packet.get("kind") == "outcome":
+                        success = bool(packet.get("success"))
+                        error_type, message = packet.get("error_type"), packet.get("error_message")
+                        break
+                    if packet.get("kind") == "command":
+                        response = runtime.dispatch(packet)
+                        response["command_id"] = packet.get("command_id")
+                        try:
+                            parent.send_bytes(json.dumps(response).encode("utf-8"))
+                        except (EOFError, OSError):
+                            emergency = True
+                            break
+                elif not process.is_alive():
+                    emergency = True
+                    break
+            process.join(timeout=0.05)
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=0.2)
             if process.is_alive():
                 process.kill()
                 process.join(timeout=0.5)
-            return WorkerOutcome(False, "PolicyTimeoutError", "Policy exceeded execution timeout", initial_state, [], (time.perf_counter()-start)*1000)
+            if emergency or process.exitcode not in (0, None):
+                runtime.emergency_stop()
+            logs = getattr(runtime.backend, "logs", [])
+            return WorkerOutcome(success, error_type, message, runtime.snapshot(), list(logs),
+                                 (time.perf_counter() - start) * 1000, runtime.trace)
         finally:
-            receiving.close()
+            parent.close()
+            child.close()
             if process.is_alive():
                 process.kill()
                 process.join()
+                runtime.emergency_stop()

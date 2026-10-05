@@ -1,17 +1,21 @@
-from robot.virtual import VirtualRobot
-from runtime.errors import PolicyExecutionError
+"""Untrusted policy process: contains only a proxy, never a backend."""
+import json
+from robot.proxy import RobotProxy
 
 
-def run_worker(policy, world, initial_pose, limits, output):
-    robot = None
+def run_worker(policy: str, connection, communication_timeout_seconds: float) -> None:
+    """Execute validated policy code and report its outcome to the parent."""
     try:
-        robot = VirtualRobot(world, initial_pose, limits)
+        robot = RobotProxy(connection, communication_timeout_seconds)
         safe_globals = {"__builtins__": {"range": range, "min": min, "max": max, "abs": abs}, "robot": robot}
         exec(compile(policy, "<policy>", "exec"), safe_globals, {})
-        output.send((True, None, None, robot.snapshot(), robot.logs))
+        outcome = {"kind": "outcome", "success": True, "error_type": None, "error_message": None}
     except BaseException as exc:
-        state = robot.snapshot() if robot else None
-        logs = robot.logs if robot else []
-        output.send((False, type(exc).__name__, str(exc), state, logs))
+        outcome = {"kind": "outcome", "success": False,
+                   "error_type": type(exc).__name__, "error_message": str(exc)}
+    try:
+        connection.send_bytes(json.dumps(outcome).encode("utf-8"))
+    except (OSError, EOFError):
+        pass
     finally:
-        output.close()
+        connection.close()

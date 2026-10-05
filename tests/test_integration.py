@@ -18,6 +18,11 @@ def test_mock_chain_and_metrics(tmp_path):
     saved = list(tmp_path.glob("*.json"))
     assert len(saved) == 1
     assert json.loads(saved[0].read_text(encoding="utf-8"))["result"]["task_success"]
+    episode = json.loads(saved[0].read_text(encoding="utf-8"))["episode"]
+    assert episode["policy"] == result.policy
+    assert episode["api_version"] == "v1" and episode["capability_signature"]
+    assert episode["execution_success"] and episode["task_success"]
+    assert episode["trace"] and episode["metrics"]
 
 
 def test_execution_and_task_success_differ(tmp_path):
