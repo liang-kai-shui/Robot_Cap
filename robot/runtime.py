@@ -1,129 +1,141 @@
-"""Trusted parent-process robot command dispatcher."""
+"""Trusted generic capability dispatcher and cooperative action cancellation."""
 from collections import OrderedDict
 from dataclasses import asdict, is_dataclass
-import math
+import threading
 import time
-from robot.backends.base import RobotBackend
-from robot.capabilities import CAPABILITIES
+from robot.capabilities import CapabilityRegistry, RegisteredCapability, build_default_registry
 from robot.trace import TraceEvent
 from runtime.errors import (RobotActionError, RobotActionTimeoutError, RobotBackendError,
-                            MoveLimitExceeded, TurnLimitExceeded, MoveBelowResolutionError)
+                            RobotEmergencyStopError, RobotError)
 from runtime.limits import RuntimeLimits
-from world.geometry import NUMERIC_RESOLUTION
 
 
 class RobotRuntime:
-    """Validate and execute robot commands in the trusted process."""
+    """Execute registered trusted handlers without knowing hardware namespaces."""
 
-    def __init__(self, backend: RobotBackend, limits: RuntimeLimits | None = None):
+    def __init__(self, backend=None, limits: RuntimeLimits | None = None,
+                 registry: CapabilityRegistry | None = None):
         self.backend = backend
         self.limits = limits or RuntimeLimits()
+        self.registry = registry if registry is not None else build_default_registry(backend)
         self.trace: list[dict] = []
         self.recent_command_results: OrderedDict[int, dict] = OrderedDict()
+        self._poisoned = False
 
     def snapshot(self):
-        """Read backend state without recording a policy observation."""
+        """Read a backend state without recording a policy observation."""
+        if self.backend is None or not hasattr(self.backend, "snapshot"):
+            return None
         return self.backend.snapshot()
 
     def _state(self) -> dict | None:
         try:
-            return asdict(self.snapshot())
+            state = self.snapshot()
+            return asdict(state) if is_dataclass(state) else state
         except Exception:
             return None
 
-    def _event(self, kind, command_id, capability, action, phase, request=None, result=None, error=None):
-        self.trace.append(TraceEvent(kind, command_id, capability, action, phase,
-                                     request or {}, result, error, self._state()).to_dict())
+    def _event(self, kind, command_id, capability_id, version, phase,
+               request=None, result=None, error=None):
+        self.trace.append(TraceEvent(kind=kind, command_id=command_id,
+                                     capability_id=capability_id, capability_version=version,
+                                     phase=phase, request=request or {}, result=result,
+                                     error=error, state=self._state()).to_dict())
 
-    def _number(self, value, name, maximum, positive=False):
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise RobotActionError(f"{name} must be a number")
-        try:
-            value = float(value)
-        except OverflowError as exc:
-            raise RobotActionError(f"{name} is out of range") from exc
-        if not math.isfinite(value) or (positive and value <= 0) or abs(value) > maximum:
-            raise RobotActionError(f"{name} exceeds safe range")
-        return value
+    def _resolve(self, request: dict) -> RegisteredCapability | None:
+        identity = request.get("capability_id")
+        if isinstance(identity, str):
+            return self.registry.get(identity)
+        # Accept old direct callers, but resolve their alias through the registry.
+        alias = request.get("action")
+        if isinstance(alias, str):
+            return self.registry.resolve_public_path((alias,))
+        return None
 
-    def _validate(self, name: str, args: tuple, kwargs: dict) -> dict:
-        values = CAPABILITIES[name].bind(args, kwargs)
-        if name == "move":
-            distance = values["distance"]
-            if isinstance(distance, bool) or not isinstance(distance, (int, float)):
-                raise TypeError("Move distance must be a number")
-            try:
-                distance = float(distance)
-            except OverflowError as exc:
-                raise MoveLimitExceeded("Move distance is out of range") from exc
-            if not math.isfinite(distance) or abs(distance) > self.limits.max_move_distance:
-                raise MoveLimitExceeded(f"Move exceeds {self.limits.max_move_distance} m")
-            if 0 < abs(distance) < NUMERIC_RESOLUTION:
-                raise MoveBelowResolutionError(f"Move is below {NUMERIC_RESOLUTION:g} m resolution")
-            values["distance"] = distance
-            if "speed" in values and values["speed"] is not None:
-                values["speed"] = self._number(values["speed"], "speed", self.limits.max_linear_speed, True)
-        if name == "turn":
-            angle = values["angle"]
-            if isinstance(angle, bool) or not isinstance(angle, (int, float)):
-                raise TypeError("Turn angle must be a number")
-            try:
-                angle = float(angle)
-            except OverflowError as exc:
-                raise TurnLimitExceeded("Turn angle is out of range") from exc
-            if not math.isfinite(angle) or abs(angle) > self.limits.max_turn_angle:
-                raise TurnLimitExceeded(f"Turn exceeds {self.limits.max_turn_angle} degrees")
-            values["angle"] = angle
-            if "speed" in values and values["speed"] is not None:
-                values["speed"] = self._number(values["speed"], "speed", self.limits.max_angular_speed, True)
-        return values
+    def accepts(self, request: dict) -> bool:
+        """Check whether an IPC request names a registered capability."""
+        return self._resolve(request) is not None
+
+    def action_timeout(self, request: dict) -> float:
+        """Return the registered action deadline for an accepted request."""
+        item = self._resolve(request)
+        if item is None:
+            return self.limits.default_action_timeout_seconds
+        return item.spec.timeout_seconds or self.limits.default_action_timeout_seconds
 
     def dispatch(self, request: dict) -> dict:
-        """Execute a command once and cache its response by command ID."""
+        """Validate and execute a command once, returning a cached duplicate result."""
         command_id = request.get("command_id")
         if isinstance(command_id, bool) or not isinstance(command_id, int) or command_id < 1:
             return {"ok": False, "error_type": "RobotCommunicationError", "error_message": "Invalid command ID"}
         if command_id in self.recent_command_results:
             return self.recent_command_results[command_id]
-        name = request.get("action")
-        if name not in CAPABILITIES:
+        item = self._resolve(request)
+        if item is None:
             response = {"ok": False, "error_type": "RobotActionError", "error_message": "Unknown capability"}
             self._cache(command_id, response)
             return response
-        capability = CAPABILITIES[name]
-        kind = "observation" if capability.observation else "action"
+        spec = item.spec
+        kind = "observation" if spec.observation else "action"
         args, kwargs = request.get("args", []), request.get("kwargs", {})
         raw = {"args": args, "kwargs": kwargs}
-        self._event(kind, command_id, capability.namespace, name, "started", raw)
+        self._event(kind, command_id, spec.canonical_id, spec.version, "started", raw)
+        validated_args = False
         try:
+            if self._poisoned:
+                raise RobotEmergencyStopError("Runtime has an uncancelled action")
             if not isinstance(args, list) or not isinstance(kwargs, dict):
                 raise RobotActionError("Invalid command arguments")
             try:
-                values = self._validate(name, tuple(args), kwargs)
+                values = spec.bind(tuple(args), kwargs)
+                if item.validator:
+                    values = item.validator(values, self.limits)
+                validated_args = True
             except Exception as exc:
-                if hasattr(self.backend, "record_rejection"):
-                    self.backend.record_rejection(name, raw, type(exc).__name__)
+                if self.backend is not None and hasattr(self.backend, "record_rejection"):
+                    self.backend.record_rejection(spec.canonical_id, raw, type(exc).__name__)
                 raise
-            deadline = time.monotonic() + self.limits.default_action_timeout_seconds
-            result = getattr(self.backend, name)(**values)
-            if time.monotonic() > deadline:
-                raise RobotActionTimeoutError(f"{name} exceeded action deadline")
+            result = self._run_handler(item, values, command_id)
             if is_dataclass(result):
                 result = asdict(result)
             response = {"ok": True, "result": result}
-            self._event(kind, command_id, capability.namespace, name, "completed", values, result)
+            self._event(kind, command_id, spec.canonical_id, spec.version, "completed", values, result)
         except Exception as exc:
-            if not isinstance(exc, (RobotActionError, TypeError, ValueError)):
-                # Preserve existing simulator exception types while distinguishing unknown backend failures.
-                from runtime.errors import RobotError
-                if not isinstance(exc, RobotError):
-                    exc = RobotBackendError(str(exc))
+            if not isinstance(exc, RobotError) and (validated_args or not isinstance(exc, (TypeError, ValueError))):
+                exc = RobotBackendError(str(exc))
+            phase = "cancelled" if isinstance(exc, RobotActionTimeoutError) else "failed"
+            response = {"ok": False, "error_type": type(exc).__name__, "error_message": str(exc)}
+            self._event(kind, command_id, spec.canonical_id, spec.version, phase, raw,
+                        error={"type": type(exc).__name__, "message": str(exc)})
             if isinstance(exc, RobotActionTimeoutError):
                 self.emergency_stop()
-            response = {"ok": False, "error_type": type(exc).__name__, "error_message": str(exc)}
-            self._event(kind, command_id, capability.namespace, name, "failed", raw, error={"type": type(exc).__name__, "message": str(exc)})
         self._cache(command_id, response)
         return response
+
+    def _run_handler(self, item: RegisteredCapability, values: dict, command_id: int):
+        timeout = item.spec.timeout_seconds or self.limits.default_action_timeout_seconds
+        deadline = time.monotonic() + timeout
+        cancel_event = threading.Event()
+        outcome: dict = {}
+
+        def invoke():
+            try:
+                outcome["result"] = item.handler(**values, cancel_event=cancel_event, deadline=deadline)
+            except Exception as exc:
+                outcome["error"] = exc
+
+        thread = threading.Thread(target=invoke, name=f"robot-command-{command_id}", daemon=True)
+        thread.start()
+        thread.join(timeout)
+        if thread.is_alive() or time.monotonic() > deadline:
+            cancel_event.set()
+            thread.join(0.01)  # Cooperative cleanup only; Python cannot kill a running thread.
+            if thread.is_alive():
+                self._poisoned = True
+            raise RobotActionTimeoutError(f"{item.spec.canonical_id} exceeded action deadline")
+        if "error" in outcome:
+            raise outcome["error"]
+        return outcome.get("result")
 
     def _cache(self, command_id: int, response: dict) -> None:
         self.recent_command_results[command_id] = response
@@ -131,10 +143,20 @@ class RobotRuntime:
             self.recent_command_results.popitem(last=False)
 
     def emergency_stop(self) -> None:
-        """Force the trusted backend to stop regardless of policy state."""
-        try:
-            self.backend.emergency_stop()
-            self._event("safety", None, "motion", "emergency_stop", "completed")
-        except Exception as exc:
-            self._event("safety", None, "motion", "emergency_stop", "failed",
+        """Stop all registered components independently of action handlers."""
+        callbacks = list(self.registry.emergency_stops())
+        if self.backend is not None and hasattr(self.backend, "emergency_stop"):
+            if self.backend.emergency_stop not in callbacks:
+                callbacks.append(self.backend.emergency_stop)
+        failures = []
+        for stop in callbacks:
+            try:
+                stop()
+            except Exception as exc:
+                failures.append(exc)
+        if failures:
+            exc = failures[0]
+            self._event("safety", None, "system.emergency_stop", None, "failed",
                         error={"type": type(exc).__name__, "message": str(exc)})
+        else:
+            self._event("safety", None, "system.emergency_stop", None, "completed")

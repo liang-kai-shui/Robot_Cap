@@ -10,8 +10,8 @@ class TraceEvent:
 
     kind: str
     command_id: int | None
-    capability: str
-    action: str
+    capability_id: str
+    capability_version: str | None
     phase: str
     request: dict[str, Any] = field(default_factory=dict)
     result: Any = None

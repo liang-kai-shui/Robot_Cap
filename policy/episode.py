@@ -2,7 +2,7 @@
 from dataclasses import asdict, dataclass
 from typing import Any
 from uuid import uuid4
-from robot.capabilities import API_VERSION, capability_signature
+from robot.capabilities import API_VERSION
 
 
 @dataclass
@@ -14,7 +14,8 @@ class EpisodeRecord:
     instruction: str
     policy: str
     api_version: str
-    capability_signature: list[str]
+    api_surface_signature: list[str]
+    used_capabilities: list[str]
     initial_state: dict
     final_state: dict
     execution_success: bool
@@ -26,8 +27,14 @@ class EpisodeRecord:
     @classmethod
     def from_run(cls, task, result) -> "EpisodeRecord":
         """Build an episode from a completed task run."""
+        used = list(dict.fromkeys(
+            f"{item['capability_id']}@{item['capability_version']}"
+            for item in result.trace
+            if item.get("kind") in ("action", "observation")
+            and item.get("phase") == "started" and item.get("capability_version")
+        ))
         return cls(uuid4().hex, task.id, task.instruction, result.policy, API_VERSION,
-                   capability_signature(), asdict(result.initial_state), asdict(result.final_state),
+                   result.api_surface_signature, used, asdict(result.initial_state), asdict(result.final_state),
                    result.execution_success, result.task_success, result.error_type,
                    result.trace, asdict(result.metrics))
 

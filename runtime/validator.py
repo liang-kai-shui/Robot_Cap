@@ -1,23 +1,36 @@
+"""Small AST whitelist driven by the currently registered public API."""
 import ast
-from robot.capabilities import CAPABILITIES
+from robot.capabilities import CapabilityRegistry, DEFAULT_REGISTRY
 from runtime.errors import PolicySyntaxError, UnsafePolicyError
 
 
-ROBOT_METHODS = set(CAPABILITIES)
 BUILTINS = {"range", "min", "max", "abs"}
-DATA_FIELDS = {"x", "y", "heading", "pose", "stopped", "collision", "last_action", "action_count"}
 BLOCKED_NAMES = {"os", "sys", "subprocess", "socket", "pathlib", "requests", "httpx", "shutil", "pickle", "marshal", "ctypes", "multiprocessing", "threading", "open", "eval", "exec", "compile", "globals", "locals", "vars", "dir", "getattr", "setattr", "delattr", "input", "help", "breakpoint", "__import__"}
 
 
+def robot_path(node: ast.AST) -> tuple[str, ...] | None:
+    """Extract a complete robot attribute path, without accepting other roots."""
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    return tuple(reversed(parts)) if isinstance(node, ast.Name) and node.id == "robot" else None
+
+
 class PolicyValidator(ast.NodeVisitor):
-    """Small syntax and name whitelist. This is not a hostile-code sandbox."""
+    """Whitelist syntax, registered calls, and schema-declared result fields."""
+
+    def __init__(self, registry: CapabilityRegistry | None = None):
+        self.registry = registry if registry is not None else DEFAULT_REGISTRY
 
     def validate(self, policy: str) -> None:
+        """Raise a policy error if code exceeds the current registry or DSL."""
         try:
             tree = ast.parse(policy, mode="exec")
         except SyntaxError as exc:
             raise PolicySyntaxError(str(exc)) from exc
         self.names = {"robot", *BUILTINS}
+        self.value_fields: dict[str, dict | None] = {}
         self.visit(tree)
 
     def generic_visit(self, node):
@@ -45,7 +58,9 @@ class PolicyValidator(ast.NodeVisitor):
         if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
             raise UnsafePolicyError("Only assignment to a simple local name is allowed")
         self.visit(node.value)
-        self.visit(node.targets[0])
+        target = node.targets[0]
+        self.visit(target)
+        self.value_fields[target.id] = self._fields(node.value)
 
     def visit_For(self, node):
         if not isinstance(node.target, ast.Name):
@@ -54,40 +69,48 @@ class PolicyValidator(ast.NodeVisitor):
             raise UnsafePolicyError("For loops must iterate over range()")
         self.visit(node.iter)
         self.visit(node.target)
-        for part in (*node.body, *node.orelse): self.visit(part)
+        for part in (*node.body, *node.orelse):
+            self.visit(part)
 
     def visit_Call(self, node):
         if isinstance(node.func, ast.Name):
-            if node.func.id not in BUILTINS:
-                raise UnsafePolicyError(f"Forbidden function: {node.func.id}")
-            if node.keywords:
-                raise UnsafePolicyError("Keyword arguments are forbidden for builtins")
-        elif isinstance(node.func, ast.Attribute):
-            if not isinstance(node.func.value, ast.Name) or node.func.value.id != "robot" or node.func.attr not in ROBOT_METHODS:
-                raise UnsafePolicyError("Only documented robot methods may be called")
-            capability = CAPABILITIES[node.func.attr]
-            try:
-                capability.bind(tuple(node.args), {item.arg: item.value for item in node.keywords if item.arg is not None})
-            except TypeError as exc:
-                raise UnsafePolicyError(str(exc)) from exc
-            if any(item.arg is None for item in node.keywords):
+            if node.func.id not in BUILTINS or node.keywords:
+                raise UnsafePolicyError("Only allowed builtins without keywords may be called")
+        else:
+            path = robot_path(node.func)
+            item = self.registry.resolve_public_path(path) if path else None
+            if item is None:
+                raise UnsafePolicyError("Only registered robot capability paths may be called")
+            if any(keyword.arg is None for keyword in node.keywords):
                 raise UnsafePolicyError("Keyword expansion is forbidden")
-            names = [item.arg for item in node.keywords]
+            names = [keyword.arg for keyword in node.keywords]
             if len(names) != len(set(names)):
                 raise UnsafePolicyError("Duplicate keyword argument")
-        else:
-            raise UnsafePolicyError("Indirect calls are forbidden")
-        for arg in node.args: self.visit(arg)
-        for item in node.keywords: self.visit(item.value)
+            try:
+                item.spec.bind(tuple(node.args), {keyword.arg: keyword.value for keyword in node.keywords})
+            except TypeError as exc:
+                raise UnsafePolicyError(str(exc)) from exc
+        for arg in node.args:
+            self.visit(arg)
+        for keyword in node.keywords:
+            self.visit(keyword.value)
+
+    def _fields(self, node):
+        if isinstance(node, ast.Name):
+            return self.value_fields.get(node.id)
+        if isinstance(node, ast.Call):
+            path = robot_path(node.func)
+            item = self.registry.resolve_public_path(path) if path else None
+            return item.spec.return_fields if item else None
+        if isinstance(node, ast.Attribute):
+            parent = self._fields(node.value)
+            return parent.get(node.attr) if isinstance(parent, dict) else None
+        return None
 
     def visit_Attribute(self, node):
-        if node.attr.startswith("__") or node.attr not in DATA_FIELDS:
-            raise UnsafePolicyError(f"Forbidden attribute: {node.attr}")
-        if isinstance(node.value, ast.Name):
-            if node.value.id == "robot":
-                raise UnsafePolicyError("Robot attributes are only callable API methods")
-            self.visit(node.value)
-        elif isinstance(node.value, (ast.Attribute, ast.Call)):
-            self.visit(node.value)
-        else:
-            raise UnsafePolicyError("Invalid attribute access")
+        if node.attr.startswith("_") or robot_path(node) is not None:
+            raise UnsafePolicyError("Robot attributes are only callable registered paths")
+        parent = self._fields(node.value)
+        if not isinstance(parent, dict) or node.attr not in parent:
+            raise UnsafePolicyError(f"Forbidden result field: {node.attr}")
+        self.visit(node.value)

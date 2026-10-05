@@ -1,10 +1,14 @@
-"""Backend interface; implementations only live in the trusted process."""
-from robot.base import RobotBase
+"""Trusted backend safety contract, independent of capability categories."""
+from abc import ABC, abstractmethod
 
 
-class RobotBackend(RobotBase):
-    """Backend contract, including an unconditional safety stop."""
+class RobotBackend(ABC):
+    """Handlers must honor cancel_event/deadline; stop must be independently callable.
 
+    Physical implementations must use bounded I/O and allow emergency_stop while
+    an ordinary handler is waiting. Python threads cannot forcibly cancel I/O.
+    """
+
+    @abstractmethod
     def emergency_stop(self) -> None:
-        """Stop independently of normal policy action limits."""
-        raise NotImplementedError
+        """Stop independently of normal action handlers and their locks."""

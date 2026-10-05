@@ -87,7 +87,9 @@ def main():
     rows = []
     for task in tasks:
         for repeat in range(args.runs):
-            task_limits = replace(limits, timeout_seconds=min(limits.timeout_seconds, .5)) if task.id == "E2" else limits
+            task_limits = (replace(limits, timeout_seconds=min(limits.timeout_seconds, .5),
+                                   policy_timeout_seconds=min(limits.effective_policy_timeout_seconds, .5))
+                           if task.id == "E2" else limits)
             result = run_task(task, provider, task_limits, run_dir=output / "individual")
             row = {"task_id": task.id, "repeat": repeat + 1, "execution_success": result.execution_success,
                    "task_success": result.task_success, "error_type": result.error_type,

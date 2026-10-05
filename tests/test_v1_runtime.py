@@ -2,7 +2,7 @@ import json
 import inspect
 import pytest
 from robot.backends.mock import MockRobotBackend
-from robot.capabilities import CAPABILITIES
+from robot.capabilities import DEFAULT_REGISTRY
 from robot.runtime import RobotRuntime
 from robot.state import Pose
 from robot.virtual import VirtualRobot
@@ -75,7 +75,7 @@ def test_angular_speed_limit_and_action_timeout():
     response = runtime.dispatch({"command_id": 1, "action": "turn", "args": [90], "kwargs": {"speed": 45}})
     assert response["error_type"] == "RobotActionTimeoutError"
     assert backend.emergency_stops == 1
-    assert [e["phase"] for e in runtime.trace if e["kind"] == "action"] == ["started", "failed"]
+    assert [e["phase"] for e in runtime.trace if e["kind"] == "action"] == ["started", "cancelled"]
     assert RobotRuntime(MockRobotBackend()).dispatch({"command_id": 2, "action": "turn", "args": [90], "kwargs": {"speed": 91}})["error_type"] == "RobotActionError"
 
 
@@ -104,7 +104,7 @@ def test_observation_trace_and_legacy_config():
     response = runtime.dispatch({"command_id": 1, "action": "get_state", "args": [], "kwargs": {}})
     assert response["ok"]
     assert [item["kind"] for item in runtime.trace] == ["observation", "observation"]
-    assert limits.policy_timeout_seconds == limits.timeout_seconds
+    assert limits.effective_policy_timeout_seconds == limits.timeout_seconds
 
 
 def test_backend_error_trace_and_serialization():
@@ -133,4 +133,4 @@ def test_direct_virtual_actions_are_finite():
     assert robot.snapshot().stopped
     robot.turn(90)
     assert robot.snapshot().stopped
-    assert {item.namespace for item in CAPABILITIES.values()} == {"motion", "sensors", "state"}
+    assert {item.canonical_id.split(".")[0] for item in DEFAULT_REGISTRY.list_visible()} == {"motion", "sensors", "state"}

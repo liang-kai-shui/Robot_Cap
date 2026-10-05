@@ -5,7 +5,8 @@ from runtime.errors import PolicyGenerationError
 
 
 class MockProvider(LLMProvider):
-    def generate_policy(self, task: str, robot_api: str, world_state: str) -> LLMResponse:
+    def generate_policy(self, task: str, robot_api: str, world_state: str,
+                        system_prompt: str | None = None) -> LLMResponse:
         start = time.perf_counter()
         from task.benchmark_tasks import BENCHMARK_TASKS, MOCK_POLICIES
         policy = next((MOCK_POLICIES[item.id] for item in BENCHMARK_TASKS if item.instruction == task and item.id in MOCK_POLICIES), None)

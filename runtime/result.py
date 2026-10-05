@@ -15,3 +15,4 @@ class ExecutionResult:
     metrics: RunMetrics = field(default_factory=RunMetrics)
     policy: str = ""
     trace: list[dict] = field(default_factory=list)
+    api_surface_signature: list[str] = field(default_factory=list)

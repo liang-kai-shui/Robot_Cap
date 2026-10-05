@@ -17,15 +17,21 @@ class VirtualBackend(RobotBackend):
         """Legacy simulator log entries."""
         return self.robot.logs
 
-    def move(self, distance: float, speed: float | None = None) -> None:
+    def move(self, distance: float, speed: float | None = None,
+             *, cancel_event=None, deadline=None) -> None:
         """Complete one finite linear motion."""
+        if cancel_event is not None and cancel_event.is_set():
+            return
         self.robot.move(distance, speed)
 
-    def turn(self, angle: float, speed: float | None = None) -> None:
+    def turn(self, angle: float, speed: float | None = None,
+             *, cancel_event=None, deadline=None) -> None:
         """Complete one finite turn."""
+        if cancel_event is not None and cancel_event.is_set():
+            return
         self.robot.turn(angle, speed)
 
-    def stop(self) -> None:
+    def stop(self, *, cancel_event=None, deadline=None) -> None:
         """Stop as a normal counted action."""
         self.robot.stop()
 
@@ -34,23 +40,25 @@ class VirtualBackend(RobotBackend):
         self.robot._stopped = True
         self.robot._record("EMERGENCY_STOP")
 
-    def record_rejection(self, action: str, request: dict, error: str) -> None:
+    def record_rejection(self, capability_id: str, request: dict, error: str) -> None:
         """Retain legacy simulator logs for requests rejected by the runtime."""
+        if capability_id not in {"motion.move", "motion.turn"}:
+            return
         details = dict(request.get("kwargs", {}))
         if request.get("args"):
-            key = "distance" if action == "move" else "angle"
+            key = "distance" if capability_id == "motion.move" else "angle"
             details[key] = request["args"][0]
-        self.robot._record(action.upper(), **details, error=error)
+        self.robot._record(capability_id.rsplit(".", 1)[-1].upper(), **details, error=error)
 
-    def get_pose(self) -> Pose:
+    def get_pose(self, *, cancel_event=None, deadline=None) -> Pose:
         """Read pose."""
         return self.robot.get_pose()
 
-    def get_distance(self) -> float:
+    def get_distance(self, *, cancel_event=None, deadline=None) -> float:
         """Read forward distance."""
         return self.robot.get_distance()
 
-    def get_state(self) -> RobotState:
+    def get_state(self, *, cancel_event=None, deadline=None) -> RobotState:
         """Read state."""
         return self.robot.get_state()
 

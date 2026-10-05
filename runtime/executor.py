@@ -4,6 +4,7 @@ import multiprocessing as mp
 import time
 from dataclasses import dataclass, field
 from robot.backends.virtual import VirtualBackend
+from robot.capabilities import CapabilityRegistry
 from robot.runtime import RobotRuntime
 from robot.state import Pose, RobotState
 from runtime.limits import RuntimeLimits
@@ -23,6 +24,7 @@ class WorkerOutcome:
     logs: list[dict]
     execution_ms: float
     trace: list[dict] = field(default_factory=list)
+    api_surface_signature: list[str] = field(default_factory=list)
 
 
 class PolicyExecutor:
@@ -32,26 +34,34 @@ class PolicyExecutor:
         self.limits = limits or RuntimeLimits()
 
     def execute(self, policy: str, world: VirtualWorld, initial: Pose, validated: bool = False,
-                backend=None) -> WorkerOutcome:
-        """Validate and run one policy against a trusted backend."""
-        if not validated:
-            PolicyValidator().validate(policy)
-        runtime = RobotRuntime(backend or VirtualBackend(world, initial, self.limits), self.limits)
+                backend=None, registry: CapabilityRegistry | None = None) -> WorkerOutcome:
+        """Validate and run one policy; validated is a legacy, non-bypass hint."""
+        runtime = RobotRuntime(backend or VirtualBackend(world, initial, self.limits), self.limits, registry)
+        # Validation is a trust boundary, so a caller's validated hint cannot skip it.
+        PolicyValidator(runtime.registry).validate(policy)
         context = mp.get_context("spawn")
         parent, child = context.Pipe(duplex=True)
         process = context.Process(target=run_worker,
-                                  args=(policy, child, self.limits.communication_timeout_seconds))
+                                  args=(policy, child, runtime.registry.manifest(),
+                                        self.limits.communication_timeout_seconds))
         start = time.perf_counter()
         success, error_type, message = False, "PolicyExecutionError", "Worker exited without result"
         emergency = False
         try:
             process.start()
             child.close()
-            deadline = start + self.limits.policy_timeout_seconds
+            compute_remaining = self.limits.effective_policy_timeout_seconds
+            compute_started = time.perf_counter()
+            startup_deadline = compute_started + max(5.0, self.limits.communication_timeout_seconds)
+            ready = False
             while True:
-                remaining = deadline - time.perf_counter()
+                remaining = ((compute_remaining - (time.perf_counter() - compute_started))
+                             if ready else startup_deadline - time.perf_counter())
                 if remaining <= 0:
-                    error_type, message = "PolicyTimeoutError", "Policy exceeded execution timeout"
+                    if ready:
+                        error_type, message = "PolicyTimeoutError", "Policy exceeded compute timeout"
+                    else:
+                        error_type, message = "PolicyExecutionError", "Worker startup timed out"
                     emergency = True
                     break
                 if parent.poll(min(remaining, 0.05)):
@@ -60,18 +70,35 @@ class PolicyExecutor:
                     except (EOFError, OSError, ValueError):
                         emergency = True
                         break
+                    if packet.get("kind") == "ready":
+                        ready = True
+                        compute_started = time.perf_counter()
+                        continue
                     if packet.get("kind") == "outcome":
                         success = bool(packet.get("success"))
                         error_type, message = packet.get("error_type"), packet.get("error_message")
                         break
-                    if packet.get("kind") == "command":
+                    if ready and packet.get("kind") == "command":
+                        accepted = runtime.accepts(packet)
+                        if accepted:
+                            compute_remaining = max(0.0, compute_remaining - (time.perf_counter() - compute_started))
+                            acknowledgement = {"kind": "accepted", "command_id": packet.get("command_id"),
+                                               "action_timeout_seconds": runtime.action_timeout(packet)}
+                            try:
+                                parent.send_bytes(json.dumps(acknowledgement).encode("utf-8"))
+                            except (EOFError, OSError):
+                                emergency = True
+                                break
                         response = runtime.dispatch(packet)
                         response["command_id"] = packet.get("command_id")
+                        response["kind"] = "result"
                         try:
                             parent.send_bytes(json.dumps(response).encode("utf-8"))
                         except (EOFError, OSError):
                             emergency = True
                             break
+                        if accepted:
+                            compute_started = time.perf_counter()
                 elif not process.is_alive():
                     emergency = True
                     break
@@ -85,8 +112,9 @@ class PolicyExecutor:
             if emergency or process.exitcode not in (0, None):
                 runtime.emergency_stop()
             logs = getattr(runtime.backend, "logs", [])
-            return WorkerOutcome(success, error_type, message, runtime.snapshot(), list(logs),
-                                 (time.perf_counter() - start) * 1000, runtime.trace)
+            return WorkerOutcome(success, error_type, message, runtime.snapshot() or RobotState(initial), list(logs),
+                                 (time.perf_counter() - start) * 1000, runtime.trace,
+                                 runtime.registry.api_surface_signature())
         finally:
             parent.close()
             child.close()

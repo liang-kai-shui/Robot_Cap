@@ -4,7 +4,8 @@ import time
 from dataclasses import asdict
 from robot.state import RobotState
 from runtime.errors import PolicyGenerationError
-from agent.prompts import ROBOT_API
+from agent.prompts import generate_robot_api_prompt, generate_system_prompt
+from robot.capabilities import CapabilityRegistry, DEFAULT_REGISTRY
 from providers.base import LLMProvider, LLMResponse
 from task.task import Task
 
@@ -25,7 +26,10 @@ class AgentCoder:
     def __init__(self, provider: LLMProvider):
         self.provider = provider
 
-    def generate(self, task: Task) -> tuple[str, LLMResponse]:
+    def generate(self, task: Task, registry: CapabilityRegistry | None = None) -> tuple[str, LLMResponse]:
+        """Generate policy against exactly the registry exposed to execution."""
+        registry = registry if registry is not None else DEFAULT_REGISTRY
         world_state = json.dumps({"initial": asdict(task.initial), "world": asdict(task.world)}, ensure_ascii=False)
-        response = self.provider.generate_policy(task.instruction, ROBOT_API, world_state)
+        response = self.provider.generate_policy(task.instruction, generate_robot_api_prompt(registry),
+                                                 world_state, generate_system_prompt(registry))
         return extract_policy(response.text), response

@@ -14,4 +14,5 @@ class LLMResponse:
 
 class LLMProvider(ABC):
     @abstractmethod
-    def generate_policy(self, task: str, robot_api: str, world_state: str) -> LLMResponse: ...
+    def generate_policy(self, task: str, robot_api: str, world_state: str,
+                        system_prompt: str | None = None) -> LLMResponse: ...

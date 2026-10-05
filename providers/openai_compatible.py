@@ -17,10 +17,11 @@ class OpenAICompatibleProvider(LLMProvider):
         if not self.base_url or not self.model:
             raise ValueError("LLM_BASE_URL and LLM_MODEL are required")
 
-    def generate_policy(self, task: str, robot_api: str, world_state: str) -> LLMResponse:
+    def generate_policy(self, task: str, robot_api: str, world_state: str,
+                        system_prompt: str | None = None) -> LLMResponse:
         from agent.prompts import SYSTEM_PROMPT
         payload = {"model": self.model, "stream": self.stream, "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt or SYSTEM_PROMPT},
             {"role": "user", "content": f"Task: {task}\nRobot API:\n{robot_api}\nWorld state:\n{world_state}"},
         ]}
         if self.stream and self.include_stream_usage:
