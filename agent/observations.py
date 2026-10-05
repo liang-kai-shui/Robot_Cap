@@ -2,6 +2,8 @@
 from dataclasses import asdict
 import time
 from robot.runtime import RobotRuntime
+from navigation.observation import RangeObservation
+from runtime import errors
 
 
 def sample_local_observation(runtime: RobotRuntime) -> dict:
@@ -20,8 +22,11 @@ def sample_local_observation(runtime: RobotRuntime) -> dict:
         response = runtime.dispatch({"command_id": runtime.next_command_id,
                                      "capability_id": "sensors.get_distance", "args": [], "kwargs": {}})
         if not response["ok"]:
-            raise RuntimeError(response["error_message"])
-        # The demo sensor exposes only a nearby range, even when the virtual ray travels farther.
-        observation["front_distance_m"] = min(2.0, response["result"])
+            error_class = getattr(errors, response.get("error_type", "RobotError"), errors.RobotError)
+            raise error_class(response["error_message"])
+        # Adapt the implemented simulator sensor; raw physical readings need another adapter.
+        measurement = RangeObservation.from_reading(response["result"], state.pose, "sensors.get_distance")
+        observation["range_observation"] = measurement.to_dict()
+        observation["front_distance_m"] = measurement.distance_m
         observation["front_range_limit_m"] = 2.0
     return observation

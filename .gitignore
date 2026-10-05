@@ -8,5 +8,6 @@ build/
 .pytest-tmp/
 __pycache__/
 *.pyc
-runs/*.json
-runs/benchmark/
+/runs/*
+!/runs/.gitkeep
+/.pytest-tmp-*/

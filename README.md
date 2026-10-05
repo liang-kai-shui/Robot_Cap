@@ -8,8 +8,22 @@
 - **V0.2 Hardening**：收紧生成 Prompt 与受限 Policy DSL 的契约；保留对函数定义和 `+=`、`-=` 等增强赋值的禁止。测距按 9 位小数归一（分辨率 `1e-9` 米）；非零且小于该分辨率的 `move` 抛出 `MoveBelowResolutionError`，不计 Action。显式 `move(0)` 仍是计数、记录日志的空动作。正常小距离移动（如 `0.01` 米）不受影响。
 - **V1 Runtime Foundation**：Policy Worker 只持有 `RobotProxy`；可信主进程持有 `RobotRuntime` 和 `VirtualBackend`，负责能力注册、参数与速度限制、动作分发、状态、trace 和紧急停止。保留旧 Robot API 及原有 20 个 Benchmark 任务。
 - **V1 Runtime Hardening**：能力成为运行时可注册的 `CapabilitySpec + handler`。Canonical ID 与公开调用路径分离；Prompt、Validator、Proxy 和 Runtime 使用同一 Registry。动作超时会请求协作式取消并触发紧急停止。
+- **Observed Navigation P1/P2**：新增应用层观测地图、A* 与边界探索，使用明确的公开目标，继续经过单动作 Worker 与可信 Runtime 执行。此阶段导航本身不调用 LLM。
 
 V1 保存未来 Policy reuse 所需的 episode 数据，但不检索或复用历史 Policy；也不实现视觉、音频、机械臂或 ESP32 驱动。冻结版本的真实模型结果保留作对比。
+
+## 分支与历史版本
+
+GitHub 保留两条开发线：`main` 保存 V0.1 基线，`v1-runtime-hardening` 是当前持续开发线。历史阶段使用标签复现，避免每完成一个阶段就永久保留一条分支：
+
+| 标签 | 固定提交 | 内容 |
+|---|---|---|
+| `v0.1-baseline` | `1dc3263` | V0.1 |
+| `v0.2-baseline` | `60f3690` | V0.2 Hardening |
+| `v1-runtime-foundation-baseline` | `b86749f` | Runtime Foundation |
+| `v1-runtime-hardening-baseline` | `1dfe664` | 导航改动前的 Runtime 与 DeepSeek 实测 |
+
+`v0.2-hardening`、`v1-runtime-foundation` 两条远端分支的提交已完整包含在当前开发线，保存以上标签后删除；没有重写提交历史。本地已有的 Foundation 评测 worktree 保留。需要复现时可执行 `git switch --detach <标签>`；需要继续旧版本工作时可从标签创建临时分支。运行原始数据留在本地 `runs/`，评审后的报告和汇总提交在 `reports/`。
 
 ## 架构
 
@@ -153,6 +167,28 @@ python interactive_benchmark.py --provider openai-compatible --model deepseek-fl
 
 2026-10-05 实测：最终交互版本 DeepSeek Flash 无思考 **2/12**、低思考 **5/12**，总耗时中位数分别 8.04/24.70 秒；隐藏地图导航仍不可靠。动作约束通过不等于任务成功。详见 [交互优化实测报告](reports/interactive_optimization_2026-10-05.md) 与 [此前各方案对照](reports/deepseek_flash_2026-10-05.md)。
 
+## 观测地图与确定性导航：P1/P2
+
+```bash
+python navigation_benchmark.py
+python navigation_benchmark.py --task-id H1 --task-id H2 --task-id H3 --task-id H4
+python navigation_benchmark.py --random-worlds 20 --seed 20261006 --output runs/navigation-seeded-evaluation
+```
+
+安装后也可使用 `robot-cap-navigation-benchmark`。默认最多 80 个动作、160 次观测，栅格分辨率 0.25 米；可通过 `--max-actions`、`--max-observations`、`--resolution` 配置。配置文件中更严格的 `max_actions` 仍生效。
+
+`navigation/` 位于应用层：公开 `NavigationGoal` 与评测成功条件分别传入，规划器只接收观测。当前测距适配器保留 `distance_m/max_range_m/hit/valid/timestamp/pose/capability_id`；超过 2 米的读数表示量程内无命中，端点保持未知，恰好 2 米的命中可区分。读数无效、过期或测量位姿与当前状态不符时安全结束。
+
+地图只按观测射线更新，分为可通行、占用、未知；当前距离来自已经考虑 `clearance` 的配置空间，不重复膨胀障碍。A* 只通过已观测可通行的四邻接栅格。目标没有已知路线时，选择可到达的观测位置，保持该观测目标直到测量完成，避免途中反复改选位置。通过现有 `turn()` 取得其他方向的观测；扫描转向计入动作数。地图、访问记录和规划状态仅存于本次任务。
+
+规划器持有局部路径，但每轮只生成一个有限动作调用。`NavigationAdapter` 从 Registry 找到当前公开别名，随后经过现有 Validator → Worker → Proxy → Runtime → 前进 guard → Backend。核心 Registry、Proxy 与 Runtime 的分发逻辑未修改，也没有新增 `navigate/follow_path/drive` 机器人 API。每次动作后重新测距和规划。没有已知路线不会直接被判定为目标不可达；信息、动作或进度预算不足时紧急停止并保存原因。
+
+本套评测含原 H1–H4（原任务不变）、不同起点/目标、非栅格目标、错位墙、死胡同、走廊和不可达目标；还可按固定种子生成静态地图。生成器用私有世界检查起终点与连通性，规划器不接收这些信息。`scenarios.json` 是单独保存的私有评测清单；逐次结果保存公开目标、每轮 Policy/观测/trace、安全检查、最终观测地图、API surface 与实际使用能力。
+
+实测固定可达场景 **11/11**，不可达场景 **1/1 安全结束**；固定种子 20 个随机可达地图 **20/20**，均无碰撞或越界。这是零模型调用的确定性导航成绩，采用 80 动作预算，不能直接替代此前 8 次决策的 DeepSeek 成绩。完整结果见 [P1/P2 报告](reports/navigation_foundation_p1_p2.md)。
+
+`total_ms` 包含真实 Worker 启动和执行开销；`nominal_motion_seconds` 仅按配置的最高线速度与角速度估算运动时间，虚拟动作仍即时完成，不能作为实车耗时。当前没有噪声、定位漂移或动态障碍，也未实现原生视觉输入、低频 LLM 子目标规划或 Policy Reuse。
+
 ## Metrics 与运行记录
 
 每次运行都写入 `runs/` 的 JSON，包括任务、Policy、初末状态、兼容旧调用的 Robot API 日志、异常、`RunMetrics` 和 `episode`。Episode 包含 `api_version="v1"`、本次暴露的完整 `api_surface_signature`、从 trace 提取的实际 `used_capabilities`、执行与任务结果及指标；默认 Benchmark 不读取 episode，也不进行 Policy reuse。Trace 记录 `started`、`completed`、`failed` 或 `cancelled`、观测及紧急停止事件，并附稳定的 `capability_id`、command ID、请求参数、结果或错误及可用的状态快照。
@@ -171,10 +207,11 @@ V1 的 Worker 与 Backend 有进程边界，但 AST 白名单、受限 builtins 
 python -m pytest
 python benchmark.py --provider mock
 python complex_benchmark.py --provider reference
+python navigation_benchmark.py
 ```
 
 测试覆盖世界、碰撞、测距、Robot API、任务判定、AST 拒绝、Worker/Backend 隔离、动态能力注册与注销、路径冲突、三种超时的交互、取消与紧急停止、速度限制、command ID 幂等、trace、episode、Mock 端到端链路、Metrics 和 JSON 落盘。
 
 ## Roadmap
 
-后续可在独立阶段实现硬件 Backend、设备级停止、感知能力和 Policy reuse。当前版本只提供扩展接口与可比较的运行记录。
+下一阶段先对照逐动作 LLM、确定性导航和 LLM 子目标＋导航三种方案，测量任务理解、成功率与调用成本；再逐项加入观测误差、动作延迟和动态障碍。原生视觉输入、真实 Backend、设备级停止和 Policy reuse 在后续独立阶段进行。

@@ -1,0 +1,2804 @@
+{
+  "fixed": {
+    "summary": {
+      "suite": "observed-map-navigation-v1",
+      "planner": "astar-frontier",
+      "random_worlds": 0,
+      "seed": null,
+      "model_evaluation": false,
+      "llm_calls": 0,
+      "resolution_m": 0.25,
+      "action_budget": 80,
+      "observation_budget": 160,
+      "runs": 12,
+      "reachable_runs": 11,
+      "reachable_successes": 11,
+      "reachable_success_rate": 1,
+      "unreachable_safe_endings": 1,
+      "collisions": 0,
+      "median_total_ms": 3664.750500000082,
+      "p95_total_ms": 20396.629839995876,
+      "median_nominal_motion_seconds": 16.5,
+      "average_actions": 26,
+      "guard_rejections": 0,
+      "errors": {
+        "NavigationActionBudgetExceeded": 1
+      }
+    },
+    "runs": [
+      {
+        "task_id": "H1",
+        "repeat": 1,
+        "category": "paired-H",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 545.824300032109,
+        "planning_ms": 0.43949997052550316,
+        "execution_ms": 537.1703999699093,
+        "llm_calls": 0,
+        "actions": 2,
+        "action_budget": 80,
+        "observations": 2,
+        "observation_budget": 160,
+        "scan_turns": 0,
+        "distance_m": 3.0,
+        "rotation_degrees": 0,
+        "nominal_motion_seconds": 6.0,
+        "guard_rejections": 0,
+        "replans": 2,
+        "revisited_cells": 0,
+        "free_cells": 14,
+        "occupied_cells": 0
+      },
+      {
+        "task_id": "H2",
+        "repeat": 1,
+        "category": "paired-H",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 4256.775999965612,
+        "planning_ms": 3.140999935567379,
+        "execution_ms": 4238.591300148983,
+        "llm_calls": 0,
+        "actions": 16,
+        "action_budget": 80,
+        "observations": 16,
+        "observation_budget": 160,
+        "scan_turns": 6,
+        "distance_m": 4.5,
+        "rotation_degrees": 720.0,
+        "nominal_motion_seconds": 17.0,
+        "guard_rejections": 0,
+        "replans": 16,
+        "revisited_cells": 0,
+        "free_cells": 41,
+        "occupied_cells": 4
+      },
+      {
+        "task_id": "H3",
+        "repeat": 1,
+        "category": "paired-H",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 3572.4079000065103,
+        "planning_ms": 2.835600171238184,
+        "execution_ms": 3556.457100145053,
+        "llm_calls": 0,
+        "actions": 14,
+        "action_budget": 80,
+        "observations": 14,
+        "observation_budget": 160,
+        "scan_turns": 5,
+        "distance_m": 4.5,
+        "rotation_degrees": 630.0,
+        "nominal_motion_seconds": 16.0,
+        "guard_rejections": 0,
+        "replans": 14,
+        "revisited_cells": 0,
+        "free_cells": 36,
+        "occupied_cells": 4
+      },
+      {
+        "task_id": "H4",
+        "repeat": 1,
+        "category": "paired-H",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 3757.0930999936536,
+        "planning_ms": 3.1256998772732913,
+        "execution_ms": 3740.174700098578,
+        "llm_calls": 0,
+        "actions": 14,
+        "action_budget": 80,
+        "observations": 14,
+        "observation_budget": 160,
+        "scan_turns": 5,
+        "distance_m": 4.5,
+        "rotation_degrees": 630.0,
+        "nominal_motion_seconds": 16.0,
+        "guard_rejections": 0,
+        "replans": 14,
+        "revisited_cells": 0,
+        "free_cells": 36,
+        "occupied_cells": 4
+      },
+      {
+        "task_id": "G1",
+        "repeat": 1,
+        "category": "different-goal",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 2817.4681999953464,
+        "planning_ms": 3.078100155107677,
+        "execution_ms": 2804.6357999555767,
+        "llm_calls": 0,
+        "actions": 11,
+        "action_budget": 80,
+        "observations": 11,
+        "observation_budget": 160,
+        "scan_turns": 3,
+        "distance_m": 7.0,
+        "rotation_degrees": 270.0,
+        "nominal_motion_seconds": 17.0,
+        "guard_rejections": 0,
+        "replans": 11,
+        "revisited_cells": 0,
+        "free_cells": 56,
+        "occupied_cells": 0
+      },
+      {
+        "task_id": "G2",
+        "repeat": 1,
+        "category": "different-start",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 2571.7301999684423,
+        "planning_ms": 2.6108999736607075,
+        "execution_ms": 2559.8418000736274,
+        "llm_calls": 0,
+        "actions": 10,
+        "action_budget": 80,
+        "observations": 10,
+        "observation_budget": 160,
+        "scan_turns": 3,
+        "distance_m": 6.0,
+        "rotation_degrees": 270.0,
+        "nominal_motion_seconds": 15.0,
+        "guard_rejections": 0,
+        "replans": 10,
+        "revisited_cells": 0,
+        "free_cells": 52,
+        "occupied_cells": 0
+      },
+      {
+        "task_id": "G3",
+        "repeat": 1,
+        "category": "off-grid-goal",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 1001.8500000005588,
+        "planning_ms": 0.401899975258857,
+        "execution_ms": 997.7768999524415,
+        "llm_calls": 0,
+        "actions": 4,
+        "action_budget": 80,
+        "observations": 4,
+        "observation_budget": 160,
+        "scan_turns": 0,
+        "distance_m": 3.113137085,
+        "rotation_degrees": 45.0,
+        "nominal_motion_seconds": 6.72627417,
+        "guard_rejections": 0,
+        "replans": 4,
+        "revisited_cells": 0,
+        "free_cells": 25,
+        "occupied_cells": 0
+      },
+      {
+        "task_id": "W1",
+        "repeat": 1,
+        "category": "wall-detour",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 7688.607099989895,
+        "planning_ms": 6.311899924185127,
+        "execution_ms": 7654.3077998794615,
+        "llm_calls": 0,
+        "actions": 30,
+        "action_budget": 80,
+        "observations": 30,
+        "observation_budget": 160,
+        "scan_turns": 11,
+        "distance_m": 7.5,
+        "rotation_degrees": 1530.0,
+        "nominal_motion_seconds": 32.0,
+        "guard_rejections": 0,
+        "replans": 30,
+        "revisited_cells": 0,
+        "free_cells": 65,
+        "occupied_cells": 7
+      },
+      {
+        "task_id": "W2",
+        "repeat": 1,
+        "category": "staggered-walls",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 12447.656400036067,
+        "planning_ms": 16.605300013907254,
+        "execution_ms": 12385.582899849396,
+        "llm_calls": 0,
+        "actions": 49,
+        "action_budget": 80,
+        "observations": 49,
+        "observation_budget": 160,
+        "scan_turns": 16,
+        "distance_m": 14.0,
+        "rotation_degrees": 2430.0,
+        "nominal_motion_seconds": 55.0,
+        "guard_rejections": 0,
+        "replans": 49,
+        "revisited_cells": 1,
+        "free_cells": 87,
+        "occupied_cells": 12
+      },
+      {
+        "task_id": "U1",
+        "repeat": 1,
+        "category": "dead-end",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 19927.32519999845,
+        "planning_ms": 16.324399679433554,
+        "execution_ms": 19835.716399888042,
+        "llm_calls": 0,
+        "actions": 78,
+        "action_budget": 80,
+        "observations": 78,
+        "observation_budget": 160,
+        "scan_turns": 23,
+        "distance_m": 14.0,
+        "rotation_degrees": 5040.0,
+        "nominal_motion_seconds": 84.0,
+        "guard_rejections": 0,
+        "replans": 78,
+        "revisited_cells": 3,
+        "free_cells": 94,
+        "occupied_cells": 29
+      },
+      {
+        "task_id": "C1",
+        "repeat": 1,
+        "category": "corridor",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 1015.7581000239588,
+        "planning_ms": 0.5805000546388328,
+        "execution_ms": 1011.5402000374161,
+        "llm_calls": 0,
+        "actions": 4,
+        "action_budget": 80,
+        "observations": 4,
+        "observation_budget": 160,
+        "scan_turns": 0,
+        "distance_m": 6.0,
+        "rotation_degrees": 0,
+        "nominal_motion_seconds": 12.0,
+        "guard_rejections": 0,
+        "replans": 4,
+        "revisited_cells": 0,
+        "free_cells": 26,
+        "occupied_cells": 0
+      },
+      {
+        "task_id": "X1",
+        "repeat": 1,
+        "category": "unreachable",
+        "expected_reachable": false,
+        "task_success": false,
+        "error_type": "NavigationActionBudgetExceeded",
+        "error_message": "Navigation action budget exhausted",
+        "collision": false,
+        "stopped": true,
+        "total_ms": 20970.22439999273,
+        "planning_ms": 19.730499712750316,
+        "execution_ms": 20876.12089974573,
+        "llm_calls": 0,
+        "actions": 80,
+        "action_budget": 80,
+        "observations": 80,
+        "observation_budget": 160,
+        "scan_turns": 22,
+        "distance_m": 12.25,
+        "rotation_degrees": 4410.0,
+        "nominal_motion_seconds": 73.5,
+        "guard_rejections": 0,
+        "replans": 80,
+        "revisited_cells": 7,
+        "free_cells": 79,
+        "occupied_cells": 20
+      }
+    ],
+    "scenarios": [
+      {
+        "task": {
+          "id": "H1",
+          "instruction": "到达(4,1)并停稳。地图未知；依据每轮提供的局部位姿和前向测距避开障碍。",
+          "initial": {
+            "x": 1,
+            "y": 1,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 4,
+                "y": 1,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 4,
+          "y": 1,
+          "tolerance": 0.08
+        },
+        "category": "paired-H",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "H2",
+          "instruction": "到达(4,1)并停稳。地图未知；依据每轮提供的局部位姿和前向测距避开障碍。",
+          "initial": {
+            "x": 1,
+            "y": 1,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 4,
+                "y": 1,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 2,
+                "y": 0.6,
+                "width": 0.5,
+                "height": 0.8
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 4,
+          "y": 1,
+          "tolerance": 0.08
+        },
+        "category": "paired-H",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "H3",
+          "instruction": "到达(4,1)并停稳。地图未知；依据每轮提供的局部位姿和前向测距避开障碍。",
+          "initial": {
+            "x": 1,
+            "y": 1,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 4,
+                "y": 1,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 2.7,
+                "y": 0.6,
+                "width": 0.5,
+                "height": 0.8
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 4,
+          "y": 1,
+          "tolerance": 0.08
+        },
+        "category": "paired-H",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "H4",
+          "instruction": "到达(4,1)并停稳。地图未知；依据每轮提供的局部位姿和前向测距避开障碍。",
+          "initial": {
+            "x": 1,
+            "y": 1,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 4,
+                "y": 1,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 3.2,
+                "y": 0.6,
+                "width": 0.5,
+                "height": 0.8
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 4,
+          "y": 1,
+          "tolerance": 0.08
+        },
+        "category": "paired-H",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "G1",
+          "instruction": "到达(6,3)并停稳，地图未知。",
+          "initial": {
+            "x": 1,
+            "y": 1,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 6,
+                "y": 3,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 6,
+          "y": 3,
+          "tolerance": 0.08
+        },
+        "category": "different-goal",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "G2",
+          "instruction": "到达(3,5)并停稳，地图未知。",
+          "initial": {
+            "x": 7,
+            "y": 7,
+            "heading": 180
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 3,
+                "y": 5,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 3,
+          "y": 5,
+          "tolerance": 0.08
+        },
+        "category": "different-start",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "G3",
+          "instruction": "到达(4.08,1.08)并停稳，地图未知。",
+          "initial": {
+            "x": 1,
+            "y": 1,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 4.08,
+                "y": 1.08,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 4.08,
+          "y": 1.08,
+          "tolerance": 0.08
+        },
+        "category": "off-grid-goal",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "W1",
+          "instruction": "到达(5,2)并停稳，地图未知。",
+          "initial": {
+            "x": 1,
+            "y": 2,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 5,
+                "y": 2,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 2.5,
+                "y": 0.5,
+                "width": 0.5,
+                "height": 3
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 5,
+          "y": 2,
+          "tolerance": 0.08
+        },
+        "category": "wall-detour",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "W2",
+          "instruction": "到达(6,4)并停稳，地图未知。",
+          "initial": {
+            "x": 1,
+            "y": 1,
+            "heading": 90
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 6,
+                "y": 4,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 2,
+                "y": 0.5,
+                "width": 0.5,
+                "height": 2
+              },
+              {
+                "x": 4,
+                "y": 2.5,
+                "width": 0.5,
+                "height": 3
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 6,
+          "y": 4,
+          "tolerance": 0.08
+        },
+        "category": "staggered-walls",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "U1",
+          "instruction": "到达(3,6)并停稳，地图未知。",
+          "initial": {
+            "x": 3,
+            "y": 2,
+            "heading": 90
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 3,
+                "y": 6,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 2,
+                "y": 1,
+                "width": 0.3,
+                "height": 3
+              },
+              {
+                "x": 3.7,
+                "y": 1,
+                "width": 0.3,
+                "height": 3
+              },
+              {
+                "x": 2,
+                "y": 3.7,
+                "width": 2,
+                "height": 0.3
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 3,
+          "y": 6,
+          "tolerance": 0.08
+        },
+        "category": "dead-end",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "C1",
+          "instruction": "到达(7,2)并停稳，地图未知。",
+          "initial": {
+            "x": 1,
+            "y": 2,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 7,
+                "y": 2,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 2,
+                "y": 0.5,
+                "width": 4,
+                "height": 0.8
+              },
+              {
+                "x": 2,
+                "y": 2.7,
+                "width": 4,
+                "height": 0.8
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 7,
+          "y": 2,
+          "tolerance": 0.08
+        },
+        "category": "corridor",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "X1",
+          "instruction": "到达(4,1)并停稳，地图未知。",
+          "initial": {
+            "x": 1,
+            "y": 1,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 4,
+                "y": 1,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 2,
+                "y": 0,
+                "width": 0.5,
+                "height": 10
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 4,
+          "y": 1,
+          "tolerance": 0.08
+        },
+        "category": "unreachable",
+        "expected_reachable": false
+      }
+    ]
+  },
+  "seeded": {
+    "summary": {
+      "suite": "observed-map-navigation-v1",
+      "planner": "astar-frontier",
+      "random_worlds": 20,
+      "seed": 20261006,
+      "model_evaluation": false,
+      "llm_calls": 0,
+      "resolution_m": 0.25,
+      "action_budget": 80,
+      "observation_budget": 160,
+      "runs": 20,
+      "reachable_runs": 20,
+      "reachable_successes": 20,
+      "reachable_success_rate": 1,
+      "unreachable_safe_endings": 0,
+      "collisions": 0,
+      "median_total_ms": 2784.053800016409,
+      "p95_total_ms": 5886.59417497984,
+      "median_nominal_motion_seconds": 21.25,
+      "average_actions": 13.6,
+      "guard_rejections": 0,
+      "errors": {}
+    },
+    "runs": [
+      {
+        "task_id": "R001",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 5639.919199980795,
+        "planning_ms": 8.018299995455891,
+        "execution_ms": 5603.9141998044215,
+        "llm_calls": 0,
+        "actions": 22,
+        "action_budget": 80,
+        "observations": 22,
+        "observation_budget": 160,
+        "scan_turns": 8,
+        "distance_m": 12.5,
+        "rotation_degrees": 720.0,
+        "nominal_motion_seconds": 33.0,
+        "guard_rejections": 0,
+        "replans": 22,
+        "revisited_cells": 0,
+        "free_cells": 100,
+        "occupied_cells": 3
+      },
+      {
+        "task_id": "R002",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 2564.1937000327744,
+        "planning_ms": 2.3932999465614557,
+        "execution_ms": 2552.5326999486424,
+        "llm_calls": 0,
+        "actions": 10,
+        "action_budget": 80,
+        "observations": 10,
+        "observation_budget": 160,
+        "scan_turns": 3,
+        "distance_m": 7.5,
+        "rotation_degrees": 270.0,
+        "nominal_motion_seconds": 18.0,
+        "guard_rejections": 0,
+        "replans": 10,
+        "revisited_cells": 0,
+        "free_cells": 49,
+        "occupied_cells": 4
+      },
+      {
+        "task_id": "R003",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 5627.140700002201,
+        "planning_ms": 6.550399819388986,
+        "execution_ms": 5601.637699932326,
+        "llm_calls": 0,
+        "actions": 20,
+        "action_budget": 80,
+        "observations": 20,
+        "observation_budget": 160,
+        "scan_turns": 7,
+        "distance_m": 11.0,
+        "rotation_degrees": 630.0,
+        "nominal_motion_seconds": 29.0,
+        "guard_rejections": 0,
+        "replans": 20,
+        "revisited_cells": 0,
+        "free_cells": 79,
+        "occupied_cells": 3
+      },
+      {
+        "task_id": "R004",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 1910.5047999764793,
+        "planning_ms": 1.5016000834293664,
+        "execution_ms": 1901.3694999739528,
+        "llm_calls": 0,
+        "actions": 7,
+        "action_budget": 80,
+        "observations": 7,
+        "observation_budget": 160,
+        "scan_turns": 2,
+        "distance_m": 4.0,
+        "rotation_degrees": 270.0,
+        "nominal_motion_seconds": 11.0,
+        "guard_rejections": 0,
+        "replans": 7,
+        "revisited_cells": 0,
+        "free_cells": 27,
+        "occupied_cells": 1
+      },
+      {
+        "task_id": "R005",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 10573.418699961621,
+        "planning_ms": 12.700399965979159,
+        "execution_ms": 10525.134800001979,
+        "llm_calls": 0,
+        "actions": 36,
+        "action_budget": 80,
+        "observations": 36,
+        "observation_budget": 160,
+        "scan_turns": 11,
+        "distance_m": 14.75,
+        "rotation_degrees": 1350.0,
+        "nominal_motion_seconds": 44.5,
+        "guard_rejections": 0,
+        "replans": 36,
+        "revisited_cells": 2,
+        "free_cells": 105,
+        "occupied_cells": 7
+      },
+      {
+        "task_id": "R006",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 1583.5044999839738,
+        "planning_ms": 1.1654000845737755,
+        "execution_ms": 1576.7169999307953,
+        "llm_calls": 0,
+        "actions": 6,
+        "action_budget": 80,
+        "observations": 6,
+        "observation_budget": 160,
+        "scan_turns": 2,
+        "distance_m": 2.5,
+        "rotation_degrees": 180.0,
+        "nominal_motion_seconds": 7.0,
+        "guard_rejections": 0,
+        "replans": 6,
+        "revisited_cells": 0,
+        "free_cells": 31,
+        "occupied_cells": 1
+      },
+      {
+        "task_id": "R007",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 1817.9757000179961,
+        "planning_ms": 1.8026000470854342,
+        "execution_ms": 1809.0142999426462,
+        "llm_calls": 0,
+        "actions": 7,
+        "action_budget": 80,
+        "observations": 7,
+        "observation_budget": 160,
+        "scan_turns": 3,
+        "distance_m": 3.5,
+        "rotation_degrees": 360.0,
+        "nominal_motion_seconds": 11.0,
+        "guard_rejections": 0,
+        "replans": 7,
+        "revisited_cells": 0,
+        "free_cells": 39,
+        "occupied_cells": 1
+      },
+      {
+        "task_id": "R008",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 1261.962799995672,
+        "planning_ms": 1.0275000240653753,
+        "execution_ms": 1255.8706000563689,
+        "llm_calls": 0,
+        "actions": 5,
+        "action_budget": 80,
+        "observations": 5,
+        "observation_budget": 160,
+        "scan_turns": 0,
+        "distance_m": 6.5,
+        "rotation_degrees": 0,
+        "nominal_motion_seconds": 13.0,
+        "guard_rejections": 0,
+        "replans": 5,
+        "revisited_cells": 0,
+        "free_cells": 27,
+        "occupied_cells": 1
+      },
+      {
+        "task_id": "R009",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 3562.7309000119567,
+        "planning_ms": 3.6125999176874757,
+        "execution_ms": 3546.7762997723185,
+        "llm_calls": 0,
+        "actions": 14,
+        "action_budget": 80,
+        "observations": 14,
+        "observation_budget": 160,
+        "scan_turns": 4,
+        "distance_m": 10.0,
+        "rotation_degrees": 360.0,
+        "nominal_motion_seconds": 24.0,
+        "guard_rejections": 0,
+        "replans": 14,
+        "revisited_cells": 0,
+        "free_cells": 68,
+        "occupied_cells": 3
+      },
+      {
+        "task_id": "R010",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 4549.089799984358,
+        "planning_ms": 6.0656999703496695,
+        "execution_ms": 4525.27709986316,
+        "llm_calls": 0,
+        "actions": 18,
+        "action_budget": 80,
+        "observations": 18,
+        "observation_budget": 160,
+        "scan_turns": 6,
+        "distance_m": 10.75,
+        "rotation_degrees": 540.0,
+        "nominal_motion_seconds": 27.5,
+        "guard_rejections": 0,
+        "replans": 18,
+        "revisited_cells": 0,
+        "free_cells": 84,
+        "occupied_cells": 4
+      },
+      {
+        "task_id": "R011",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 2538.5294999578036,
+        "planning_ms": 2.4734000326134264,
+        "execution_ms": 2526.361400145106,
+        "llm_calls": 0,
+        "actions": 10,
+        "action_budget": 80,
+        "observations": 10,
+        "observation_budget": 160,
+        "scan_turns": 2,
+        "distance_m": 9.75,
+        "rotation_degrees": 180.0,
+        "nominal_motion_seconds": 21.5,
+        "guard_rejections": 0,
+        "replans": 10,
+        "revisited_cells": 0,
+        "free_cells": 52,
+        "occupied_cells": 2
+      },
+      {
+        "task_id": "R012",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 3850.8995000156574,
+        "planning_ms": 4.634000186342746,
+        "execution_ms": 3830.7634001248516,
+        "llm_calls": 0,
+        "actions": 15,
+        "action_budget": 80,
+        "observations": 15,
+        "observation_budget": 160,
+        "scan_turns": 5,
+        "distance_m": 9.25,
+        "rotation_degrees": 450.0,
+        "nominal_motion_seconds": 23.5,
+        "guard_rejections": 0,
+        "replans": 15,
+        "revisited_cells": 0,
+        "free_cells": 73,
+        "occupied_cells": 1
+      },
+      {
+        "task_id": "R013",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 1790.8157000201754,
+        "planning_ms": 1.7493001068942249,
+        "execution_ms": 1782.3872999288142,
+        "llm_calls": 0,
+        "actions": 7,
+        "action_budget": 80,
+        "observations": 7,
+        "observation_budget": 160,
+        "scan_turns": 2,
+        "distance_m": 4.5,
+        "rotation_degrees": 180.0,
+        "nominal_motion_seconds": 11.0,
+        "guard_rejections": 0,
+        "replans": 7,
+        "revisited_cells": 0,
+        "free_cells": 38,
+        "occupied_cells": 0
+      },
+      {
+        "task_id": "R014",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 2282.6764000346884,
+        "planning_ms": 2.2961999056860805,
+        "execution_ms": 2271.579099993687,
+        "llm_calls": 0,
+        "actions": 9,
+        "action_budget": 80,
+        "observations": 9,
+        "observation_budget": 160,
+        "scan_turns": 3,
+        "distance_m": 5.75,
+        "rotation_degrees": 270.0,
+        "nominal_motion_seconds": 14.5,
+        "guard_rejections": 0,
+        "replans": 9,
+        "revisited_cells": 0,
+        "free_cells": 48,
+        "occupied_cells": 1
+      },
+      {
+        "task_id": "R015",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 4805.940799997188,
+        "planning_ms": 5.286200030241162,
+        "execution_ms": 4782.452000072226,
+        "llm_calls": 0,
+        "actions": 19,
+        "action_budget": 80,
+        "observations": 19,
+        "observation_budget": 160,
+        "scan_turns": 6,
+        "distance_m": 9.25,
+        "rotation_degrees": 720.0,
+        "nominal_motion_seconds": 26.5,
+        "guard_rejections": 0,
+        "replans": 19,
+        "revisited_cells": 0,
+        "free_cells": 64,
+        "occupied_cells": 4
+      },
+      {
+        "task_id": "R016",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 4056.331899948418,
+        "planning_ms": 5.011800036299974,
+        "execution_ms": 4035.8061000006273,
+        "llm_calls": 0,
+        "actions": 16,
+        "action_budget": 80,
+        "observations": 16,
+        "observation_budget": 160,
+        "scan_turns": 5,
+        "distance_m": 10.75,
+        "rotation_degrees": 450.0,
+        "nominal_motion_seconds": 26.5,
+        "guard_rejections": 0,
+        "replans": 16,
+        "revisited_cells": 0,
+        "free_cells": 70,
+        "occupied_cells": 5
+      },
+      {
+        "task_id": "R017",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 2786.7653000284918,
+        "planning_ms": 2.805099997203797,
+        "execution_ms": 2773.351999989245,
+        "llm_calls": 0,
+        "actions": 11,
+        "action_budget": 80,
+        "observations": 11,
+        "observation_budget": 160,
+        "scan_turns": 4,
+        "distance_m": 4.75,
+        "rotation_degrees": 450.0,
+        "nominal_motion_seconds": 14.5,
+        "guard_rejections": 0,
+        "replans": 11,
+        "revisited_cells": 0,
+        "free_cells": 45,
+        "occupied_cells": 2
+      },
+      {
+        "task_id": "R018",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 2014.9037999799475,
+        "planning_ms": 1.533200149424374,
+        "execution_ms": 2005.666199955158,
+        "llm_calls": 0,
+        "actions": 8,
+        "action_budget": 80,
+        "observations": 8,
+        "observation_budget": 160,
+        "scan_turns": 3,
+        "distance_m": 3.5,
+        "rotation_degrees": 270.0,
+        "nominal_motion_seconds": 10.0,
+        "guard_rejections": 0,
+        "replans": 8,
+        "revisited_cells": 0,
+        "free_cells": 40,
+        "occupied_cells": 1
+      },
+      {
+        "task_id": "R019",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 5331.797100021504,
+        "planning_ms": 8.780599979218096,
+        "execution_ms": 5303.005099936854,
+        "llm_calls": 0,
+        "actions": 21,
+        "action_budget": 80,
+        "observations": 21,
+        "observation_budget": 160,
+        "scan_turns": 7,
+        "distance_m": 11.0,
+        "rotation_degrees": 720.0,
+        "nominal_motion_seconds": 30.0,
+        "guard_rejections": 0,
+        "replans": 21,
+        "revisited_cells": 0,
+        "free_cells": 90,
+        "occupied_cells": 2
+      },
+      {
+        "task_id": "R020",
+        "repeat": 1,
+        "category": "seeded-static",
+        "expected_reachable": true,
+        "task_success": true,
+        "error_type": null,
+        "error_message": null,
+        "collision": false,
+        "stopped": true,
+        "total_ms": 2781.342300004326,
+        "planning_ms": 3.4216000349260867,
+        "execution_ms": 2766.4170999778435,
+        "llm_calls": 0,
+        "actions": 11,
+        "action_budget": 80,
+        "observations": 11,
+        "observation_budget": 160,
+        "scan_turns": 3,
+        "distance_m": 9.0,
+        "rotation_degrees": 270.0,
+        "nominal_motion_seconds": 21.0,
+        "guard_rejections": 0,
+        "replans": 11,
+        "revisited_cells": 0,
+        "free_cells": 55,
+        "occupied_cells": 4
+      }
+    ],
+    "scenarios": [
+      {
+        "task": {
+          "id": "R001",
+          "instruction": "到达(3.75,0.5)并停稳，地图未知。",
+          "initial": {
+            "x": 9.5,
+            "y": 7.25,
+            "heading": 180
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 3.75,
+                "y": 0.5,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 5.0,
+                "y": 8.5,
+                "width": 0.5,
+                "height": 1.0
+              },
+              {
+                "x": 4.0,
+                "y": 4.5,
+                "width": 0.75,
+                "height": 1.5
+              },
+              {
+                "x": 7.25,
+                "y": 6.5,
+                "width": 1.5,
+                "height": 1.5
+              },
+              {
+                "x": 0.5,
+                "y": 4.25,
+                "width": 0.5,
+                "height": 0.5
+              },
+              {
+                "x": 4.5,
+                "y": 7.75,
+                "width": 0.5,
+                "height": 0.5
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 3.75,
+          "y": 0.5,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R002",
+          "instruction": "到达(1.0,7.25)并停稳，地图未知。",
+          "initial": {
+            "x": 7.0,
+            "y": 8.25,
+            "heading": 90
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 1.0,
+                "y": 7.25,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 8.25,
+                "y": 4.0,
+                "width": 0.5,
+                "height": 1.25
+              },
+              {
+                "x": 4.0,
+                "y": 1.0,
+                "width": 0.75,
+                "height": 1.0
+              },
+              {
+                "x": 0.5,
+                "y": 4.25,
+                "width": 1.5,
+                "height": 1.25
+              },
+              {
+                "x": 2.25,
+                "y": 1.0,
+                "width": 0.75,
+                "height": 0.5
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 1.0,
+          "y": 7.25,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R003",
+          "instruction": "到达(2.0,6.25)并停稳，地图未知。",
+          "initial": {
+            "x": 6.75,
+            "y": 0.5,
+            "heading": 270
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 2.0,
+                "y": 6.25,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 4.5,
+                "y": 1.25,
+                "width": 0.75,
+                "height": 1.5
+              },
+              {
+                "x": 5.0,
+                "y": 7.75,
+                "width": 1.5,
+                "height": 1.5
+              },
+              {
+                "x": 3.25,
+                "y": 0.75,
+                "width": 0.5,
+                "height": 1.25
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 2.0,
+          "y": 6.25,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R004",
+          "instruction": "到达(7.0,8.25)并停稳，地图未知。",
+          "initial": {
+            "x": 4.0,
+            "y": 9.25,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 7.0,
+                "y": 8.25,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 1.5,
+                "y": 7.75,
+                "width": 1.25,
+                "height": 1.5
+              },
+              {
+                "x": 5.5,
+                "y": 8.25,
+                "width": 1.25,
+                "height": 0.75
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 7.0,
+          "y": 8.25,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R005",
+          "instruction": "到达(8.0,0.5)并停稳，地图未知。",
+          "initial": {
+            "x": 2.25,
+            "y": 7.5,
+            "heading": 90
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 8.0,
+                "y": 0.5,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 4.0,
+                "y": 5.5,
+                "width": 1.5,
+                "height": 1.5
+              },
+              {
+                "x": 5.0,
+                "y": 7.0,
+                "width": 1.0,
+                "height": 0.5
+              },
+              {
+                "x": 7.5,
+                "y": 1.75,
+                "width": 0.5,
+                "height": 0.75
+              },
+              {
+                "x": 4.5,
+                "y": 7.0,
+                "width": 1.5,
+                "height": 1.5
+              },
+              {
+                "x": 7.5,
+                "y": 6.75,
+                "width": 1.5,
+                "height": 0.5
+              },
+              {
+                "x": 8.0,
+                "y": 3.75,
+                "width": 1.0,
+                "height": 1.5
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 8.0,
+          "y": 0.5,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R006",
+          "instruction": "到达(2.0,4.5)并停稳，地图未知。",
+          "initial": {
+            "x": 4.0,
+            "y": 5.0,
+            "heading": 270
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 2.0,
+                "y": 4.5,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 7.25,
+                "y": 6.25,
+                "width": 0.5,
+                "height": 0.75
+              },
+              {
+                "x": 4.75,
+                "y": 4.25,
+                "width": 0.5,
+                "height": 1.5
+              },
+              {
+                "x": 1.5,
+                "y": 6.0,
+                "width": 0.75,
+                "height": 1.25
+              },
+              {
+                "x": 3.75,
+                "y": 7.25,
+                "width": 0.75,
+                "height": 1.25
+              },
+              {
+                "x": 8.0,
+                "y": 2.5,
+                "width": 1.5,
+                "height": 1.25
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 2.0,
+          "y": 4.5,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R007",
+          "instruction": "到达(8.75,2.25)并停稳，地图未知。",
+          "initial": {
+            "x": 7.25,
+            "y": 4.25,
+            "heading": 90
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 8.75,
+                "y": 2.25,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 3.5,
+                "y": 2.25,
+                "width": 0.5,
+                "height": 1.5
+              },
+              {
+                "x": 6.5,
+                "y": 1.25,
+                "width": 0.5,
+                "height": 0.5
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 8.75,
+          "y": 2.25,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R008",
+          "instruction": "到达(3.75,7.0)并停稳，地图未知。",
+          "initial": {
+            "x": 3.75,
+            "y": 0.5,
+            "heading": 90
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 3.75,
+                "y": 7.0,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 8.5,
+                "y": 6.75,
+                "width": 0.75,
+                "height": 1.0
+              },
+              {
+                "x": 3.5,
+                "y": 7.25,
+                "width": 1.0,
+                "height": 1.0
+              },
+              {
+                "x": 4.25,
+                "y": 6.75,
+                "width": 0.75,
+                "height": 1.5
+              },
+              {
+                "x": 4.0,
+                "y": 3.75,
+                "width": 1.0,
+                "height": 1.25
+              },
+              {
+                "x": 5.25,
+                "y": 0.5,
+                "width": 0.5,
+                "height": 1.5
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 3.75,
+          "y": 7.0,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R009",
+          "instruction": "到达(8.25,5.0)并停稳，地图未知。",
+          "initial": {
+            "x": 1.5,
+            "y": 8.25,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 8.25,
+                "y": 5.0,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 1.5,
+                "y": 2.25,
+                "width": 1.0,
+                "height": 0.75
+              },
+              {
+                "x": 5.75,
+                "y": 8.75,
+                "width": 0.75,
+                "height": 0.5
+              },
+              {
+                "x": 6.5,
+                "y": 7.75,
+                "width": 0.5,
+                "height": 1.25
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 8.25,
+          "y": 5.0,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R010",
+          "instruction": "到达(8.5,1.5)并停稳，地图未知。",
+          "initial": {
+            "x": 2.0,
+            "y": 5.25,
+            "heading": 90
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 8.5,
+                "y": 1.5,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 1.25,
+                "y": 6.25,
+                "width": 1.5,
+                "height": 1.0
+              },
+              {
+                "x": 1.5,
+                "y": 0.5,
+                "width": 1.5,
+                "height": 0.5
+              },
+              {
+                "x": 2.0,
+                "y": 6.75,
+                "width": 1.25,
+                "height": 0.5
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 8.5,
+          "y": 1.5,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R011",
+          "instruction": "到达(0.5,3.5)并停稳，地图未知。",
+          "initial": {
+            "x": 9.0,
+            "y": 2.25,
+            "heading": 180
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 0.5,
+                "y": 3.5,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 7.75,
+                "y": 4.5,
+                "width": 1.5,
+                "height": 0.5
+              },
+              {
+                "x": 1.5,
+                "y": 6.0,
+                "width": 0.75,
+                "height": 1.25
+              },
+              {
+                "x": 1.75,
+                "y": 8.75,
+                "width": 1.5,
+                "height": 0.5
+              },
+              {
+                "x": 5.0,
+                "y": 5.75,
+                "width": 1.25,
+                "height": 1.25
+              },
+              {
+                "x": 1.5,
+                "y": 5.0,
+                "width": 1.0,
+                "height": 0.75
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 0.5,
+          "y": 3.5,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R012",
+          "instruction": "到达(7.75,7.0)并停稳，地图未知。",
+          "initial": {
+            "x": 3.25,
+            "y": 2.25,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 7.75,
+                "y": 7.0,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 5.25,
+                "y": 2.75,
+                "width": 1.0,
+                "height": 1.25
+              },
+              {
+                "x": 4.75,
+                "y": 6.0,
+                "width": 1.5,
+                "height": 0.5
+              },
+              {
+                "x": 5.75,
+                "y": 3.5,
+                "width": 1.5,
+                "height": 1.5
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 7.75,
+          "y": 7.0,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R013",
+          "instruction": "到达(5.0,6.5)并停稳，地图未知。",
+          "initial": {
+            "x": 1.25,
+            "y": 5.75,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 5.0,
+                "y": 6.5,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 8.0,
+                "y": 5.0,
+                "width": 0.75,
+                "height": 1.5
+              },
+              {
+                "x": 5.25,
+                "y": 7.75,
+                "width": 0.75,
+                "height": 0.5
+              },
+              {
+                "x": 7.75,
+                "y": 8.5,
+                "width": 1.0,
+                "height": 0.75
+              },
+              {
+                "x": 1.5,
+                "y": 2.5,
+                "width": 1.0,
+                "height": 0.5
+              },
+              {
+                "x": 2.5,
+                "y": 8.75,
+                "width": 1.5,
+                "height": 0.75
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 5.0,
+          "y": 6.5,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R014",
+          "instruction": "到达(4.5,2.25)并停稳，地图未知。",
+          "initial": {
+            "x": 0.5,
+            "y": 3.5,
+            "heading": 90
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 4.5,
+                "y": 2.25,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 1.0,
+                "y": 0.5,
+                "width": 1.0,
+                "height": 0.75
+              },
+              {
+                "x": 5.5,
+                "y": 3.75,
+                "width": 1.5,
+                "height": 0.5
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 4.5,
+          "y": 2.25,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R015",
+          "instruction": "到达(8.25,3.0)并停稳，地图未知。",
+          "initial": {
+            "x": 0.5,
+            "y": 4.0,
+            "heading": 90
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 8.25,
+                "y": 3.0,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 4.25,
+                "y": 3.5,
+                "width": 1.25,
+                "height": 0.75
+              },
+              {
+                "x": 0.5,
+                "y": 2.0,
+                "width": 0.5,
+                "height": 1.25
+              },
+              {
+                "x": 4.5,
+                "y": 1.0,
+                "width": 1.5,
+                "height": 1.5
+              },
+              {
+                "x": 6.0,
+                "y": 5.75,
+                "width": 0.5,
+                "height": 1.0
+              },
+              {
+                "x": 6.5,
+                "y": 7.5,
+                "width": 1.0,
+                "height": 1.0
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 8.25,
+          "y": 3.0,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R016",
+          "instruction": "到达(0.5,8.25)并停稳，地图未知。",
+          "initial": {
+            "x": 4.5,
+            "y": 1.5,
+            "heading": 180
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 0.5,
+                "y": 8.25,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 2.0,
+                "y": 1.5,
+                "width": 1.0,
+                "height": 0.75
+              },
+              {
+                "x": 8.25,
+                "y": 4.5,
+                "width": 1.0,
+                "height": 1.25
+              },
+              {
+                "x": 7.5,
+                "y": 0.5,
+                "width": 1.5,
+                "height": 1.25
+              },
+              {
+                "x": 7.5,
+                "y": 2.25,
+                "width": 1.0,
+                "height": 0.75
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 0.5,
+          "y": 8.25,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R017",
+          "instruction": "到达(7.25,3.5)并停稳，地图未知。",
+          "initial": {
+            "x": 6.0,
+            "y": 6.5,
+            "heading": 180
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 7.25,
+                "y": 3.5,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 2.75,
+                "y": 1.25,
+                "width": 0.5,
+                "height": 0.5
+              },
+              {
+                "x": 6.25,
+                "y": 4.75,
+                "width": 1.5,
+                "height": 1.5
+              },
+              {
+                "x": 8.5,
+                "y": 0.75,
+                "width": 0.75,
+                "height": 0.75
+              },
+              {
+                "x": 2.5,
+                "y": 3.5,
+                "width": 1.25,
+                "height": 1.5
+              },
+              {
+                "x": 7.25,
+                "y": 6.75,
+                "width": 1.0,
+                "height": 0.75
+              },
+              {
+                "x": 7.0,
+                "y": 1.25,
+                "width": 1.5,
+                "height": 1.25
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 7.25,
+          "y": 3.5,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R018",
+          "instruction": "到达(1.75,4.0)并停稳，地图未知。",
+          "initial": {
+            "x": 2.5,
+            "y": 1.75,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 1.75,
+                "y": 4.0,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 6.75,
+                "y": 7.5,
+                "width": 0.75,
+                "height": 1.5
+              },
+              {
+                "x": 4.25,
+                "y": 7.75,
+                "width": 1.5,
+                "height": 1.0
+              },
+              {
+                "x": 3.5,
+                "y": 7.0,
+                "width": 1.25,
+                "height": 1.5
+              },
+              {
+                "x": 7.0,
+                "y": 2.75,
+                "width": 0.75,
+                "height": 1.25
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 1.75,
+          "y": 4.0,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R019",
+          "instruction": "到达(7.0,3.0)并停稳，地图未知。",
+          "initial": {
+            "x": 0.5,
+            "y": 6.5,
+            "heading": 90
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 7.0,
+                "y": 3.0,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 2.75,
+                "y": 2.25,
+                "width": 1.0,
+                "height": 0.5
+              },
+              {
+                "x": 5.25,
+                "y": 6.75,
+                "width": 0.5,
+                "height": 1.5
+              },
+              {
+                "x": 0.75,
+                "y": 6.0,
+                "width": 0.5,
+                "height": 0.75
+              },
+              {
+                "x": 1.75,
+                "y": 4.25,
+                "width": 0.75,
+                "height": 0.75
+              },
+              {
+                "x": 2.25,
+                "y": 3.0,
+                "width": 1.25,
+                "height": 1.25
+              },
+              {
+                "x": 6.5,
+                "y": 6.75,
+                "width": 0.75,
+                "height": 0.75
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 7.0,
+          "y": 3.0,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      },
+      {
+        "task": {
+          "id": "R020",
+          "instruction": "到达(9.25,8.75)并停稳，地图未知。",
+          "initial": {
+            "x": 1.75,
+            "y": 7.25,
+            "heading": 0
+          },
+          "success": {
+            "type": "compound_all",
+            "conditions": [
+              {
+                "type": "pose_near",
+                "x": 9.25,
+                "y": 8.75,
+                "tolerance": 0.08
+              },
+              {
+                "type": "stopped"
+              }
+            ]
+          },
+          "world": {
+            "width": 10.0,
+            "height": 10.0,
+            "obstacles": [
+              {
+                "x": 2.0,
+                "y": 5.0,
+                "width": 0.5,
+                "height": 1.25
+              },
+              {
+                "x": 5.75,
+                "y": 1.25,
+                "width": 0.5,
+                "height": 1.5
+              },
+              {
+                "x": 6.5,
+                "y": 1.5,
+                "width": 0.5,
+                "height": 1.5
+              },
+              {
+                "x": 4.5,
+                "y": 4.25,
+                "width": 0.5,
+                "height": 0.5
+              },
+              {
+                "x": 1.25,
+                "y": 2.75,
+                "width": 1.5,
+                "height": 1.0
+              }
+            ],
+            "clearance": 0.1
+          },
+          "fixed_policy": null
+        },
+        "goal": {
+          "x": 9.25,
+          "y": 8.75,
+          "tolerance": 0.08
+        },
+        "category": "seeded-static",
+        "expected_reachable": true
+      }
+    ]
+  }
+}

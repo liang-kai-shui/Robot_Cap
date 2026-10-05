@@ -15,10 +15,11 @@ dev = ["pytest>=8"]
 [project.scripts]
 robot-cap = "main:main"
 robot-cap-benchmark = "benchmark:main"
+robot-cap-navigation-benchmark = "navigation_benchmark:main"
 
 [tool.setuptools]
-py-modules = ["main", "benchmark"]
-packages = ["agent", "robot", "robot.backends", "runtime", "world", "task", "providers", "metrics", "config", "policy"]
+py-modules = ["main", "benchmark", "navigation_benchmark"]
+packages = ["agent", "robot", "robot.backends", "runtime", "world", "task", "providers", "metrics", "config", "policy", "navigation"]
 
 [tool.setuptools.package-data]
 config = ["default.yaml"]
