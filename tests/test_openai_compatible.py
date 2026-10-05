@@ -51,3 +51,41 @@ def test_stream_without_usage_and_incomplete_stream(monkeypatch):
         b'data: {"choices":[{"delta":{"content":"robot.stop()"}}]}\n\n'))
     with pytest.raises(PolicyGenerationError):
         OpenAICompatibleProvider("https://example.test/v1", "key", "model", stream=True).generate_policy("task", "api", "world")
+
+
+def test_request_timeout_and_reasoning_options(monkeypatch):
+    def urlopen(request, timeout):
+        assert timeout == .2
+        assert json.loads(request.data)["reasoning_effort"] == "none"
+        return io.BytesIO(b'{"choices":[{"message":{"content":"robot.stop()"}}]}')
+    monkeypatch.setattr("urllib.request.urlopen", urlopen)
+    OpenAICompatibleProvider("https://example.test", "key", "model", request_timeout_seconds=.2,
+                             reasoning_effort="none").generate_policy("task", "api", "world")
+
+
+def test_timeout_is_distinct_from_generation_errors(monkeypatch):
+    import urllib.error
+    from runtime.errors import PolicyGenerationTimeoutError
+    def urlopen(request, timeout):
+        raise urllib.error.URLError(TimeoutError("socket timed out"))
+    monkeypatch.setattr("urllib.request.urlopen", urlopen)
+    with pytest.raises(PolicyGenerationTimeoutError, match="socket/read timeout"):
+        OpenAICompatibleProvider("https://example.test", "key", "model").generate_policy("task", "api", "world")
+
+
+def test_http_error_preserves_reason_without_key(monkeypatch):
+    import urllib.error
+    key = "private-test-key"
+    def urlopen(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 429, "quota", {}, io.BytesIO(json.dumps(
+            {"error": {"code": "quota_exhausted", "message": "limit for " + key}}).encode()))
+    monkeypatch.setattr("urllib.request.urlopen", urlopen)
+    with pytest.raises(PolicyGenerationError, match="quota_exhausted") as caught:
+        OpenAICompatibleProvider("https://example.test", key, "model").generate_policy("task", "api", "world")
+    assert key not in str(caught.value)
+
+
+@pytest.mark.parametrize("timeout", [0, -1, float("nan"), float("inf")])
+def test_invalid_request_timeout(timeout):
+    with pytest.raises(ValueError):
+        OpenAICompatibleProvider("https://example.test", "key", "model", request_timeout_seconds=timeout)

@@ -21,18 +21,21 @@ class ReferenceLocalProvider(LLMProvider):
         pose = current["pose_estimate"]
         x, y, heading = pose["x"], pose["y"], pose["heading"]
         front = current.get("front_distance_m", 0)
+        safe = current["navigation_limits"]["safe_forward_distance_m"]
         if y > 1.5:
             if x < 3.99:
                 if heading == 90:
-                    policy = "robot.turn(-90)\nif robot.get_distance() > 1.8:\n    robot.move(1.5)"
+                    policy = "robot.turn(-90)"
                 else:
-                    policy = f"robot.move({min(1.5, round(4-x, 9), round(front-.3, 9))})"
+                    policy = f"robot.move({min(1.5, round(4-x, 9), safe)})"
             else:
-                policy = "robot.turn(-90)\nrobot.move(1)" if heading == 0 else "robot.move(1)"
+                policy = "robot.turn(-90)" if heading == 0 else "robot.move(1)"
+        elif heading == 90:
+            policy = "robot.move(1)"
         elif front < 1.2 and x < 3.99:
-            policy = "robot.turn(90)\nrobot.move(1)"
+            policy = "robot.turn(90)"
         else:
-            policy = f"robot.move({min(1.5, round(4-x, 9), round(front-.3, 9))})"
+            policy = f"robot.move({min(1.5, round(4-x, 9), safe)})"
         return LLMResponse(policy, "reference-local-rule", None, None, None,
                            (time.perf_counter() - started) * 1000)
 
@@ -55,6 +58,9 @@ def main():
     parser.add_argument("--provider", choices=("reference", "openai-compatible"), default="reference")
     parser.add_argument("--model")
     parser.add_argument("--stream", action="store_true")
+    parser.add_argument("--request-timeout", type=float, help="API socket/read timeout in seconds")
+    parser.add_argument("--reasoning-effort", choices=("none", "low", "medium", "high", "xhigh", "max"))
+    parser.add_argument("--max-decisions", type=int, default=8)
     parser.add_argument("--runs", type=int, default=1)
     parser.add_argument("--task-id", action="append")
     parser.add_argument("--output", default="runs/interactive-benchmark")
@@ -62,9 +68,13 @@ def main():
     args = parser.parse_args()
     if args.runs < 1:
         parser.error("--runs must be positive")
+    if args.max_decisions < 1:
+        parser.error("--max-decisions must be positive")
     _, _, limits = load_config(args.config)
     provider = (ReferenceLocalProvider() if args.provider == "reference" else
-                OpenAICompatibleProvider(model=args.model, stream=args.stream))
+                OpenAICompatibleProvider(model=args.model, stream=args.stream,
+                                         request_timeout_seconds=args.request_timeout,
+                                         reasoning_effort=args.reasoning_effort))
     tasks = [task for task in INTERACTIVE_TASKS if not args.task_id or task.id in args.task_id]
     if not tasks:
         parser.error("No matching tasks")
@@ -73,9 +83,10 @@ def main():
     rows = []
     for task in tasks:
         for repeat in range(args.runs):
-            result = InteractiveRunner(limits).run(task, provider)
+            result = InteractiveRunner(limits, max_decisions=args.max_decisions).run(task, provider)
             row = {"task_id": task.id, "repeat": repeat + 1, "task_success": result.task_success,
-                   "error_type": result.error_type, "decisions": len(result.decisions),
+                   "error_type": result.error_type, "error_message": result.error_message,
+                   "decisions": len(result.decisions),
                    "actions": result.final_state.action_count, "total_ms": result.total_ms,
                    "llm_ms": result.llm_ms, "input_tokens": result.input_tokens,
                    "output_tokens": result.output_tokens}
@@ -84,7 +95,11 @@ def main():
                 json.dumps(result.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
             print(f"{task.id} #{repeat+1}: success={result.task_success} decisions={len(result.decisions)} "
                   f"actions={result.final_state.action_count} error={result.error_type}")
-    summary = {"suite": "interactive-hidden-map-v1", "provider": args.provider,
+    summary = {"suite": "interactive-hidden-map-v2-single-action", "provider": args.provider,
+               "model": getattr(provider, "model", "reference-local-rule"),
+               "request_timeout_seconds": getattr(provider, "request_timeout_seconds", None),
+               "reasoning_effort": getattr(provider, "reasoning_effort", None),
+               "max_decisions": args.max_decisions,
                "reference_only": args.provider == "reference", **summarize(rows)}
     (output / "raw_results.jsonl").write_text(
         "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")

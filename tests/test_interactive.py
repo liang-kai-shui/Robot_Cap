@@ -72,8 +72,8 @@ class FixedProvider:
         return LLMResponse(self.policy, "fixed-test", None, None, None, 0.0)
 
 
-def test_decision_limit_stops_observation_only_policy():
-    result = InteractiveRunner(max_decisions=2).run(INTERACTIVE_TASKS[0], FixedProvider("robot.get_distance()"))
+def test_decision_limit_stops_nonprogressing_policy():
+    result = InteractiveRunner(max_decisions=2).run(INTERACTIVE_TASKS[0], FixedProvider("robot.stop()"))
     assert not result.task_success
     assert result.error_type == "DecisionLimitExceeded"
     assert result.final_state.stopped
@@ -81,20 +81,67 @@ def test_decision_limit_stops_observation_only_policy():
     assert any(event["capability_id"] == "system.emergency_stop" for event in result.trace)
 
 
-def test_invalid_or_runaway_policy_stops_session():
-    invalid = InteractiveRunner().run(INTERACTIVE_TASKS[0], FixedProvider("import os"))
-    assert not invalid.task_success and invalid.error_type == "UnsafePolicyError"
-    assert invalid.final_state.stopped
-    runaway = InteractiveRunner(RuntimeLimits(policy_timeout_seconds=.05)).run(
-        INTERACTIVE_TASKS[0], FixedProvider("while True:\n    pass"))
-    assert not runaway.task_success and runaway.error_type == "PolicyTimeoutError"
-    assert runaway.final_state.stopped
+@pytest.mark.parametrize("policy", ["import os", "while True:\n    pass", "robot.get_distance()",
+                                    "robot.move(0.1)\nrobot.turn(90)", "robot.move(0.1 + 0.1)"])
+def test_interactive_contract_rejects_before_execution(policy):
+    result = InteractiveRunner().run(INTERACTIVE_TASKS[0], FixedProvider(policy))
+    assert not result.task_success and result.error_type == "UnsafePolicyError"
+    assert result.final_state.stopped and result.final_state.action_count == 0
+    assert result.error_message
 
 
 def test_per_decision_action_budget_is_enforced_by_trusted_runtime():
     policy = "\n".join("robot.move(0.1)" for _ in range(4))
-    result = InteractiveRunner(max_actions_per_decision=2).run(INTERACTIVE_TASKS[0], FixedProvider(policy))
-    assert not result.task_success and result.error_type == "ActionLimitExceeded"
-    assert result.final_state.pose.x == pytest.approx(1.2)
+    task = INTERACTIVE_TASKS[0]
+    runtime = RobotRuntime(VirtualBackend(task.world, task.initial))
+    runtime.begin_decision(1)
+    result = PolicyExecutor().execute(policy, task.world, task.initial, runtime=runtime)
+    assert not result.success and result.error_type == "ActionLimitExceeded"
+    assert result.final_state.pose.x == pytest.approx(1.1)
     assert result.final_state.stopped
+    assert result.final_state.action_count == 1
+
+
+def test_guard_rejection_becomes_feedback_and_task_can_continue():
+    class RecoveringProvider(FixedProvider):
+        def __init__(self):
+            self.contexts = []
+
+        def generate_policy(self, task, robot_api, world_state, system_prompt=None):
+            context = json.loads(world_state)["current"]
+            self.contexts.append(context)
+            self.policy = "robot.move(2)" if len(self.contexts) == 1 else "robot.move(1.5)"
+            return super().generate_policy(task, robot_api, world_state, system_prompt)
+
+    provider = RecoveringProvider()
+    result = InteractiveRunner().run(INTERACTIVE_TASKS[0], provider)
+    assert result.task_success and result.error_type is None and result.error_message is None
+    assert result.decisions[0].error_type == "MotionSafetyError"
+    assert result.decisions[0].safety_checks[0]["accepted"] is False
     assert result.final_state.action_count == 2
+    assert provider.contexts[1]["previous_step"]["error_message"]
+    assert provider.contexts[1]["recent_steps"][0]["pose_before"] == provider.contexts[1]["recent_steps"][0]["pose_after"]
+
+
+def test_generation_failure_preserves_message_elapsed_time_and_stop():
+    from runtime.errors import PolicyGenerationTimeoutError
+    class FailingProvider:
+        def generate_policy(self, *args):
+            raise PolicyGenerationTimeoutError("test socket timeout")
+
+    result = InteractiveRunner().run(INTERACTIVE_TASKS[0], FailingProvider())
+    assert result.error_type == "PolicyGenerationTimeoutError"
+    assert result.error_message == "test socket timeout"
+    assert result.llm_ms > 0 and result.decisions[0].llm_ms == result.llm_ms
+    assert result.final_state.action_count == 0 and result.final_state.stopped
+
+
+def test_recent_steps_are_bounded_and_turn_is_followed_by_new_reading():
+    provider = RecordingProvider()
+    result = InteractiveRunner().run(INTERACTIVE_TASKS[1], provider)
+    assert result.task_success
+    first, second = [context["current"] for context in provider.contexts[:2]]
+    assert provider.policies[0] == "robot.turn(90)"
+    assert second["pose_estimate"]["heading"] == 90
+    assert first["front_distance_m"] < second["front_distance_m"]
+    assert len(provider.contexts[-1]["current"]["recent_steps"]) == 4

@@ -54,9 +54,14 @@ python -m pytest
 LLM_BASE_URL=https://provider.example/v1
 LLM_API_KEY=your-key
 LLM_MODEL=your-model
+LLM_REQUEST_TIMEOUT_SECONDS=30
+# 可选，仅在服务支持时设置；none 为关闭思考
+LLM_REASONING_EFFORT=none
 ```
 
 参考 `.env.example`。环境变量需由 shell 或部署环境设置；项目不自动读取 `.env`。该 Provider 默认使用非流式 `/chat/completions`，此时 `llm_ttft_ms` 为 `null`。使用 `--stream` 会按首个非空 Policy 文本片段记录 TTFT，并请求末尾 usage 块；兼容服务若不支持 `stream_options`，可加 `--no-stream-usage`。未返回的 token usage 保持 `null`，V0 不估算缺失指标。
+
+`LLM_REQUEST_TIMEOUT_SECONDS` 是 API socket/read 超时，并非整次请求的硬性总期限，也不是 Policy 或机器人动作超时。读取超时记录为 `PolicyGenerationTimeoutError`；HTTP 错误保留服务端原因并过滤当前密钥。默认不发送 `reasoning_effort`，保持服务原有行为；DeepSeek Flash 支持 `none/low/high/max`，其他服务的支持值需按其文档配置。
 
 ## CLI
 
@@ -123,11 +128,30 @@ python complex_benchmark.py --provider openai-compatible --task-id N1 --task-id 
 ```bash
 python interactive_benchmark.py --provider reference
 python interactive_benchmark.py --provider openai-compatible --model example-model --runs 5
+python interactive_benchmark.py --provider openai-compatible --model deepseek-flash --reasoning-effort none --request-timeout 30 --runs 3
 ```
 
-这套独立软件实验让相同目标面对四种隐藏地图。模型每轮只收到当前位姿估计、最多 2 米的前向测距、上一轮执行结果和剩余预算；完整障碍物表只供可信模拟器与评测器使用。`InteractiveRunner` 在同一任务内保留可信 Runtime、虚拟机器人状态、累积 trace 和单调递增的 command ID，每轮短 Policy 仍在新 Worker 中校验并执行。默认每任务最多 8 次决策、累计 20 个动作、每段 Policy 最多 3 个动作；失败或耗尽决策预算会触发紧急停止。每轮成功后重新观测，终点由可信侧 `TaskEvaluator` 判定。
+这套独立软件实验让相同目标面对四种隐藏地图。模型每轮只收到当前位姿估计、最多 2 米的前向测距、最近 4 轮动作与结果、上一轮错误原因及剩余预算；完整障碍物表只供可信模拟器与评测器使用。`InteractiveRunner` 在同一任务内保留可信 Runtime、虚拟机器人状态、累积 trace 和单调递增的 command ID，每轮 Policy 仍在新 Worker 中校验并执行。默认每任务最多 8 次决策、累计 20 个动作，可用 `--max-decisions` 单独设置决策预算。
+
+交互模式额外强制**一个注册动作调用，参数为字面量**：允许 `robot.move(0.5)` 或 `robot.turn(-90)`，禁止同轮转向再移动、变量、循环及观测调用。普通 Benchmark 的 Python Policy 契约保持原样。转向执行后必须进入下一轮重新测距。可信 Runtime 也设置每轮一个动作的预算。
+
+交互实验通过复制 Registry 包装已注册的 `motion.move` handler：前进前直接调用当前测距 handler，按 `min(1.5m, min(2m, 新测距)-0.15m)` 限制动作距离。传感器缺失、无效值、后退或超出允许距离都拒绝；检查结果保存在每轮 `safety_checks`。测距与移动共享取消信号和动作 deadline，不分配额外 Worker command ID。`MotionSafetyError` 会紧急停止并反馈给下一轮；其他失败终止任务。耗尽决策预算也会紧急停止。终点始终由可信侧 `TaskEvaluator` 判定。
+
+这是**动作前的前向单束检查**，不读取隐藏地图，不提供行进中持续监测；无法保证检测侧面障碍、观测后的环境变化或传感器误差。0.15 米是实验余量，不是真实刹车距离。每轮保存错误消息、生成耗时（含失败请求）、可用 TTFT、执行后位姿和安全检查。
 
 `reference` 是使用局部观测的确定性规则，仅用于检查多轮机制和场景可解性，不代表 LLM 成绩。此阶段的位姿仍是模拟器真值，测距是有限范围的理想值；尚无相机图像、视觉模型接口、定位误差或真实物理控制。未来接视觉模型时，需要扩展 Provider 的多模态输入并接入实际已注册的观测来源；当前交互式实验不实现 Policy Reuse。
+
+### 参考方案与取舍
+
+| 参考 | 本项目采用的做法 | 当前边界 |
+|---|---|---|
+| [Inner Monologue](https://innermonologue.github.io/) | 将环境观测和执行反馈放回下一轮决策 | 保存有限近期历史，不输出或保存模型思维链 |
+| [Code as Policies](https://code-as-policies.github.io/) | 模型通过明确的机器人 primitive API 生成动作代码 | 交互模式限定单调用，保留已有 Registry/Proxy/Runtime |
+| [Nav2 Collision Monitor](https://docs.nav2.org/rolling/tutorials/general_tutorials/using_collision_monitor/using_collision_monitor/) | 借鉴独立于规划器的传感器安全检查职责 | 仅实现轻量动作前 guard，不接 ROS，不等同于持续 Collision Monitor |
+
+这些是针对现有项目的设计借鉴；论文和上游系统的成绩不能作为本项目成绩。模型实测见 `reports/`，后续仍需不同目标、随机地图、噪声与动态障碍测试。
+
+2026-10-05 实测：最终交互版本 DeepSeek Flash 无思考 **2/12**、低思考 **5/12**，总耗时中位数分别 8.04/24.70 秒；隐藏地图导航仍不可靠。动作约束通过不等于任务成功。详见 [交互优化实测报告](reports/interactive_optimization_2026-10-05.md) 与 [此前各方案对照](reports/deepseek_flash_2026-10-05.md)。
 
 ## Metrics 与运行记录
 

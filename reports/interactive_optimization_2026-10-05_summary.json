@@ -1,0 +1,5649 @@
+{
+  "old_nonthinking": {
+    "raw_directory": "runs/deepseek-flash-20261005/nonthinking_interactive",
+    "runs": 12,
+    "successes": 3,
+    "median_total_ms": 3613.3544499753043,
+    "p95_total_ms": 11202.155889995629,
+    "median_llm_call_ms": 1129.7952999884728,
+    "llm_calls": 46,
+    "input_tokens": 29159,
+    "output_tokens": 6156,
+    "final_errors": {
+      "RobotActionError": 1,
+      "UnsafePolicyError": 4,
+      "DecisionLimitExceeded": 2,
+      "ActionLimitExceeded": 2
+    },
+    "decision_errors": {
+      "RobotActionError": 1,
+      "UnsafePolicyError": 4,
+      "ActionLimitExceeded": 2
+    },
+    "collisions": 0,
+    "guard_rejections": 0,
+    "by_task": {
+      "H1": {
+        "successes": 3,
+        "runs": 3
+      },
+      "H2": {
+        "successes": 0,
+        "runs": 3
+      },
+      "H3": {
+        "successes": 0,
+        "runs": 3
+      },
+      "H4": {
+        "successes": 0,
+        "runs": 3
+      }
+    },
+    "episodes": [
+      {
+        "task_id": "H1",
+        "task_success": true,
+        "total_ms": 2482.787700020708,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "pose = robot.get_pose()\nx = pose.x\ny = pose.y\nheading = pose.heading\ndist = robot.get_distance()\n\nif x == 4 and y == 1:\n    robot.stop()\nelse:\n    if heading != 0:\n        robot.turn(-heading)\n    else:\n        if dist > 1.0:\n            robot.move(1.0)\n        else:\n            robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nx = pose.x\ny = pose.y\nheading = pose.heading\nif y > 1.0:\n    robot.turn(90)\n    robot.move(1.5)\nelif y < 1.0:\n    robot.turn(-90)\n    robot.move(1.5)\nelse:\n    if x < 4.0:\n        dist = robot.get_distance()\n        if dist < 2.0:\n            robot.stop()\n        else:\n            robot.move(2.0)\n    else:\n        robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H1",
+        "task_success": true,
+        "total_ms": 2910.110700002406,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "pose = robot.get_pose()\nx = pose.x\ny = pose.y\nheading = pose.heading\nif x == 4 and y == 1:\n    robot.stop()\nelse:\n    if heading == 0:\n        dist = robot.get_distance()\n        if dist > 0.5 and x < 4:\n            robot.move(1.0)\n        else:\n            robot.turn(90)\n    else:\n        if heading == 90:\n            dist = robot.get_distance()\n            if dist > 0.5 and y < 1:\n                robot.move(1.0)\n            else:\n                robot.turn(90)\n        else:\n            if heading == 180:\n                dist = robot.get_distance()\n                if dist > 0.5 and x > 4:\n                    robot.move(1.0)\n                else:\n                    robot.turn(90)\n            else:\n                if heading == 270 or heading == -90:\n                    dist = robot.get_distance()\n                    if dist > 0.5 and y > 1:\n                        robot.move(1.0)\n                    else:\n                        robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "x = robot.get_pose().x\ny = robot.get_pose().y\nd = robot.get_distance()\nif y < 1:\n    robot.move(0.5)\nelif y > 1:\n    robot.move(-0.5)\nelif x < 4:\n    if d < 1.0:\n        robot.turn(90)\n    else:\n        robot.move(min(4 - x, d - 0.2, 2.0))\nelif x > 4:\n    robot.turn(180)\n    robot.move(min(x - 4, d - 0.2, 2.0))\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H1",
+        "task_success": true,
+        "total_ms": 3673.192999965977,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "pose = robot.get_pose()\ndist = robot.get_distance()\nif dist > 1.0:\n    robot.move(1.0)\nelse:\n    robot.turn(90)\n    robot.move(1.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nif pose.x < 4.0 and pose.heading == 0:\n    if robot.get_distance() > 1.0:\n        robot.move(1.0)\n    else:\n        robot.turn(90)\nelif pose.x < 4.0 and pose.heading == 90:\n    robot.turn(-90)\nelif pose.x >= 4.0 and pose.y < 1.0:\n    if robot.get_distance() > 0.5:\n        robot.move(0.5)\n    else:\n        robot.turn(90)\nelif pose.x >= 4.0 and pose.y > 1.0:\n    robot.turn(180)\nelif pose.x >= 4.0 and pose.y == 1.0:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nif pose.x < 4.0:\n    robot.move(1.0)\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H2",
+        "task_success": false,
+        "total_ms": 2621.180900023319,
+        "error_type": "RobotActionError",
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "pose = robot.get_pose()\nif pose.x < 4:\n    if robot.get_distance() > 1.5:\n        robot.move(1.5)\n    else:\n        robot.turn(90)\n        robot.move(1.0)\n        robot.turn(-90)\nelif pose.y < 1:\n    robot.turn(90)\n    if robot.get_distance() > 1.5:\n        robot.move(1.5)\n    else:\n        robot.move(0.5)\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nx = pose.x\ny = pose.y\nheading = pose.heading\nif x < 4:\n    robot.move(min(4 - x, 2), 1.0)\nelif y < 1:\n    robot.move(min(1 - y, 2), 1.0)\nelif x > 4:\n    robot.move(-min(x - 4, 2), 1.0)\nelif y > 1:\n    robot.move(-min(y - 1, 2), 1.0)\nelse:\n    robot.stop()",
+            "error_type": "RobotActionError",
+            "pose_before": {
+              "x": 1.0,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H2",
+        "task_success": false,
+        "total_ms": 4388.861000014003,
+        "error_type": "UnsafePolicyError",
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "pose = robot.get_pose()\nd = robot.get_distance()\nif pose.x < 4 and pose.y < 1:\n    if pose.heading > 0:\n        robot.turn(-pose.heading)\n    robot.move(min(2.0, d - 0.3))\nelif pose.x < 4:\n    if pose.heading < 90:\n        robot.turn(90 - pose.heading)\n    else:\n        robot.turn(-(pose.heading - 90))\n    robot.move(min(2.0, d - 0.3))\nelif pose.y < 1:\n    if pose.heading > 0:\n        robot.turn(-pose.heading)\n    robot.move(min(2.0, d - 0.3))\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nx = pose.x\ny = pose.y\nheading = pose.heading\ndist = robot.get_distance()\n\ntarget_x = 4.0\ntarget_y = 1.0\n\nif heading > 180:\n    heading = heading - 360\nif heading < -180:\n    heading = heading + 360\n\nif x < target_x and dist > 0.5:\n    robot.move(0.5)\nelif x >= target_x and abs(y - target_y) > 0.1:\n    if y < target_y:\n        if abs(heading - 90) < 10:\n            robot.move(0.3)\n        else:\n            robot.turn(90 - heading)\n    else:\n        if abs(heading + 90) < 10:\n            robot.move(0.3)\n        else:\n            robot.turn(-90 - heading)\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0,
+              "y": 1.6,
+              "heading": 90.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\ntx = 4.0\nty = 1.0\ndx = tx - pose.x\ndy = ty - pose.y\ndist = (dx * dx + dy * dy) ** 0.5\nif dist < 0.2:\n    robot.stop()\nelse:\n    target_deg = 0.0\n    if dx > 0 and dy == 0:\n        target_deg = 0.0\n    elif dx > 0 and dy > 0:\n        target_deg = 45.0\n    elif dx == 0 and dy > 0:\n        target_deg = 90.0\n    elif dx < 0 and dy > 0:\n        target_deg = 135.0\n    elif dx < 0 and dy == 0:\n        target_deg = 180.0\n    elif dx < 0 and dy < 0:\n        target_deg = -135.0\n    elif dx == 0 and dy < 0:\n        target_deg = -90.0\n    else:\n        target_deg = -45.0\n    diff = target_deg - pose.heading\n    while diff > 180:\n        diff = diff - 360\n    while diff < -180:\n        diff = diff + 360\n    turn_amt = diff\n    if turn_amt > 180:\n        turn_amt = 180\n    if turn_amt < -180:\n        turn_amt = -180\n    if turn_amt != 0:\n        robot.turn(turn_amt)\n    front = robot.get_distance()\n    if front > 0.5:\n        move_amt = front - 0.4\n        if move_amt > 1.0:\n            move_amt = 1.0\n        robot.move(move_amt)\n    else:\n        robot.turn(-90)",
+            "error_type": "UnsafePolicyError",
+            "pose_before": {
+              "x": 1.0,
+              "y": 2.1,
+              "heading": 90.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H2",
+        "task_success": false,
+        "total_ms": 10615.596999996342,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "pose = robot.get_pose()\nx = pose.x\ny = pose.y\nheading = pose.heading\n\ntarget_x = 4\ntarget_y = 1\n\nif x == target_x and y == target_y:\n    robot.stop()\nelse:\n    desired = 0\n    if target_x > x:\n        desired = 0\n    elif target_x < x:\n        desired = 180\n    elif target_y > y:\n        desired = 90\n    elif target_y < y:\n        desired = 270\n\n    diff = desired - heading\n    while diff > 180:\n        diff = diff - 360\n    while diff < -180:\n        diff = diff + 360\n\n    if diff > 5:\n        if diff > 180:\n            robot.turn(180)\n        else:\n            robot.turn(diff)\n    elif diff < -5:\n        if diff < -180:\n            robot.turn(-180)\n        else:\n            robot.turn(diff)\n    else:\n        dist = robot.get_distance()\n        if dist > 0.6:\n            robot.move(0.6)\n        else:\n            robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nif pose.x < 4.0 and robot.get_distance() > 0.5:\n    robot.move(0.3)\nelif pose.x < 4.0:\n    robot.turn(90)\n    robot.move(0.3)\n    robot.turn(-90)\nelif pose.y < 1.0:\n    robot.turn(90)\n    robot.move(0.3)\nelif pose.y > 1.0:\n    robot.turn(-90)\n    robot.move(0.3)\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.6,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nfront = robot.get_distance()\nif front > 0.6:\n    robot.move(0.6)\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.6,
+              "y": 1.3,
+              "heading": 0.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nx = pose.x\ny = pose.y\nheading = pose.heading\nfront = robot.get_distance()\n\nif front > 0.4:\n    robot.move(min(front - 0.2, 1.0))\nelse:\n    robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.6,
+              "y": 1.3,
+              "heading": 0.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "x = robot.get_pose().x\ny = robot.get_pose().y\nheading = robot.get_pose().heading\n\ntarget_x = 4.0\ntarget_y = 1.0\n\ndx = target_x - x\ndy = target_y - y\n\nif abs(dy) > 0.3:\n    if dy > 0:\n        desired = 90.0\n    else:\n        desired = 270.0\nelse:\n    if dx > 0:\n        desired = 0.0\n    else:\n        desired = 180.0\n\ndiff = desired - heading\nwhile diff > 180:\n    diff = diff - 360\nwhile diff < -180:\n    diff = diff + 360\n\nif abs(diff) > 5:\n    if diff > 180:\n        diff = 180\n    if diff < -180:\n        diff = -180\n    robot.turn(diff)\nelse:\n    dist = robot.get_distance()\n    if dx > 0 and abs(dy) <= 0.3:\n        step = dx\n    else:\n        step = abs(dy)\n    if step > 2.0:\n        step = 2.0\n    if step > dist - 0.2:\n        step = dist - 0.2\n    if step > 0.1:\n        robot.move(step)\n    else:\n        robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.6,
+              "y": 1.3,
+              "heading": 90.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nheading = pose.heading\nif heading > 180:\n    heading = heading - 360\n\nif abs(heading) > 45:\n    if heading > 0:\n        robot.turn(90)\n    else:\n        robot.turn(-90)\nelse:\n    d = robot.get_distance()\n    if d > 1.0:\n        robot.move(1.0)\n    else:\n        robot.turn(90)\nrobot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.6,
+              "y": 1.3,
+              "heading": 270.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nif pose.x < 4.0:\n    robot.move(1.5)\nelif pose.x > 4.5:\n    robot.move(-1.0)\nelif pose.y < 1.0:\n    robot.turn(90)\n    robot.move(1.0)\nelif pose.y > 2.0:\n    robot.turn(-90)\n    robot.move(1.0)\nelse:\n    robot.turn(180)\n    robot.move(1.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.6,
+              "y": 1.3,
+              "heading": 180.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "d = robot.get_distance()\np = robot.get_pose()\nif d > 0.5:\n    robot.move(0.5)\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 0.10000000000000009,
+              "y": 1.3000000000000003,
+              "heading": 180.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H3",
+        "task_success": false,
+        "total_ms": 7737.363499996718,
+        "error_type": "UnsafePolicyError",
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "pose = robot.get_pose()\ndist = robot.get_distance()\nif pose.x == 4 and pose.y == 1:\n    robot.stop()\nelse:\n    if pose.heading != 0:\n        robot.turn(-pose.heading)\n    else:\n        if dist < 1.0:\n            robot.turn(90)\n        else:\n            robot.move(1.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "d = robot.get_distance()\nif d < 1.0:\n    robot.turn(90)\nelse:\n    robot.move(1.0)\n    pose = robot.get_pose()\n    if pose.x < 4:\n        robot.turn(0)\n    else:\n        robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\ndx = 4.0 - pose.x\ndy = 1.0 - pose.y\nfront = robot.get_distance()\n\nif front > 1.9 and abs(dy) < 0.3:\n    robot.move(1.9)\nelif front > 1.9:\n    robot.move(1.0)\nelse:\n    robot.turn(90.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.0,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nx = pose.x\ny = pose.y\nheading = pose.heading\n\ntarget_x = 4.0\ntarget_y = 1.0\n\nif abs(target_x - x) > 0.15:\n    desired = 0.0\n    if target_x > x:\n        desired = 0.0\n    else:\n        desired = 180.0\n\n    diff = desired - heading\n    while diff < -180.0:\n        diff = diff + 360.0\n    while diff > 180.0:\n        diff = diff - 360.0\n\n    if abs(diff) > 10.0:\n        robot.turn(diff)\n    else:\n        dist = robot.get_distance()\n        step = target_x - x\n        if step > 2.0:\n            step = 2.0\n        if step < -2.0:\n            step = -2.0\n        if dist > abs(step) + 0.2:\n            robot.move(step)\n        else:\n            robot.stop()\nelse:\n    if abs(target_y - y) > 0.15:\n        desired = 90.0\n        if target_y < y:\n            desired = 270.0\n\n        diff = desired - heading\n        while diff < -180.0:\n            diff = diff + 360.0\n        while diff > 180.0:\n            diff = diff - 360.0\n\n        if abs(diff) > 10.0:\n            robot.turn(diff)\n        else:\n            dist = robot.get_distance()\n            step = target_y - y\n            if step > 2.0:\n                step = 2.0\n            if step < -2.0:\n                step = -2.0\n            if dist > abs(step) + 0.2:\n                robot.move(step)\n            else:\n                robot.stop()\n    else:\n        robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.0,
+              "y": 2.9,
+              "heading": 90.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nfront = robot.get_distance()\nif front < 0.5:\n    robot.turn(90)\nelse:\n    robot.move(0.1)\n    robot.turn(-45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.0,
+              "y": 2.9,
+              "heading": 0.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "target_x = 4\ntarget_y = 1\npose = robot.get_pose()\ndx = target_x - pose.x\ndy = target_y - pose.y\ndist = (dx * dx + dy * dy) ** 0\nimport math",
+            "error_type": "UnsafePolicyError",
+            "pose_before": {
+              "x": 2.1,
+              "y": 2.9,
+              "heading": 315.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H3",
+        "task_success": false,
+        "total_ms": 1363.8148999889381,
+        "error_type": "UnsafePolicyError",
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "import math\n\npose = robot.get_pose()\nx = pose.x\ny = pose.y\nheading = pose.heading\n\ntarget_x = 4\ntarget_y = 1\n\nif abs(x - target_x) < 0.1 and abs(y - target_y) < 0.1:\n    robot.stop()\nelse:\n    desired_heading = math.degrees(math.atan2(target_y - y, target_x - x))\n    turn_angle = desired_heading - heading\n    while turn_angle > 180:\n        turn_angle = turn_angle - 360\n    while turn_angle < -180:\n        turn_angle = turn_angle + 360\n    if abs(turn_angle) > 1:\n        robot.turn(turn_angle)\n    else:\n        front = robot.get_distance()\n        distance_to_target = math.sqrt((target_x - x) ** 2 + (target_y - y) ** 2)\n        step = min(1.0, distance_to_target, front - 0.2)\n        if step > 0.05:\n            robot.move(step)\n        else:\n            robot.stop()",
+            "error_type": "UnsafePolicyError",
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H3",
+        "task_success": false,
+        "total_ms": 3553.5158999846317,
+        "error_type": "ActionLimitExceeded",
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "pose = robot.get_pose()\nfront = robot.get_distance()\n\nif front > 1.2:\n    robot.move(1.2)\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "goal_x = 4.0\ngoal_y = 1.0\npose = robot.get_pose()\nx = pose.x\ny = pose.y\nheading = pose.heading\nfront = robot.get_distance()\n\nif abs(y - goal_y) < 0.2:\n    dx = goal_x - x\n    if dx > 0:\n        if front > 1.0:\n            robot.move(min(dx, 1.0), 0.5)\n        else:\n            robot.stop()\n    else:\n        robot.stop()\nelse:\n    if y < goal_y:\n        robot.turn(90)\n    else:\n        robot.turn(-90)\n    if robot.get_distance() > 0.5:\n        robot.move(0.5, 0.5)\n    else:\n        robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.2,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.stop()\nif robot.get_distance() < 1.0:\n    robot.turn(90)\n    robot.move(1.4)\n    robot.turn(-90)\n    robot.move(1.8)\nelse:\n    robot.move(1.8)",
+            "error_type": "ActionLimitExceeded",
+            "pose_before": {
+              "x": 2.2,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H4",
+        "task_success": false,
+        "total_ms": 11919.061199994758,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "pose = robot.get_pose()\nx = pose.x\ny = pose.y\nh = pose.heading\n\ntarget_x = 4\ntarget_y = 1\n\nif y > 1.5:\n    if h > 180 or h < 0:\n        robot.turn(-h)\n    elif h > 0 and h < 180:\n        robot.turn(-h)\nelse:\n    if x < 3.5:\n        dist = robot.get_distance()\n        if dist > 1.0:\n            robot.move(1.0)\n        else:\n            robot.turn(90)\n    else:\n        robot.turn(-90)\n        robot.move(1.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "d = robot.get_distance()\npose = robot.get_pose()\nif pose.x < 4:\n    if d > 1.0:\n        robot.move(0.8)\n    else:\n        robot.turn(90)\nelif pose.y < 1:\n    if d > 1.0:\n        robot.move(0.8)\n    else:\n        robot.turn(-90)\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nif robot.get_distance() < 0.6:\n    robot.turn(90)\nelse:\n    robot.move(1.2)\n    robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.8,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nfront = robot.get_distance()\n\nif pose.x < 4.0:\n    need = 4.0 - pose.x\n    if need > 2.0:\n        need = 2.0\n    if front < need + 0.2:\n        robot.stop()\n    else:\n        robot.move(need)\nelif pose.y > 1.0 or pose.y < 1.0:\n    if pose.y < 1.0:\n        robot.turn(90)\n    else:\n        robot.turn(-90)\n    robot.move(abs(pose.y - 1.0))\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.8,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nx = pose.x\ny = pose.y\nheading = pose.heading\ntarget_x = 4.0\ntarget_y = 1.0\ndx = target_x - x\ndy = target_y - y\nif abs(dx) < 0.1 and abs(dy) < 0.1:\n    robot.stop()\nelse:\n    desired = 0.0\n    if abs(dx) > 0.01:\n        desired = 0.0\n        if dx < 0:\n            desired = 180.0\n    else:\n        if dy > 0:\n            desired = 90.0\n        else:\n            desired = 270.0\n    diff = desired - heading\n    while diff > 180.0:\n        diff = diff - 360.0\n    while diff < -180.0:\n        diff = diff + 360.0\n    if abs(diff) > 5.0:\n        turn_angle = diff\n        if turn_angle > 180.0:\n            turn_angle = 180.0\n        if turn_angle < -180.0:\n            turn_angle = -180.0\n        robot.turn(turn_angle)\n    else:\n        dist = robot.get_distance()\n        if dist > 0.3:\n            step = dist - 0.3\n            if step > 2.0:\n                step = 2.0\n            robot.move(step)\n        else:\n            robot.turn(90.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.8,
+              "y": 2.2,
+              "heading": 90.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "target_x = 4\ntarget_y = 1\nx = robot.get_pose().x\ny = robot.get_pose().y\nheading = robot.get_pose().heading\n\nangle = heading\n\nif y > target_y + 0.3:\n    if heading > -0.5 and heading < 0.5:\n        robot.move(1.2)\n    else:\n        if heading >= 0.5:\n            if heading <= 90:\n                robot.turn(90 - heading)\n            else:\n                robot.turn(90)\n        else:\n            if heading >= -90:\n                robot.turn(-90 - heading)\n            else:\n                robot.turn(-90)\n\nelif y < target_y - 0.3:\n    if heading > -0.5 and heading < 0.5:\n        robot.turn(180)\n    else:\n        robot.move(1.2)\n\nelif x < target_x and abs(heading) < 0.5:\n    robot.move(1.2)\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.8,
+              "y": 2.2,
+              "heading": 0.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nif pose.y > 1.01:\n    robot.move(1.2, 0.5)\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 4.0,
+              "y": 2.2,
+              "heading": 0.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "x = robot.get_pose().x\ny = robot.get_pose().y\nheading = robot.get_pose().heading\n\nif x > 4:\n    robot.turn(180)\n    robot.move(1.2)\nelif y < 1:\n    robot.turn(90)\n    robot.move(1.2)\nelif y > 1:\n    robot.turn(-90)\n    robot.move(1.2)\nelse:\n    robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 5.2,
+              "y": 2.2,
+              "heading": 0.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H4",
+        "task_success": false,
+        "total_ms": 1542.2152999672107,
+        "error_type": "ActionLimitExceeded",
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "robot.stop()\nrobot.turn(90)\nrobot.move(1.0)\nrobot.turn(-90)\nrobot.move(1.0)\nrobot.move(1.0)\nrobot.turn(-90)\nrobot.move(1.0)",
+            "error_type": "ActionLimitExceeded",
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H4",
+        "task_success": false,
+        "total_ms": 9646.614099969156,
+        "error_type": "UnsafePolicyError",
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "pose = robot.get_pose()\ndist = robot.get_distance()\n\nif dist >= 2.0:\n    robot.move(2.0)\nelse:\n    robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nfront = robot.get_distance()\nif front < 0.5:\n    robot.turn(90)\nelse:\n    robot.move(1.0)\n    robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nfront = robot.get_distance()\nif pose.x == 4.0 and pose.y == 1.0:\n    robot.stop()\nelse:\n    if front > 1.0:\n        robot.move(1.0)\n    else:\n        robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.0,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nx = pose.x\ny = pose.y\nheading = pose.heading\n\nif y > 1.0:\n    robot.turn(0)\n    robot.move(1.0)\nelif y < 1.0:\n    robot.turn(0)\n    robot.move(-1.0)\nelse:\n    if x < 4.0:\n        robot.turn(-heading)\n        robot.move(1.0)\n    elif x > 4.0:\n        robot.turn(180 - heading)\n        robot.move(1.0)\n    else:\n        robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.0,
+              "y": 2.0,
+              "heading": 90.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\ndx = 4 - pose.x\ndy = 1 - pose.y\ndist = robot.get_distance()\nif dy < 0 and dist < abs(dy) + 0.3:\n    robot.turn(90)\nelif dy > 0 and dist < abs(dy) + 0.3:\n    robot.turn(-90)\nelif abs(dx) > abs(dy):\n    if dx > 0:\n        robot.turn(90 - pose.heading)\n    else:\n        robot.turn(-90 - pose.heading)\nelse:\n    robot.turn(90 - pose.heading)\nrobot.move(min(dist - 0.2, 2.0))",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.0,
+              "y": 3.0,
+              "heading": 90.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "pose = robot.get_pose()\nif abs(pose.y - 1.0) > 0.1:\n    if pose.heading > 180.0:\n        robot.turn(pose.heading - 270.0)\n    else:\n        robot.turn(pose.heading - 270.0)\nelse:\n    if pose.x < 4.0:\n        robot.move(1.0)\n    else:\n        robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.0,
+              "y": 5.0,
+              "heading": 90.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          },
+          {
+            "policy": "observed_distance = robot.get_distance()\ncurrent_pose = robot.get_pose()\ncurrent_x = current_pose.x\ncurrent_y = current_pose.y\ncurrent_heading = current_pose.heading\ntarget_x = 4\ntarget_y = 1\ndx = target_x - current_x\ndy = target_y - current_y\ndesired_heading = 0\nif dx > 0 and dy == 0:\n    desired_heading = 0\nif dx == 0 and dy < 0:\n    desired_heading = 270\nif dx < 0 and dy == 0:\n    desired_heading = 180\nif dx == 0 and dy > 0:\n    desired_heading = 90\nif dx > 0 and dy < 0:\n    desired_heading = 315\nif dx > 0 and dy > 0:\n    desired_heading = 45\nif dx < 0 and dy < 0:\n    desired_heading = 225\nif dx < 0 and dy > 0:\n    desired_heading = 135\nturn_angle = desired_heading - current_heading\nwhile turn_angle > 180:\n    turn_angle = turn_angle - 360\nwhile turn_angle < -180:\n    turn_angle = turn_angle + 360\nrobot.turn(turn_angle)\ndistance_to_target = (dx * dx + dy * dy) ** 0.5\nmove_distance = distance_to_target\nif move_distance > 2:\n    move_distance = 2\nif observed_distance < move_distance:\n    move_distance = observed_distance - 0.1\nif move_distance > 0.05:\n    robot.move(move_distance)\nelse:\n    robot.stop()",
+            "error_type": "UnsafePolicyError",
+            "pose_before": {
+              "x": 3.0,
+              "y": 5.0,
+              "heading": 270.0
+            },
+            "pose_after": null,
+            "safety_checks": []
+          }
+        ]
+      }
+    ]
+  },
+  "intermediate_prompt_none": {
+    "raw_directory": "runs/deepseek-interactive-v2-20261005",
+    "runs": 12,
+    "successes": 4,
+    "median_total_ms": 8257.389799982775,
+    "p95_total_ms": 10486.844995006686,
+    "median_llm_call_ms": 895.1938500104006,
+    "llm_calls": 78,
+    "input_tokens": 82667,
+    "output_tokens": 514,
+    "final_errors": {
+      "DecisionLimitExceeded": 8
+    },
+    "decision_errors": {},
+    "collisions": 0,
+    "guard_rejections": 0,
+    "by_task": {
+      "H1": {
+        "successes": 3,
+        "runs": 3
+      },
+      "H2": {
+        "successes": 0,
+        "runs": 3
+      },
+      "H3": {
+        "successes": 0,
+        "runs": 3
+      },
+      "H4": {
+        "successes": 1,
+        "runs": 3
+      }
+    },
+    "episodes": [
+      {
+        "task_id": "H1",
+        "task_success": true,
+        "total_ms": 2204.8657999839634,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204354.06677,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204355.0914855,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H1",
+        "task_success": true,
+        "total_ms": 2428.9573000278324,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204356.3969867,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204357.5210543,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H1",
+        "task_success": true,
+        "total_ms": 1863.9731000293978,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204358.4730077,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204359.3866715,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H2",
+        "task_success": false,
+        "total_ms": 7618.550000013784,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(0.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204360.263104,
+                "requested_distance_m": 0.5,
+                "front_distance_m": 0.9,
+                "allowed_distance_m": 0.75,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.5,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.5,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.5,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204362.312651,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.5,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.5,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204363.1831064,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.5,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.5,
+              "y": 4.0,
+              "heading": 180.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.5,
+              "y": 4.0,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 1.5,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.5,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.5,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.5,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.0,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204367.0070183,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H2",
+        "task_success": false,
+        "total_ms": 7908.9597999700345,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(0.75)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204368.1777778,
+                "requested_distance_m": 0.75,
+                "front_distance_m": 0.9,
+                "allowed_distance_m": 0.75,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204369.993398,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204370.9861472,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204372.8038616,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.75)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.25,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204373.8459945,
+                "requested_distance_m": 0.75,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 4.0,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 4.0,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H2",
+        "task_success": false,
+        "total_ms": 8033.444500004407,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(0.75)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204375.651645,
+                "requested_distance_m": 0.75,
+                "front_distance_m": 0.9,
+                "allowed_distance_m": 0.75,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204377.9253356,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204380.1565132,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204382.9537787,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H3",
+        "task_success": false,
+        "total_ms": 8481.335099961143,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(1.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204383.7540865,
+                "requested_distance_m": 1.45,
+                "front_distance_m": 1.6,
+                "allowed_distance_m": 1.4500000000000002,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204385.9995196,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204386.8668032,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(180)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H3",
+        "task_success": false,
+        "total_ms": 9153.342699981295,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(1.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204392.568134,
+                "requested_distance_m": 1.45,
+                "front_distance_m": 1.6,
+                "allowed_distance_m": 1.4500000000000002,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204397.191878,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 0.9500000000000002,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204399.0072112,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.7)",
+            "error_type": null,
+            "pose_before": {
+              "x": 0.9500000000000002,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 0.2500000000000002,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204400.6294901,
+                "requested_distance_m": 0.7,
+                "front_distance_m": 0.85,
+                "allowed_distance_m": 0.7,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H3",
+        "task_success": false,
+        "total_ms": 10786.87060001539,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(1.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204401.8667912,
+                "requested_distance_m": 1.45,
+                "front_distance_m": 1.6,
+                "allowed_distance_m": 1.4500000000000002,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204404.6257796,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204405.7984133,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 180.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 5.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204410.1535475,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 5.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 5.5,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H4",
+        "task_success": false,
+        "total_ms": 8671.654200006742,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204412.2376914,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204413.3596556,
+                "requested_distance_m": 0.45,
+                "front_distance_m": 0.6,
+                "allowed_distance_m": 0.44999999999999996,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.05)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 2.05,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204415.3017929,
+                "requested_distance_m": 1.05,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 2.05,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 2.05,
+              "heading": 180.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 2.05,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 1.4500000000000002,
+              "y": 2.05,
+              "heading": 180.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204417.7976449,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.4500000000000002,
+              "y": 2.05,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 1.0000000000000002,
+              "y": 2.05,
+              "heading": 180.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204419.2854452,
+                "requested_distance_m": 0.45,
+                "front_distance_m": 1.35,
+                "allowed_distance_m": 1.2000000000000002,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0000000000000002,
+              "y": 2.05,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 1.0000000000000002,
+              "y": 2.05,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H4",
+        "task_success": true,
+        "total_ms": 10241.369499999564,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204421.2901936,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204422.5397348,
+                "requested_distance_m": 0.45,
+                "front_distance_m": 0.6,
+                "allowed_distance_m": 0.44999999999999996,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(0.75)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 0.25,
+              "heading": 270.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204425.1482906,
+                "requested_distance_m": 0.75,
+                "front_distance_m": 0.9,
+                "allowed_distance_m": 0.75,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 0.25,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 0.25,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.05)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 0.25,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 0.25,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204427.1714015,
+                "requested_distance_m": 1.05,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 4.0,
+              "y": 0.25,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 0.25,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(0.75)",
+            "error_type": null,
+            "pose_before": {
+              "x": 4.0,
+              "y": 0.25,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204430.3341935,
+                "requested_distance_m": 0.75,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H4",
+        "task_success": false,
+        "total_ms": 9866.067899973132,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204431.4442647,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204432.7326877,
+                "requested_distance_m": 0.45,
+                "front_distance_m": 0.6,
+                "allowed_distance_m": 0.44999999999999996,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204435.283958,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204436.844549,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 5.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204437.9933474,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 5.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 5.5,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.05)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 5.5,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 5.5,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204440.2034757,
+                "requested_distance_m": 1.05,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "final_prompt_none": {
+    "raw_directory": "runs/deepseek-interactive-v2-concise-20261005",
+    "runs": 12,
+    "successes": 2,
+    "median_total_ms": 8038.631200004602,
+    "p95_total_ms": 9284.035885016783,
+    "median_llm_call_ms": 830.690950009739,
+    "llm_calls": 90,
+    "input_tokens": 71927,
+    "output_tokens": 591,
+    "final_errors": {
+      "DecisionLimitExceeded": 10
+    },
+    "decision_errors": {
+      "MotionSafetyError": 2
+    },
+    "collisions": 0,
+    "guard_rejections": 2,
+    "by_task": {
+      "H1": {
+        "successes": 1,
+        "runs": 3
+      },
+      "H2": {
+        "successes": 1,
+        "runs": 3
+      },
+      "H3": {
+        "successes": 0,
+        "runs": 3
+      },
+      "H4": {
+        "successes": 0,
+        "runs": 3
+      }
+    },
+    "episodes": [
+      {
+        "task_id": "H1",
+        "task_success": false,
+        "total_ms": 8554.96390000917,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1,
+              "y": 1,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204526.7232292,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.0,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204527.9063406,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.0,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204530.164206,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204530.981815,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 4.0,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 4.0,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 4.0,
+              "y": 4.0,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 3.9999999999999996,
+              "y": 2.5,
+              "heading": 270.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204533.0182042,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H1",
+        "task_success": false,
+        "total_ms": 9141.320499998983,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1,
+              "y": 1,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204535.5271316,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H1",
+        "task_success": true,
+        "total_ms": 2231.3300000387244,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204543.3592396,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204544.3942113,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H2",
+        "task_success": true,
+        "total_ms": 8539.482499996666,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1,
+              "y": 1,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204546.5888283,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.0,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204548.7649283,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204549.86324,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 4.0,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 2.5,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(-1.5)",
+            "error_type": "MotionSafetyError",
+            "pose_before": {
+              "x": 4.0,
+              "y": 2.5,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 2.5,
+              "heading": 270.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204552.09061,
+                "requested_distance_m": -1.5,
+                "front_distance_m": null,
+                "allowed_distance_m": 0.0,
+                "accepted": false
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 4.0,
+              "y": 2.5,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 3.9999999999999996,
+              "y": 1.0,
+              "heading": 270.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204552.9356055,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H2",
+        "task_success": false,
+        "total_ms": 7953.385000000708,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(0.75)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204553.8911083,
+                "requested_distance_m": 0.75,
+                "front_distance_m": 0.9,
+                "allowed_distance_m": 0.75,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204555.871643,
+                "requested_distance_m": 1.0,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 3.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204556.9247134,
+                "requested_distance_m": 1.0,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 3.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 3.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 3.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 3.0,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 3.0,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 3.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 3.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 3.0,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204560.8916314,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H2",
+        "task_success": false,
+        "total_ms": 9458.465800038539,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(0.75)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204561.7202184,
+                "requested_distance_m": 0.75,
+                "front_distance_m": 0.9,
+                "allowed_distance_m": 0.75,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204563.596838,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204566.3946998,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H3",
+        "task_success": false,
+        "total_ms": 7917.289100005291,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(1.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204571.4492452,
+                "requested_distance_m": 1.45,
+                "front_distance_m": 1.6,
+                "allowed_distance_m": 1.4500000000000002,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(0.75)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 0.25,
+              "heading": 270.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204573.6809034,
+                "requested_distance_m": 0.75,
+                "front_distance_m": 0.9,
+                "allowed_distance_m": 0.75,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 0.25,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 0.25,
+              "heading": 180.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 0.25,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 0.25,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 0.25,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 0.25,
+              "heading": 180.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 0.25,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 0.25,
+              "heading": 180.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 0.25,
+              "heading": 180.0
+            },
+            "pose_after": {
+              "x": 0.9500000000000002,
+              "y": 0.25000000000000017,
+              "heading": 180.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204578.3077173,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H3",
+        "task_success": false,
+        "total_ms": 8172.551799973007,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(1.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204579.1829603,
+                "requested_distance_m": 1.45,
+                "front_distance_m": 1.6,
+                "allowed_distance_m": 1.4500000000000002,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204581.3188074,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204582.492667,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.95,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204584.764409,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.95,
+              "y": 4.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.95,
+              "y": 4.0,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.95,
+              "y": 4.0,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 3.95,
+              "y": 4.0,
+              "heading": 180.0
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H3",
+        "task_success": false,
+        "total_ms": 7172.3836999735795,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(1.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204587.4026933,
+                "requested_distance_m": 1.45,
+                "front_distance_m": 1.6,
+                "allowed_distance_m": 1.4500000000000002,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 2.45,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204588.9738379,
+                "requested_distance_m": 1.45,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 2.45,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 3.9000000000000004,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204589.89233,
+                "requested_distance_m": 1.45,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 3.9000000000000004,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 3.9000000000000004,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 3.9000000000000004,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 3.9000000000000004,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 3.9000000000000004,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 2.4499999999999997,
+              "y": 2.45,
+              "heading": 270.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204592.9250507,
+                "requested_distance_m": 1.45,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.4499999999999997,
+              "y": 2.45,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 2.4499999999999997,
+              "y": 2.45,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H4",
+        "task_success": false,
+        "total_ms": 8123.877400008496,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204594.822155,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204595.5267904,
+                "requested_distance_m": 0.45,
+                "front_distance_m": 0.6,
+                "allowed_distance_m": 0.44999999999999996,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(180)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 2.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204601.7834587,
+                "requested_distance_m": 1.0,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H4",
+        "task_success": false,
+        "total_ms": 7819.608299992979,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204602.439275,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204603.6578207,
+                "requested_distance_m": 0.45,
+                "front_distance_m": 0.6,
+                "allowed_distance_m": 0.44999999999999996,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.05)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 2.05,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204605.846427,
+                "requested_distance_m": 1.05,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 2.05,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 2.05,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.05)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 2.05,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 2.05,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204607.6699173,
+                "requested_distance_m": 1.05,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(-1.05)",
+            "error_type": "MotionSafetyError",
+            "pose_before": {
+              "x": 4.0,
+              "y": 2.05,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 2.05,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204608.5669274,
+                "requested_distance_m": -1.05,
+                "front_distance_m": null,
+                "allowed_distance_m": 0.0,
+                "accepted": false
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 4.0,
+              "y": 2.05,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 2.05,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H4",
+        "task_success": false,
+        "total_ms": 7913.473900000099,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.turn(45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1,
+              "y": 1,
+              "heading": 45.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.414, speed=0.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 45.0
+            },
+            "pose_after": {
+              "x": 1.9998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 45.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204611.3792136,
+                "requested_distance_m": 1.414,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.9998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 45.0
+            },
+            "pose_after": {
+              "x": 1.9998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5, speed=0.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.9998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.4998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204613.2810931,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.5, speed=0.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.4998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.9998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204614.4202123,
+                "requested_distance_m": 0.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.9998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.9998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.9998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 3.9998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.stop()",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.9998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 3.9998489885977784,
+              "y": 1.9998489885977784,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          }
+        ]
+      }
+    ]
+  },
+  "final_prompt_low": {
+    "raw_directory": "runs/deepseek-interactive-v2-low-20261005",
+    "runs": 12,
+    "successes": 5,
+    "median_total_ms": 24698.534200026188,
+    "p95_total_ms": 55658.32930998292,
+    "median_llm_call_ms": 2511.5639999858104,
+    "llm_calls": 70,
+    "input_tokens": 54366,
+    "output_tokens": 43943,
+    "final_errors": {
+      "DecisionLimitExceeded": 4,
+      "PolicyGenerationTimeoutError": 1,
+      "PolicySyntaxError": 2
+    },
+    "decision_errors": {
+      "MotionSafetyError": 1,
+      "PolicyGenerationTimeoutError": 1,
+      "PolicySyntaxError": 2
+    },
+    "collisions": 0,
+    "guard_rejections": 1,
+    "by_task": {
+      "H1": {
+        "successes": 3,
+        "runs": 3
+      },
+      "H2": {
+        "successes": 1,
+        "runs": 3
+      },
+      "H3": {
+        "successes": 0,
+        "runs": 3
+      },
+      "H4": {
+        "successes": 1,
+        "runs": 3
+      }
+    },
+    "episodes": [
+      {
+        "task_id": "H1",
+        "task_success": true,
+        "total_ms": 2820.7477999967523,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204646.3939717,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204647.8172812,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H1",
+        "task_success": true,
+        "total_ms": 3720.749599975534,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204649.9277458,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204651.5388608,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H1",
+        "task_success": true,
+        "total_ms": 3867.9771999595687,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204653.0885427,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204655.4077358,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H2",
+        "task_success": false,
+        "total_ms": 27221.917900023982,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(0.75)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204656.931632,
+                "requested_distance_m": 0.75,
+                "front_distance_m": 0.9,
+                "allowed_distance_m": 0.75,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204671.6750884,
+                "requested_distance_m": 1.0,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204679.5398006,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.75)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.25,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204682.631291,
+                "requested_distance_m": 0.75,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H2",
+        "task_success": false,
+        "total_ms": 39180.249199969694,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(0.75)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204684.223647,
+                "requested_distance_m": 0.75,
+                "front_distance_m": 0.9,
+                "allowed_distance_m": 0.75,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204701.9401977,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204708.3189976,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-53.13)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 306.87
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H2",
+        "task_success": true,
+        "total_ms": 27987.638999999035,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "robot.move(0.75)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204723.3190324,
+                "requested_distance_m": 0.75,
+                "front_distance_m": 0.9,
+                "allowed_distance_m": 0.75,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204729.5191617,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1.75,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204734.8745167,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-63.435)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 296.565
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.25,
+              "y": 2.5,
+              "heading": 296.565
+            },
+            "pose_after": {
+              "x": 3.920819194884698,
+              "y": 1.1583586143181757,
+              "heading": 296.565
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204745.4693437,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.177)",
+            "error_type": null,
+            "pose_before": {
+              "x": 3.920819194884698,
+              "y": 1.1583586143181757,
+              "heading": 296.565
+            },
+            "pose_after": {
+              "x": 3.999975859881092,
+              "y": 1.0000449308077204,
+              "heading": 296.565
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204749.8012087,
+                "requested_distance_m": 0.177,
+                "front_distance_m": 1.183280375,
+                "allowed_distance_m": 1.0332803750000001,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H3",
+        "task_success": false,
+        "total_ms": 32296.70409997925,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(1.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204750.950307,
+                "requested_distance_m": 1.45,
+                "front_distance_m": 1.6,
+                "allowed_distance_m": 1.4500000000000002,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204767.8117642,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(-1.5)",
+            "error_type": "MotionSafetyError",
+            "pose_before": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 2.5,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204782.102806,
+                "requested_distance_m": -1.5,
+                "front_distance_m": null,
+                "allowed_distance_m": 0.0,
+                "accepted": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H3",
+        "task_success": false,
+        "total_ms": 75798.20499999914,
+        "error_type": "PolicyGenerationTimeoutError",
+        "error_message": "LLM socket/read timeout (30 seconds): The read operation timed out",
+        "steps": [
+          {
+            "policy": "robot.move(1.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204783.548764,
+                "requested_distance_m": 1.45,
+                "front_distance_m": 1.6,
+                "allowed_distance_m": 1.4500000000000002,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-35)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 55.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "",
+            "error_type": "PolicyGenerationTimeoutError",
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 55.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 55.0
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H3",
+        "task_success": false,
+        "total_ms": 16563.365200010594,
+        "error_type": "PolicySyntaxError",
+        "error_message": "invalid character '，' (U+FF0C) (<unknown>, line 1)",
+        "steps": [
+          {
+            "policy": "robot.move(1.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204859.8623,
+                "requested_distance_m": 1.45,
+                "front_distance_m": 1.6,
+                "allowed_distance_m": 1.4500000000000002,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "机器人当前位于 (2.45, 1.0)，目标 (4, 1) 在正前方 +x 方向，但正前方 0.15m 处有障碍物，无法直行。最近步骤显示转向 90°（朝 +y）后前方净空为 2.0m，因此先转向 +y 方向以绕过障碍。\n\nrobot.turn(90)",
+            "error_type": "PolicySyntaxError",
+            "pose_before": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.45,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H4",
+        "task_success": true,
+        "total_ms": 20133.56470002327,
+        "error_type": null,
+        "error_message": null,
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204876.0199132,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204877.4994588,
+                "requested_distance_m": 0.45,
+                "front_distance_m": 0.6,
+                "allowed_distance_m": 0.44999999999999996,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 2.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204884.7956114,
+                "requested_distance_m": 1.0,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 2.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.05)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204891.1603103,
+                "requested_distance_m": 1.05,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 4.0,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 2.0,
+              "heading": 270.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 4.0,
+              "y": 2.0,
+              "heading": 270.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 1.0,
+              "heading": 270.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204894.604231,
+                "requested_distance_m": 1.0,
+                "front_distance_m": 1.9,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "task_id": "H4",
+        "task_success": false,
+        "total_ms": 22175.150500028394,
+        "error_type": "PolicySyntaxError",
+        "error_message": "invalid character '°' (U+00B0) (<unknown>, line 1)",
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204896.3949769,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204907.091389,
+                "requested_distance_m": 0.45,
+                "front_distance_m": 0.6,
+                "allowed_distance_m": 0.44999999999999996,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "Current pose (2.95, 1.0) heading 90° (facing +y), goal (4, 1) is to the +x, but an obstacle blocks directly ahead at ~0.15m. Front is clear for 2.0m in +y, so I'll detour by moving +y first.\n\nrobot.move(1.0)",
+            "error_type": "PolicySyntaxError",
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          }
+        ]
+      },
+      {
+        "task_id": "H4",
+        "task_success": false,
+        "total_ms": 38422.06900002202,
+        "error_type": "DecisionLimitExceeded",
+        "error_message": "Task did not complete within the decision budget",
+        "steps": [
+          {
+            "policy": "robot.move(1.5)",
+            "error_type": null,
+            "pose_before": {
+              "x": 1,
+              "y": 1,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204918.3942823,
+                "requested_distance_m": 1.5,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.move(0.45)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.5,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204919.8710396,
+                "requested_distance_m": 0.45,
+                "front_distance_m": 0.6,
+                "allowed_distance_m": 0.44999999999999996,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.turn(90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.0)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 1.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 2.0,
+              "heading": 90.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204948.7700763,
+                "requested_distance_m": 1.0,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          },
+          {
+            "policy": "robot.turn(-90)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 2.0,
+              "heading": 90.0
+            },
+            "pose_after": {
+              "x": 2.95,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "safety_checks": []
+          },
+          {
+            "policy": "robot.move(1.05)",
+            "error_type": null,
+            "pose_before": {
+              "x": 2.95,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "pose_after": {
+              "x": 4.0,
+              "y": 2.0,
+              "heading": 0.0
+            },
+            "safety_checks": [
+              {
+                "timestamp": 1791204955.2040393,
+                "requested_distance_m": 1.05,
+                "front_distance_m": 2.0,
+                "allowed_distance_m": 1.5,
+                "accepted": true
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

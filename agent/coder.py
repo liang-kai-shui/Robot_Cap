@@ -39,9 +39,19 @@ class AgentCoder:
         """Generate one short policy from local observations, without a map dump."""
         registry = registry if registry is not None else DEFAULT_REGISTRY
         context = json.dumps({"observation_only": True, "current": observation}, ensure_ascii=False)
-        system = (generate_system_prompt(registry) + "\nPlan only the next local step from the current "
-                  "observation. Use a short policy with finite actions. Do not assume an unseen map is known. "
-                  "The task will be observed again after this policy returns.")
+        system = ("You are a robot planning agent. Select the next action toward the task goal "
+                  "using ONLY the provided Robot API, current observation and recent steps. "
+                  "Return exactly ONE direct registered action call with literal arguments. "
+                  "No Markdown, explanations, imports, variables, expressions, conditions, loops, "
+                  "or observation calls. Never output multiple calls. "
+                  "After every action, including a turn, a fresh observation will be provided. "
+                  "Use recent steps to continue a detour and avoid undoing turns repeatedly. "
+                  "Choose short detours and reassess toward the goal rather than moving farther away unnecessarily. "
+                  "Only forward moves are guarded; turn and observe before moving in another direction. "
+                  "A move must not exceed navigation_limits.safe_forward_distance_m. "
+                  "Do not assume unseen space is free. Finite actions return stopped; no extra stop is needed. "
+                  "A stop far from the goal does not complete the task. "
+                  "Coordinates: heading 0 points +x, 90 points +y; positive turns are counterclockwise.")
         response = self.provider.generate_policy(
             instruction, generate_robot_api_prompt(registry), context, system)
         return extract_policy(response.text), response
