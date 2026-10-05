@@ -1,0 +1,246 @@
+{
+  "base_capabilities": {
+    "runs": 54,
+    "successes": 54,
+    "median_total_ms": 1617.21,
+    "median_success_total_ms": 1617.21,
+    "api_responses_with_usage": 54,
+    "input_tokens_reported": 29397,
+    "output_tokens_reported": 15344,
+    "errors": {},
+    "by_task": {
+      "A1": {
+        "successes": 3,
+        "runs": 3
+      },
+      "A2": {
+        "successes": 3,
+        "runs": 3
+      },
+      "A3": {
+        "successes": 3,
+        "runs": 3
+      },
+      "A4": {
+        "successes": 3,
+        "runs": 3
+      },
+      "A5": {
+        "successes": 3,
+        "runs": 3
+      },
+      "B1": {
+        "successes": 3,
+        "runs": 3
+      },
+      "B2": {
+        "successes": 3,
+        "runs": 3
+      },
+      "B3": {
+        "successes": 3,
+        "runs": 3
+      },
+      "B4": {
+        "successes": 3,
+        "runs": 3
+      },
+      "B5": {
+        "successes": 3,
+        "runs": 3
+      },
+      "C1": {
+        "successes": 3,
+        "runs": 3
+      },
+      "C2": {
+        "successes": 3,
+        "runs": 3
+      },
+      "C3": {
+        "successes": 3,
+        "runs": 3
+      },
+      "C4": {
+        "successes": 3,
+        "runs": 3
+      },
+      "D1": {
+        "successes": 3,
+        "runs": 3
+      },
+      "D2": {
+        "successes": 3,
+        "runs": 3
+      },
+      "D3": {
+        "successes": 3,
+        "runs": 3
+      },
+      "D4": {
+        "successes": 3,
+        "runs": 3
+      }
+    }
+  },
+  "base_safety": {
+    "runs": 6,
+    "passed": 6
+  },
+  "complex_goal": {
+    "runs": 36,
+    "successes": 32,
+    "median_total_ms": 10985.9,
+    "median_success_total_ms": 10426.55,
+    "api_responses_with_usage": 32,
+    "input_tokens_reported": 19370,
+    "output_tokens_reported": 82372,
+    "errors": {
+      "PolicyGenerationError": 4
+    },
+    "by_task": {
+      "AS1": {
+        "successes": 3,
+        "runs": 3
+      },
+      "AS2": {
+        "successes": 1,
+        "runs": 3
+      },
+      "F1": {
+        "successes": 3,
+        "runs": 3
+      },
+      "F2": {
+        "successes": 3,
+        "runs": 3
+      },
+      "MX1": {
+        "successes": 2,
+        "runs": 3
+      },
+      "MX2": {
+        "successes": 3,
+        "runs": 3
+      },
+      "N1": {
+        "successes": 3,
+        "runs": 3
+      },
+      "N2": {
+        "successes": 2,
+        "runs": 3
+      },
+      "N3": {
+        "successes": 3,
+        "runs": 3
+      },
+      "N4": {
+        "successes": 3,
+        "runs": 3
+      },
+      "SP1": {
+        "successes": 3,
+        "runs": 3
+      },
+      "SP2": {
+        "successes": 3,
+        "runs": 3
+      }
+    }
+  },
+  "complex_strict": {
+    "successes": 25,
+    "criteria_failures": {
+      "waypoint_order": 11,
+      "final_goal": 4,
+      "distance_reads": 3,
+      "read_before_move": 3,
+      "read_after_move": 3,
+      "speed_schedule": 1
+    }
+  },
+  "paired_known_map": {
+    "runs": 12,
+    "successes": 12,
+    "median_total_ms": 8106.34,
+    "median_success_total_ms": 8106.34,
+    "api_responses_with_usage": 12,
+    "input_tokens_reported": 6855,
+    "output_tokens_reported": 26526,
+    "errors": {},
+    "by_task": {
+      "H1": {
+        "successes": 3,
+        "runs": 3
+      },
+      "H2": {
+        "successes": 3,
+        "runs": 3
+      },
+      "H3": {
+        "successes": 3,
+        "runs": 3
+      },
+      "H4": {
+        "successes": 3,
+        "runs": 3
+      }
+    }
+  },
+  "interactive": {
+    "runs": 12,
+    "successes": 3,
+    "median_total_ms": 30255.5,
+    "median_success_total_ms": 13009.04,
+    "decisions": 20,
+    "api_responses_with_usage": 13,
+    "input_tokens_reported": 8461,
+    "output_tokens_reported": 33121,
+    "median_successful_call_ms": 10459.07,
+    "median_generated_policy_lines": 9,
+    "max_generated_policy_lines": 41,
+    "errors": {
+      "WorldBoundaryError": 1,
+      "PolicyGenerationError": 7,
+      "CollisionError": 1
+    },
+    "by_task": {
+      "H1": {
+        "successes": 3,
+        "runs": 3,
+        "median_total_ms": 13009.04
+      },
+      "H2": {
+        "successes": 0,
+        "runs": 3,
+        "median_total_ms": 30253.38
+      },
+      "H3": {
+        "successes": 0,
+        "runs": 3,
+        "median_total_ms": 54847.53
+      },
+      "H4": {
+        "successes": 0,
+        "runs": 3,
+        "median_total_ms": 30257.62
+      }
+    }
+  },
+  "interactive_nonthinking": {
+    "runs": 12,
+    "successes": 3,
+    "median_total_ms": 3613.35,
+    "median_success_total_ms": 2910.11,
+    "decisions": 46,
+    "input_tokens_reported": 29159,
+    "output_tokens_reported": 6156,
+    "errors": {
+      "RobotActionError": 1,
+      "UnsafePolicyError": 4,
+      "DecisionLimitExceeded": 2,
+      "ActionLimitExceeded": 2
+    }
+  }
+}
