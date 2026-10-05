@@ -106,6 +106,18 @@ python benchmark.py --provider openai-compatible --model example-model --stream 
 
 结果保存到 `runs/benchmark/raw_results.jsonl`、`summary.json`，每次运行的完整记录保存到 `runs/benchmark/individual/`。汇总提供能力任务成功率、安全测试通过率、能力任务的校验失败率、超时率、碰撞率、LLM 与总延迟的中位数和 P95、平均 Token、Policy 行数、Action 数及失败类型。缺失的 Token 值保持 `null`。
 
+## 独立复杂环境 Benchmark
+
+```bash
+python complex_benchmark.py --provider reference
+python complex_benchmark.py --provider openai-compatible --model example-model --stream --runs 5
+python complex_benchmark.py --provider openai-compatible --task-id N1 --task-id MX1
+```
+
+`task/complex_benchmark_tasks.py` 提供 12 个独立任务：错位门与狭窄走廊导航、反馈测距、主动测距、速度约束及混合任务。复杂世界可设置 `clearance`，用扩大的矩形障碍和内缩边界表示机器人所需的保守安全间隙；原世界默认 `clearance=0`，原 20 题与 `task/benchmark_tasks.py` 不变。任务地图、初始位姿会作为已知信息提供给模型；这衡量**已知地图上的 Code-as-Policy 规划**，不代表视觉建图、SLAM 或真实动力学。
+
+新评测区分 `execution_success`、仅检查最终状态的 `task_success`，以及额外检查 trace 的 `complex_success`。后者可检查检查点顺序、测距时机与次数、动作数、累计移动距离和逐段速度。输出写在 `runs/complex-benchmark/`，按任务类别分别汇总。`reference` Provider 使用预先写好的参考策略，只用于验证任务可解和评分器正确；参考策略不会出现在真实模型 Prompt 中，**reference 成功率不是模型成绩**。真实模型评测须选择 `openai-compatible`，按原有环境变量配置。
+
 ## Metrics 与运行记录
 
 每次运行都写入 `runs/` 的 JSON，包括任务、Policy、初末状态、兼容旧调用的 Robot API 日志、异常、`RunMetrics` 和 `episode`。Episode 包含 `api_version="v1"`、本次暴露的完整 `api_surface_signature`、从 trace 提取的实际 `used_capabilities`、执行与任务结果及指标；默认 Benchmark 不读取 episode，也不进行 Policy reuse。Trace 记录 `started`、`completed`、`failed` 或 `cancelled`、观测及紧急停止事件，并附稳定的 `capability_id`、command ID、请求参数、结果或错误及可用的状态快照。
@@ -116,13 +128,14 @@ python benchmark.py --provider openai-compatible --model example-model --stream 
 
 V1 的 Worker 与 Backend 有进程边界，但 AST 白名单、受限 builtins 和 `spawn` 子进程仍不能替代操作系统级沙箱；不要将其视为可安全运行任意恶意 Python 的环境。Policy 计算超时累计 worker 执行 Python 的时间，在可信 Runtime 已接受的阻塞调用期间暂停；无限计算仍会被终止并紧急停止。通信超时只限制请求确认及结果传输，不限制已确认动作的正常执行时间。Action deadline 由 Runtime 独立控制；超时会设置 `cancel_event`，随后调用 Backend 的 `emergency_stop()` 并返回 `RobotActionTimeoutError`。这是协作式取消：Python 不能安全杀死运行中的线程。未来物理 handler 必须使用有界 I/O、检查取消信号和 deadline，且紧急停止必须独立于普通动作锁；不遵守契约的 handler 不能安全接入真机。
 
-世界使用点机器人和轴对齐矩形障碍物，不含动力学、机器人半径或物理引擎。普通文本任务若无结构化成功条件，无法客观证明任务完成。OpenAI Compatible Provider 的网络端点需自行配置；本项目的离线 Mock 测试不验证外部 API 可用性。
+世界使用轴对齐矩形障碍物；复杂任务的 `clearance` 仅是方形足迹的保守安全间隙，仍不含动力学、精确机器人形状或物理引擎。普通文本任务若无结构化成功条件，无法客观证明任务完成。OpenAI Compatible Provider 的网络端点需自行配置；本项目的离线 Mock 和 reference 测试不验证外部 API 可用性。
 
 ## 测试
 
 ```bash
 python -m pytest
 python benchmark.py --provider mock
+python complex_benchmark.py --provider reference
 ```
 
 测试覆盖世界、碰撞、测距、Robot API、任务判定、AST 拒绝、Worker/Backend 隔离、动态能力注册与注销、路径冲突、三种超时的交互、取消与紧急停止、速度限制、command ID 幂等、trace、episode、Mock 端到端链路、Metrics 和 JSON 落盘。
