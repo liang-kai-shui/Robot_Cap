@@ -10,6 +10,7 @@
 - **V1 Runtime Hardening**：能力成为运行时可注册的 `CapabilitySpec + handler`。Canonical ID 与公开调用路径分离；Prompt、Validator、Proxy 和 Runtime 使用同一 Registry。动作超时会请求协作式取消并触发紧急停止。
 - **Observed Navigation P1/P2**：新增应用层观测地图、A* 与边界探索，使用明确的公开目标，继续经过单动作 Worker 与可信 Runtime 执行。此阶段导航本身不调用 LLM。
 - **Mission Planning P3**：同一导航会话持续执行多个目标；模型低频选择公开目标顺序，局部导航持续生成受限 Python 动作。新增统一预算的任务对照评测。
+- **Static Robustness P4**：独立、可复现的观测和动作扰动实验；估计位姿用于导航，私有真值用于评分。加入测距误差余量、执行偏差界限和停稳后的有限重采样。
 
 V1 保存未来 Policy reuse 所需的 episode 数据，但不检索或复用历史 Policy；也不实现视觉、音频、机械臂或 ESP32 驱动。冻结版本的真实模型结果保留作对比。
 
@@ -190,7 +191,7 @@ python navigation_benchmark.py --random-worlds 20 --seed 20261006 --output runs/
 
 实测固定可达场景 **11/11**，不可达场景 **1/1 安全结束**；固定种子 20 个随机可达地图 **20/20**，均无碰撞或越界。这是零模型调用的确定性导航成绩，采用 80 动作预算，不能直接替代此前 8 次决策的 DeepSeek 成绩。完整结果见 [P1/P2 报告](reports/navigation_foundation_p1_p2.md)。
 
-`total_ms` 包含真实 Worker 启动和执行开销；`nominal_motion_seconds` 仅按配置的最高线速度与角速度估算运动时间，虚拟动作仍即时完成，不能作为实车耗时。当前没有噪声、定位漂移或动态障碍，也未实现原生视觉输入或 Policy Reuse；低频 LLM 任务规划见下一节 P3。
+`total_ms` 包含真实 Worker 启动和执行开销；`nominal_motion_seconds` 仅按配置的最高线速度与角速度估算运动时间，虚拟动作仍即时完成，不能作为实车耗时。本节默认模拟器使用理想观测和定位；可选噪声与漂移实验见 P4。动态障碍、原生视觉输入或 Policy Reuse 尚未实现；低频 LLM 任务规划见下一节 P3。
 
 ## 低频任务规划与持续导航：P3
 
@@ -217,6 +218,27 @@ python mission_benchmark.py --provider openai-compatible --model deepseek-flash 
 
 2026-10-06 正式 DeepSeek Flash `low` 对照（10 题 × 5 次）：低频规划＋导航 **50/50**，逐动作生成 **30/50**；总耗时中位数 **3.33 / 16.64 秒**，模型调用 **50 / 937 次**。oracle 导航基线 50/50；三组均零碰撞、最终停稳。逐动作方案在开放场地更省动作，但带障碍任务 H2–H4、M5 全部失败。本批结果采用静态世界、理想测距和公开目标坐标，不能推断真机或视觉目标定位的可靠性。另测 100 个新随机静态可达地图，确定性导航 100/100。详见 [P3 实现与完整对照报告](reports/p3_mission_planning.md) 及 [机器可读汇总](reports/p3_mission_planning_summary.json)。
 
+## 静态世界扰动与独立真值评分：P4
+
+```bash
+# 本地测试，无模型 API 调用；默认 11 种工况 × 10 个任务
+python robustness_benchmark.py --runs 3 --output runs/p4-static
+# 可选择工况；使用新种子生成独立随机地图
+python robustness_benchmark.py --random-worlds 30 --world-seed 161803 --seed 20261007 --profile ideal --profile range-3cm --profile move-8pct --profile odometry-3pct --profile combined --output runs/p4-unseen
+```
+
+安装后也可使用 `robot-cap-robustness-benchmark`。原 benchmark 任务、评分器和默认 Backend 保持兼容；本实验只使用 oracle 目标顺序＋确定性导航，不重新测量 DeepSeek 任务理解能力，也不实现 Policy reuse。
+
+`PerturbedVirtualBackend` 以独立随机流模拟有界测距误差、读数丢失、样本过期、移动偏差、转向偏差、里程计距离比例误差、初始定位偏移和可取消的动作等待。导航读取估计位姿；私有 `truth_snapshot` 和真实运动事件仅供评测器使用，不注册到 Capability Registry，不进入 Worker 或规划上下文。角度反馈仍能准确反映模拟转向，未模拟陀螺仪漂移。
+
+新的 `RangeObservation.uncertainty_m` 给出声明的绝对误差界限。规划和动作前 guard 使用距离下界，前进距离再除以声明的最大执行比例；guard 在动作前重新读传感器，拒绝无效或过期数据。P4 在停稳时最多重试 2 次，每次读取消耗累计观测预算，拒绝的读数保留在日志中且不更新地图。连续读数失败后紧急停止。默认 P1/P2/P3 仍使用零重试与原转向容差；P4 各组统一使用 0.25° 转向容差。
+
+评分分别记录 `reported_completion`（根据估计位姿完成）、`actual_mission_success`（私有真值按序停稳＋最终目标正确）、`false_completion`（误报到达）和 `safe_abort`（未完成但最终停稳且无碰撞尝试）。保存定位误差、传感器丢读、重采样、guard 拒绝、请求距离和真实距离。工况参数、种子、代码签名及预算写入实验清单；逐次落盘，允许配置与源码完全相同的 `--resume`。
+
+这些扰动是软件压力测试，数值尚未由你的 N20 电机、编码器或 ToF 实测校准。测距仍是考虑足迹的配置空间距离；数据过期通过回溯时间戳实现，动作等待是真实可取消等待。世界仍为静态几何，碰撞检测会拒绝整段移动，`collision_attempt` 表示碰撞尝试；没有惯性、刹车过程、打滑动力学或动态障碍。已知误差界限下的 guard 不能补偿未知定位误差，也不能替代真机的持续停止保护。
+
+2026-10-06 完成 **480 次零模型调用评测**：固定任务 330 次，新随机地图 150 次。理想、±3 cm 测距误差、±8% 移动偏差在固定和新地图各 30/30；固定丢读/转向噪声各 29/30，持续过期读数全部安全中止。3% 里程计组真实完成固定 **21/30**、新地图 **3/30**，分别有 9/24 次误报；20 cm 初始偏移组 27 次误报、3 次预算中止。两套均最终停稳且无碰撞尝试。位置估计偏差仍需定位与到达确认来处理。全套单元/集成测试 **196 passed**，旧 mock 能力 18/18、安全 2/2。详细设置与边界见 [P4 报告](reports/navigation_robustness_p4.md) 和 [逐次汇总](reports/navigation_robustness_p4_summary.json)。
+
 ## Metrics 与运行记录
 
 每次运行都写入 `runs/` 的 JSON，包括任务、Policy、初末状态、兼容旧调用的 Robot API 日志、异常、`RunMetrics` 和 `episode`。Episode 包含 `api_version="v1"`、本次暴露的完整 `api_surface_signature`、从 trace 提取的实际 `used_capabilities`、执行与任务结果及指标；默认 Benchmark 不读取 episode，也不进行 Policy reuse。Trace 记录 `started`、`completed`、`failed` 或 `cancelled`、观测及紧急停止事件，并附稳定的 `capability_id`、command ID、请求参数、结果或错误及可用的状态快照。
@@ -236,10 +258,11 @@ python -m pytest
 python benchmark.py --provider mock
 python complex_benchmark.py --provider reference
 python navigation_benchmark.py
+python robustness_benchmark.py --profile ideal --task-id H1
 ```
 
-测试覆盖世界、碰撞、测距、Robot API、任务判定、AST 拒绝、Worker/Backend 隔离、动态能力注册与注销、路径冲突、三种超时的交互、取消与紧急停止、速度限制、command ID 幂等、trace、episode、Mock 端到端链路、Metrics 和 JSON 落盘；P3 另覆盖持续多目标会话、任务计划白名单、重复访问、顺序停稳评分以及累计动作和模型请求预算。
+测试覆盖世界、碰撞、测距、Robot API、任务判定、AST 拒绝、Worker/Backend 隔离、动态能力注册与注销、路径冲突、三种超时的交互、取消与紧急停止、速度限制、command ID 幂等、trace、episode、Mock 端到端链路、Metrics 和 JSON 落盘；P3 另覆盖持续多目标会话、任务计划白名单、重复访问、顺序停稳评分以及累计动作和模型请求预算。P4 增加误差下界、读数重试预算、动作前异常、取消等待、真值隔离和误报到达评分。
 
 ## Roadmap
 
-P3 对照逐动作 LLM、确定性导航和 LLM 目标顺序＋导航三种方案，测量任务理解、成功率与调用成本。下一阶段 P4 逐项加入观测误差、动作延迟和动态障碍，使用独立真值评分与固定种子复测。原生视觉输入、真实 Backend、设备级停止和 Policy reuse 在后续独立阶段进行。
+P3 已对照逐动作 LLM、确定性导航和 LLM 目标顺序＋导航；P4 已加入静态观测/执行扰动与独立真值评分。下一步根据扰动结果处理定位不确定性、地图时效和动态障碍，再考虑原生视觉输入与真实 Backend。设备级停止需要实车验证；Policy reuse 继续推迟。

@@ -8,12 +8,14 @@ DIRECTIONS = ((1, 0), (0, 1), (-1, 0), (0, -1))
 
 
 class ObservedGrid:
-    def __init__(self, resolution=.25, margin=.15, origin=(0.0, 0.0)):
+    def __init__(self, resolution=.25, margin=.15, origin=(0.0, 0.0), heading_tolerance_deg=1e-6):
         if (not math.isfinite(resolution) or resolution <= 0 or
                 not math.isfinite(margin) or margin < 0 or
-                not all(math.isfinite(value) for value in origin)):
+                not all(math.isfinite(value) for value in origin) or
+                not math.isfinite(heading_tolerance_deg) or not 0 <= heading_tolerance_deg < 45):
             raise ValueError("Invalid grid settings")
         self.resolution, self.margin, self.origin = resolution, margin, origin
+        self.heading_tolerance_deg = heading_tolerance_deg
         self.free: set[Cell] = set()
         self.occupied: set[Cell] = set()
         self.scanned: set[tuple[Cell, int]] = set()
@@ -44,7 +46,7 @@ class ObservedGrid:
         angle = math.radians(pose.heading)
         dx, dy = math.cos(angle), math.sin(angle)
         # Range already includes VirtualWorld.clearance. Do not inflate it again.
-        safe_length = max(0.0, observation.distance_m - self.margin)
+        safe_length = max(0.0, observation.conservative_distance_m - self.margin)
         samples = max(1, math.ceil(safe_length / (self.resolution / 4)))
         for index in range(samples + 1):
             distance = safe_length * index / samples
@@ -55,13 +57,13 @@ class ObservedGrid:
             if -1e-8 <= along <= safe_length + 1e-8 and cell not in self.occupied:
                 self.free.add(cell)
         if observation.hit:
-            endpoint = self.cell(pose.x + observation.distance_m * dx,
-                                 pose.y + observation.distance_m * dy)
+            endpoint = self.cell(pose.x + observation.conservative_distance_m * dx,
+                                 pose.y + observation.conservative_distance_m * dy)
             if endpoint != start:
                 self.occupied.add(endpoint)
                 self.free.discard(endpoint)
         direction = round(pose.heading / 90) % 4
-        if abs((pose.heading - direction * 90 + 180) % 360 - 180) < 1e-6:
+        if abs((pose.heading - direction * 90 + 180) % 360 - 180) <= self.heading_tolerance_deg:
             self.scanned.add((start, direction))
         if before != (self.free, self.occupied, self.scanned):
             self.revision += 1

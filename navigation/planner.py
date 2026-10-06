@@ -61,11 +61,14 @@ def astar(grid: ObservedGrid, start, goal):
 class LocalNavigator:
     """Persistent episode map and exploration state; consumes observations only."""
     def __init__(self, goal: NavigationGoal, origin, resolution=.25, margin=.15, max_step=1.5,
-                 max_observation_age=2.0):
+                 max_observation_age=2.0, heading_tolerance_deg=1e-6, distance_scale_bound=1.0):
         if not math.isfinite(max_step) or max_step <= 0:
             raise ValueError("Navigation step must be positive and finite")
         self.goal = goal
-        self.grid = ObservedGrid(resolution, margin, origin)
+        if not math.isfinite(distance_scale_bound) or distance_scale_bound < 1:
+            raise ValueError("Distance scale bound must be at least one")
+        self.heading_tolerance_deg, self.distance_scale_bound = heading_tolerance_deg, distance_scale_bound
+        self.grid = ObservedGrid(resolution, margin, origin, heading_tolerance_deg)
         self.max_step = max_step
         self.max_observation_age = max_observation_age
         self.replans = 0
@@ -126,7 +129,7 @@ class LocalNavigator:
         self.last_frontier = target_cell, direction
         if target_cell == start:
             angle = (direction * 90 - pose.heading + 180) % 360 - 180
-            if abs(angle) < 1e-6:
+            if abs(angle) <= self.heading_tolerance_deg:
                 return None
             return NavigationAction("turn", round(angle, 9), "scan", self.grid.point(target_cell))
         route = astar(self.grid, start, target_cell)
@@ -147,9 +150,9 @@ class LocalNavigator:
         dx, dy = target[0] - pose.x, target[1] - pose.y
         bearing = math.degrees(math.atan2(dy, dx)) % 360
         angle = (bearing - pose.heading + 180) % 360 - 180
-        if abs(angle) > 1e-6:
+        if abs(angle) > self.heading_tolerance_deg:
             return NavigationAction("turn", round(angle, 9), purpose, target)
-        allowed = max(0.0, observation.distance_m - self.grid.margin)
+        allowed = max(0.0, observation.conservative_distance_m - self.grid.margin) / self.distance_scale_bound
         distance = min(math.hypot(dx, dy), self.max_step, allowed)
         if distance < 1e-6:
             return None

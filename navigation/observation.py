@@ -15,15 +15,18 @@ class RangeObservation:
     timestamp: float
     capability_id: str
     space: str = "configuration"
+    uncertainty_m: float = 0.0
 
     def __post_init__(self):
         values = (self.pose.x, self.pose.y, self.pose.heading, self.distance_m,
-                  self.max_range_m, self.timestamp)
+                  self.max_range_m, self.timestamp, self.uncertainty_m)
         if not all(isinstance(value, (int, float)) and not isinstance(value, bool)
                    and math.isfinite(value) for value in values):
             raise ValueError("Range observation numbers must be finite")
         if self.max_range_m <= 0 or not 0 <= self.distance_m <= self.max_range_m:
             raise ValueError("Invalid range interval")
+        if self.uncertainty_m < 0:
+            raise ValueError("Range uncertainty must be nonnegative")
         if not isinstance(self.hit, bool) or not isinstance(self.valid, bool):
             raise ValueError("Range flags must be booleans")
         if self.space != "configuration":
@@ -42,6 +45,11 @@ class RangeObservation:
 
     def to_dict(self):
         return asdict(self)
+
+    @property
+    def conservative_distance_m(self):
+        """Lower bound for a sensor whose declared absolute error is bounded."""
+        return max(0.0, self.distance_m - self.uncertainty_m)
 
     def require_fresh(self, max_age_seconds=2.0):
         if not math.isfinite(max_age_seconds) or max_age_seconds <= 0:

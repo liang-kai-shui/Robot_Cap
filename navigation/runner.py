@@ -76,18 +76,24 @@ class NavigationSession:
     """One runtime, one observed map and cumulative budgets across all subgoals."""
     def __init__(self, task, goal, limits, max_observations, resolution, margin,
                  max_step, max_observation_age, *, backend=None, registry=None,
-                 observe=sample_local_observation, executor=None):
+                 observe=sample_local_observation, executor=None, observation_adapter=None,
+                 heading_tolerance_deg=1e-6, distance_scale_bound=1.0, max_sensor_retries=0):
+        if isinstance(max_sensor_retries, bool) or not isinstance(max_sensor_retries, int) or max_sensor_retries < 0:
+            raise ValueError("Sensor retries must be a nonnegative integer")
         self.started = time.perf_counter()
         self.task = task
         self.runtime = RobotRuntime(backend or VirtualBackend(task.world, task.initial, limits), limits, registry)
         self.initial = self.runtime.snapshot()
         self.planner = LocalNavigator(goal, (self.initial.pose.x, self.initial.pose.y),
-                                      resolution, margin, max_step, max_observation_age)
+                                      resolution, margin, max_step, max_observation_age,
+                                      heading_tolerance_deg, distance_scale_bound)
         self.executor = executor or PolicyExecutor(limits)
         self.observe_fn = observe
         self.max_observations = max_observations
         self.max_observation_age = max_observation_age
         self.margin, self.max_step = margin, max_step
+        self.observation_adapter, self.distance_scale_bound = observation_adapter, distance_scale_bound
+        self.max_sensor_retries, self.sensor_retries = max_sensor_retries, 0
         self.observed = self.stagnant = 0
         self.steps, self.safety_checks = [], []
         self.planning_ms = self.execution_ms = 0.0
@@ -95,7 +101,9 @@ class NavigationSession:
 
     def initialize(self):
         self.runtime.registry, self.guard = guard_navigation_registry(
-            self.runtime.registry, margin=self.margin, max_step=self.max_step)
+            self.runtime.registry, margin=self.margin, max_step=self.max_step,
+            observation_adapter=self.observation_adapter, max_observation_age=self.max_observation_age,
+            distance_scale_bound=self.distance_scale_bound)
         self.adapter = NavigationAdapter(self.runtime.registry)
 
     def reached(self, goal):
@@ -129,10 +137,29 @@ class NavigationSession:
                 raise NavigationSessionError("NavigationActionBudgetExceeded", "Navigation action budget exhausted")
             if self.observed >= self.max_observations:
                 raise NavigationSessionError("NavigationObservationBudgetExceeded", "Navigation observation budget exhausted")
-            observation = self.observe_fn(self.runtime)
-            self.observed += 1
-            measurement = RangeObservation.from_dict(observation["range_observation"])
-            measurement.require_fresh(self.max_observation_age)
+            attempts = []
+            for attempt in range(self.max_sensor_retries + 1):
+                if self.observed >= self.max_observations:
+                    raise NavigationSessionError("NavigationObservationBudgetExceeded", "Navigation observation budget exhausted")
+                observation = self.observe_fn(self.runtime)
+                self.observed += 1
+                if self.observation_adapter is not None:
+                    reading = observation["range_observation"]["distance_m"]
+                    measurement = self.observation_adapter(reading)
+                    observation["range_observation"] = measurement.to_dict()
+                    observation["front_distance_m"] = measurement.distance_m
+                measurement = RangeObservation.from_dict(observation["range_observation"])
+                observation["rejected_samples"] = attempts
+                try:
+                    measurement.require_fresh(self.max_observation_age)
+                    break
+                except ValueError as exc:
+                    # Retry only while stopped, without invoking a policy or
+                    # using invalid data to modify the map. Every read is budgeted.
+                    attempts.append({"range_observation": measurement.to_dict(), "reason": str(exc)})
+                    if attempt == self.max_sensor_retries or not self.runtime.snapshot().stopped:
+                        raise
+                    self.sensor_retries += 1
             current = self.runtime.snapshot().pose
             if (math.hypot(current.x - measurement.pose.x, current.y - measurement.pose.y) > 1e-6
                     or abs((current.heading - measurement.pose.heading + 180) % 360 - 180) > 1e-6):
@@ -142,7 +169,8 @@ class NavigationSession:
             observation["navigation_limits"] = {
                 "max_actions_per_decision": 1, "max_forward_step_m": self.max_step,
                 "range_margin_m": self.margin,
-                "safe_forward_distance_m": round(max(0, min(self.max_step, measurement.distance_m - self.margin)), 9)}
+                "safe_forward_distance_m": round(max(0, min(self.max_step,
+                    (measurement.conservative_distance_m - self.margin) / self.distance_scale_bound)), 9)}
             observation.update(self.public_context())
             observation["recent_steps"] = [
                 {"policy": step["policy"], "success": step["success"],
@@ -209,6 +237,7 @@ class NavigationSession:
             "planning_ms": self.planning_ms, "execution_ms": self.execution_ms, "llm_calls": 0,
             "actions": final.action_count - self.initial.action_count, "action_budget": self.runtime.limits.max_actions,
             "observations": self.observed, "observation_budget": self.max_observations,
+            "sensor_retries": self.sensor_retries,
             "scan_turns": sum(step["purpose"] == "scan" for step in self.steps),
             "distance_m": distance, "rotation_degrees": rotation,
             "nominal_motion_seconds": distance / self.runtime.limits.max_linear_speed + rotation / self.runtime.limits.max_angular_speed,

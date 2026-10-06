@@ -17,9 +17,10 @@ robot-cap = "main:main"
 robot-cap-benchmark = "benchmark:main"
 robot-cap-navigation-benchmark = "navigation_benchmark:main"
 robot-cap-mission-benchmark = "mission_benchmark:main"
+robot-cap-robustness-benchmark = "robustness_benchmark:main"
 
 [tool.setuptools]
-py-modules = ["main", "benchmark", "navigation_benchmark", "mission_benchmark"]
+py-modules = ["main", "benchmark", "navigation_benchmark", "mission_benchmark", "robustness_benchmark"]
 packages = ["agent", "robot", "robot.backends", "runtime", "world", "task", "providers", "metrics", "config", "policy", "navigation"]
 
 [tool.setuptools.package-data]
