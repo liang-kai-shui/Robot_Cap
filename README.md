@@ -167,6 +167,8 @@ python interactive_benchmark.py --provider openai-compatible --model deepseek-fl
 
 2026-10-05 实测：最终交互版本 DeepSeek Flash 无思考 **2/12**、低思考 **5/12**，总耗时中位数分别 8.04/24.70 秒；隐藏地图导航仍不可靠。动作约束通过不等于任务成功。详见 [交互优化实测报告](reports/interactive_optimization_2026-10-05.md) 与 [此前各方案对照](reports/deepseek_flash_2026-10-05.md)。
 
+2026-10-06 在导航 P1/P2 提交上重跑 DeepSeek Flash 全量测试：基础能力 **54/54**、固定安全测试 **6/6**、复杂已知地图最终目标 **33/36**（严格 trace **23/36**）、低思考隐藏地图交互 **7/12**。另外复测确定性导航固定可达 **11/11**、随机可达 **20/20**；后两组不调用模型，与 8 次决策的交互组不能直接比较。详见 [DeepSeek 全量复测报告](reports/deepseek_full_rerun_2026-10-06.md)。
+
 ## 观测地图与确定性导航：P1/P2
 
 ```bash
