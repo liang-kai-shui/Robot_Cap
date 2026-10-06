@@ -36,6 +36,11 @@ class AgentCoder:
 
     def generate_from_observation(self, instruction: str, observation: dict,
                                   registry: CapabilityRegistry | None = None) -> tuple[str, LLMResponse]:
+        response = self.request_from_observation(instruction, observation, registry)
+        return extract_policy(response.text), response
+
+    def request_from_observation(self, instruction: str, observation: dict,
+                                 registry: CapabilityRegistry | None = None) -> LLMResponse:
         """Generate one short policy from local observations, without a map dump."""
         registry = registry if registry is not None else DEFAULT_REGISTRY
         context = json.dumps({"observation_only": True, "current": observation}, ensure_ascii=False)
@@ -54,4 +59,4 @@ class AgentCoder:
                   "Coordinates: heading 0 points +x, 90 points +y; positive turns are counterclockwise.")
         response = self.provider.generate_policy(
             instruction, generate_robot_api_prompt(registry), context, system)
-        return extract_policy(response.text), response
+        return response

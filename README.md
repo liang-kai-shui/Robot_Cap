@@ -9,6 +9,7 @@
 - **V1 Runtime Foundation**：Policy Worker 只持有 `RobotProxy`；可信主进程持有 `RobotRuntime` 和 `VirtualBackend`，负责能力注册、参数与速度限制、动作分发、状态、trace 和紧急停止。保留旧 Robot API 及原有 20 个 Benchmark 任务。
 - **V1 Runtime Hardening**：能力成为运行时可注册的 `CapabilitySpec + handler`。Canonical ID 与公开调用路径分离；Prompt、Validator、Proxy 和 Runtime 使用同一 Registry。动作超时会请求协作式取消并触发紧急停止。
 - **Observed Navigation P1/P2**：新增应用层观测地图、A* 与边界探索，使用明确的公开目标，继续经过单动作 Worker 与可信 Runtime 执行。此阶段导航本身不调用 LLM。
+- **Mission Planning P3**：同一导航会话持续执行多个目标；模型低频选择公开目标顺序，局部导航持续生成受限 Python 动作。新增统一预算的任务对照评测。
 
 V1 保存未来 Policy reuse 所需的 episode 数据，但不检索或复用历史 Policy；也不实现视觉、音频、机械臂或 ESP32 驱动。冻结版本的真实模型结果保留作对比。
 
@@ -189,7 +190,32 @@ python navigation_benchmark.py --random-worlds 20 --seed 20261006 --output runs/
 
 实测固定可达场景 **11/11**，不可达场景 **1/1 安全结束**；固定种子 20 个随机可达地图 **20/20**，均无碰撞或越界。这是零模型调用的确定性导航成绩，采用 80 动作预算，不能直接替代此前 8 次决策的 DeepSeek 成绩。完整结果见 [P1/P2 报告](reports/navigation_foundation_p1_p2.md)。
 
-`total_ms` 包含真实 Worker 启动和执行开销；`nominal_motion_seconds` 仅按配置的最高线速度与角速度估算运动时间，虚拟动作仍即时完成，不能作为实车耗时。当前没有噪声、定位漂移或动态障碍，也未实现原生视觉输入、低频 LLM 子目标规划或 Policy Reuse。
+`total_ms` 包含真实 Worker 启动和执行开销；`nominal_motion_seconds` 仅按配置的最高线速度与角速度估算运动时间，虚拟动作仍即时完成，不能作为实车耗时。当前没有噪声、定位漂移或动态障碍，也未实现原生视觉输入或 Policy Reuse；低频 LLM 任务规划见下一节 P3。
+
+## 低频任务规划与持续导航：P3
+
+```bash
+# 离线检查任务和评测器（全部使用参考实现，不是模型成绩）
+python mission_benchmark.py --provider reference
+# DeepSeek 配置沿用 LLM_BASE_URL / LLM_API_KEY
+python mission_benchmark.py --provider openai-compatible --model deepseek-flash --runs 5 --output runs/p3-deepseek
+# 只测低频规划；任务可用 --task-id 筛选
+python mission_benchmark.py --provider openai-compatible --model deepseek-flash --strategy hybrid
+```
+
+默认三组：`reference` 直接提供评测器的正确目标顺序，作为导航基线；`hybrid` 由模型理解任务、选择目标顺序，再由 P2 导航；`direct` 使用同样的模型任务拆解入口，随后每个动作都由模型生成。这是新的 P3 对照协议，原有 8 决策交互测试保留。
+
+三个方案共用 80 动作、160 观测和现有速度、安全限额。模型任务规划最多 4 次；`direct` 另有最多 80 次动作请求。默认 DeepSeek 使用 `low` 思考、30 秒 API 读超时、非流式输出。模型仅接收公开目标目录、实际观测和执行反馈；私有地图与评测目标顺序不进入模型输入。参考模式的正确顺序属于 oracle 信息，不能作为模型成绩。
+
+目标计划是应用层任务数据 `{"targets":["A","B","start"]}`，只能引用已提供的目标 ID；最多 8 次访问，允许重复访问。模型也可返回 `{"stop_reason":"原因"}` 请求安全中止，这不会被判为任务完成。计划数据不在 Worker 中执行。实际 Policy 继续是现有注册路径的单次 Python 调用，没有新增机器人 API。
+
+每个 episode 共享一个 Runtime、地图、command ID 序列和累计预算。普通转向、移动和绕障由局部导航完成；任务开始以及持续停滞或观测信息不足时才重新请求目标计划。换目标保留地图，预算不重置。模型请求期间保持停稳，异常和预算耗尽紧急停止；完成状态由可信位置和执行结果确认。
+
+新任务包括 H1–H4，以及顺序访问、逆序、返回起点、重复访问、忽略未要求目标等 6 个语言任务。`waypoints-v2` 分别记录实际路径经过和动作结束处停稳，任务成绩要求按序停稳及最终目标正确；原复杂任务的旧评分器不变。模型给错顺序即使到达最终目标，也会被判为任务失败。
+
+逐次记录包含目标计划、每次模型请求的触发原因/usage/耗时、实际 Python、观测、地图、trace、API surface 和 used capabilities。`raw_results.jsonl` 与汇总每次运行后更新；中断后可用相同参数加 `--resume` 继续，配置或源代码签名变化会拒绝混合结果。
+
+2026-10-06 正式 DeepSeek Flash `low` 对照（10 题 × 5 次）：低频规划＋导航 **50/50**，逐动作生成 **30/50**；总耗时中位数 **3.33 / 16.64 秒**，模型调用 **50 / 937 次**。oracle 导航基线 50/50；三组均零碰撞、最终停稳。逐动作方案在开放场地更省动作，但带障碍任务 H2–H4、M5 全部失败。本批结果采用静态世界、理想测距和公开目标坐标，不能推断真机或视觉目标定位的可靠性。另测 100 个新随机静态可达地图，确定性导航 100/100。详见 [P3 实现与完整对照报告](reports/p3_mission_planning.md) 及 [机器可读汇总](reports/p3_mission_planning_summary.json)。
 
 ## Metrics 与运行记录
 
@@ -212,8 +238,8 @@ python complex_benchmark.py --provider reference
 python navigation_benchmark.py
 ```
 
-测试覆盖世界、碰撞、测距、Robot API、任务判定、AST 拒绝、Worker/Backend 隔离、动态能力注册与注销、路径冲突、三种超时的交互、取消与紧急停止、速度限制、command ID 幂等、trace、episode、Mock 端到端链路、Metrics 和 JSON 落盘。
+测试覆盖世界、碰撞、测距、Robot API、任务判定、AST 拒绝、Worker/Backend 隔离、动态能力注册与注销、路径冲突、三种超时的交互、取消与紧急停止、速度限制、command ID 幂等、trace、episode、Mock 端到端链路、Metrics 和 JSON 落盘；P3 另覆盖持续多目标会话、任务计划白名单、重复访问、顺序停稳评分以及累计动作和模型请求预算。
 
 ## Roadmap
 
-下一阶段先对照逐动作 LLM、确定性导航和 LLM 子目标＋导航三种方案，测量任务理解、成功率与调用成本；再逐项加入观测误差、动作延迟和动态障碍。原生视觉输入、真实 Backend、设备级停止和 Policy reuse 在后续独立阶段进行。
+P3 对照逐动作 LLM、确定性导航和 LLM 目标顺序＋导航三种方案，测量任务理解、成功率与调用成本。下一阶段 P4 逐项加入观测误差、动作延迟和动态障碍，使用独立真值评分与固定种子复测。原生视觉输入、真实 Backend、设备级停止和 Policy reuse 在后续独立阶段进行。

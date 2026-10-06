@@ -72,6 +72,12 @@ class LocalNavigator:
         self.last_frontier = None
         self._last_cell = None
 
+    def set_goal(self, goal: NavigationGoal):
+        """Change the objective while retaining this episode's observations."""
+        if goal != self.goal:
+            self.goal = goal
+            self.last_frontier = None
+
     def decide(self, observation: RangeObservation):
         self.grid.update(observation, self.max_observation_age)
         pose = observation.pose
