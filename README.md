@@ -71,13 +71,13 @@ LLM_BASE_URL=https://provider.example/v1
 LLM_API_KEY=your-key
 LLM_MODEL=your-model
 LLM_REQUEST_TIMEOUT_SECONDS=30
-# 可选，仅在服务支持时设置；none 为关闭思考
+# 可选，仅在服务支持时设置；值的含义由服务决定
 LLM_REASONING_EFFORT=none
 ```
 
 参考 `.env.example`。环境变量需由 shell 或部署环境设置；项目不自动读取 `.env`。该 Provider 默认使用非流式 `/chat/completions`，此时 `llm_ttft_ms` 为 `null`。使用 `--stream` 会按首个非空 Policy 文本片段记录 TTFT，并请求末尾 usage 块；兼容服务若不支持 `stream_options`，可加 `--no-stream-usage`。未返回的 token usage 保持 `null`，V0 不估算缺失指标。
 
-`LLM_REQUEST_TIMEOUT_SECONDS` 是 API socket/read 超时，并非整次请求的硬性总期限，也不是 Policy 或机器人动作超时。读取超时记录为 `PolicyGenerationTimeoutError`；HTTP 错误保留服务端原因并过滤当前密钥。默认不发送 `reasoning_effort`，保持服务原有行为；DeepSeek Flash 支持 `none/low/high/max`，其他服务的支持值需按其文档配置。
+`LLM_REQUEST_TIMEOUT_SECONDS` 是 API socket/read 超时，并非整次请求的硬性总期限，也不是 Policy 或机器人动作超时。读取超时记录为 `PolicyGenerationTimeoutError`；HTTP 错误保留服务端原因并过滤当前密钥。默认不发送 `reasoning_effort`，保持服务原有行为。不能把兼容接口的 `reasoning_effort=none` 当作所有服务通用的关闭思考参数：当前 Qwen 使用 `enable_thinking=false`，DeepSeek Chat Completions 使用 `thinking={"type":"disabled"}`。本轮跨服务评测由专用适配脚本发送这些参数，普通 Provider 尚未增加对应的服务配置。
 
 ## CLI
 
@@ -238,6 +238,22 @@ python robustness_benchmark.py --random-worlds 30 --world-seed 161803 --seed 202
 这些扰动是软件压力测试，数值尚未由你的 N20 电机、编码器或 ToF 实测校准。测距仍是考虑足迹的配置空间距离；数据过期通过回溯时间戳实现，动作等待是真实可取消等待。世界仍为静态几何，碰撞检测会拒绝整段移动，`collision_attempt` 表示碰撞尝试；没有惯性、刹车过程、打滑动力学或动态障碍。已知误差界限下的 guard 不能补偿未知定位误差，也不能替代真机的持续停止保护。
 
 2026-10-06 完成 **480 次零模型调用评测**：固定任务 330 次，新随机地图 150 次。理想、±3 cm 测距误差、±8% 移动偏差在固定和新地图各 30/30；固定丢读/转向噪声各 29/30，持续过期读数全部安全中止。3% 里程计组真实完成固定 **21/30**、新地图 **3/30**，分别有 9/24 次误报；20 cm 初始偏移组 27 次误报、3 次预算中止。两套均最终停稳且无碰撞尝试。位置估计偏差仍需定位与到达确认来处理。全套单元/集成测试 **196 passed**，旧 mock 能力 18/18、安全 2/2。详细设置与边界见 [P4 报告](reports/navigation_robustness_p4.md) 和 [逐次汇总](reports/navigation_robustness_p4_summary.json)。
+
+## Qwen3.7-Flash 与 DeepSeek-Flash 全量对照
+
+2026-10-07 在当前 `c3cfb6b` 基础上按相同任务、Prompt 和预算实测，每题 3 次，统一非思考、temperature=0、8192 输出 token 上限与流式响应。分别通过服务专用参数关闭思考；原始任务和评分器未修改。
+
+| 测试 | Qwen3.7-Flash | DeepSeek-Flash |
+|---|---:|---:|
+| 基础能力 | 54/54 | 54/54 |
+| 复杂地图完整约束 | 9/36 | 3/36 |
+| 隐藏地图交互 | 3/12 | 3/12 |
+| 目标规划＋可信导航 hybrid | 17/30 | 30/30 |
+| 逐步动作 direct | 4/30 | 14/30 |
+
+Qwen 的 hybrid 失败包括 12 次公开目标 ID/结构错误和 1 次超长停止原因；两家共同成功的 17 个 hybrid 样本，软件总时间中位数为 3.09/3.02 秒。继续使用 DeepSeek hybrid 作为文本规划基线，后续先加强 Qwen 的目标输出契约再复测。原始固定安全检查两家各 6/6，不计作模型成绩。软件回归 **196 passed**；另完成 578 次离线控制评测，包括 480 次 P4 扰动，定位误报完成问题仍存在。
+
+两家共 2413 次正式 API 调用；本轮未输入图片，软件执行时间也不代表实车行驶时间。完整设置、逐题成绩、延迟、token、费用估算和失败分析见 [评测报告](reports/qwen37_deepseek_full_2026-10-07.md)、[汇总 JSON](reports/qwen37_deepseek_full_2026-10-07_summary.json) 和 [逐条台账](reports/qwen37_deepseek_full_2026-10-07_episodes.csv)。复测入口为 `scripts/compare_flash_benchmarks.py`，凭证仅从 `BENCH_API_KEY` 环境变量读取；原始 episode 和 API 审计保存在本机 `runs/flash-comparison-2026-10-07/`。
 
 ## Metrics 与运行记录
 
