@@ -1,0 +1,1750 @@
+{
+  "manifest_sha256": "5382ec42cdd820709573bab7c30f75d119a800003609e996199976fefa120a61",
+  "formal_calls": 460,
+  "transport_failures": 0,
+  "reasoning_responses": 0,
+  "unique_replay_episodes": 38,
+  "results": {
+    "qwen": {
+      "baseline": {
+        "existing": {
+          "runs": 30,
+          "contract_accepted": 16,
+          "plan_correct": 16,
+          "median_response_ms": 839.5887500000754,
+          "median_ttft_ms": 422.4264000004041,
+          "input_tokens": 14346,
+          "output_tokens": 1196,
+          "by_case": {
+            "H1": {
+              "runs": 3,
+              "accepted": 0,
+              "correct": 0
+            },
+            "H2": {
+              "runs": 3,
+              "accepted": 0,
+              "correct": 0
+            },
+            "H3": {
+              "runs": 3,
+              "accepted": 0,
+              "correct": 0
+            },
+            "H4": {
+              "runs": 3,
+              "accepted": 0,
+              "correct": 0
+            },
+            "M1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M3": {
+              "runs": 3,
+              "accepted": 1,
+              "correct": 1
+            },
+            "M4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M5": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M6": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            }
+          },
+          "simulated_success": 16,
+          "simulation_failures": {
+            "PolicyGenerationError": 14
+          }
+        },
+        "unseen": {
+          "runs": 16,
+          "contract_accepted": 16,
+          "plan_correct": 16,
+          "median_response_ms": 677.0495000000665,
+          "median_ttft_ms": 406.650200000513,
+          "input_tokens": 7538,
+          "output_tokens": 330,
+          "by_case": {
+            "U1": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U2": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U3": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U4": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U5": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U6": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U7": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U8": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            }
+          }
+        }
+      },
+      "shared": {
+        "existing": {
+          "runs": 30,
+          "contract_accepted": 30,
+          "plan_correct": 30,
+          "median_response_ms": 524.477549999574,
+          "median_ttft_ms": 431.3152499998978,
+          "input_tokens": 18396,
+          "output_tokens": 243,
+          "by_case": {
+            "H1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M5": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M6": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            }
+          },
+          "simulated_success": 30,
+          "simulation_failures": {}
+        },
+        "unseen": {
+          "runs": 16,
+          "contract_accepted": 16,
+          "plan_correct": 16,
+          "median_response_ms": 644.5970499999021,
+          "median_ttft_ms": 466.52855000047566,
+          "input_tokens": 9718,
+          "output_tokens": 229,
+          "by_case": {
+            "U1": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U2": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U3": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U4": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U5": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U6": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U7": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U8": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            }
+          }
+        }
+      },
+      "native_profile": {
+        "existing": {
+          "runs": 30,
+          "contract_accepted": 30,
+          "plan_correct": 30,
+          "median_response_ms": 568.4609999998429,
+          "median_ttft_ms": 460.07279999957973,
+          "input_tokens": 20316,
+          "output_tokens": 243,
+          "by_case": {
+            "H1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M5": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M6": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            }
+          },
+          "simulated_success": 30,
+          "simulation_failures": {}
+        },
+        "unseen": {
+          "runs": 16,
+          "contract_accepted": 16,
+          "plan_correct": 16,
+          "median_response_ms": 608.6634999992384,
+          "median_ttft_ms": 436.5765000002284,
+          "input_tokens": 10742,
+          "output_tokens": 226,
+          "by_case": {
+            "U1": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U2": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U3": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U4": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U5": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U6": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U7": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U8": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            }
+          }
+        }
+      },
+      "cross_profile": {
+        "existing": {
+          "runs": 30,
+          "contract_accepted": 30,
+          "plan_correct": 30,
+          "median_response_ms": 569.9455499998294,
+          "median_ttft_ms": 443.04509999892616,
+          "input_tokens": 19506,
+          "output_tokens": 251,
+          "by_case": {
+            "H1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M5": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M6": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            }
+          },
+          "simulated_success": 30,
+          "simulation_failures": {}
+        },
+        "unseen": {
+          "runs": 16,
+          "contract_accepted": 16,
+          "plan_correct": 16,
+          "median_response_ms": 626.9539499999155,
+          "median_ttft_ms": 449.868300000162,
+          "input_tokens": 10310,
+          "output_tokens": 232,
+          "by_case": {
+            "U1": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U2": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U3": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U4": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U5": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U6": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U7": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U8": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            }
+          }
+        }
+      },
+      "shared_json": {
+        "existing": {
+          "runs": 30,
+          "contract_accepted": 30,
+          "plan_correct": 30,
+          "median_response_ms": 519.6336500002872,
+          "median_ttft_ms": 391.21424999939336,
+          "input_tokens": 18456,
+          "output_tokens": 243,
+          "by_case": {
+            "H1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M5": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M6": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            }
+          },
+          "simulated_success": 30,
+          "simulation_failures": {}
+        },
+        "unseen": {
+          "runs": 16,
+          "contract_accepted": 16,
+          "plan_correct": 16,
+          "median_response_ms": 580.7426999999734,
+          "median_ttft_ms": 411.31399999994755,
+          "input_tokens": 9750,
+          "output_tokens": 228,
+          "by_case": {
+            "U1": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U2": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U3": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U4": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U5": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U6": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U7": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U8": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            }
+          }
+        }
+      }
+    },
+    "deepseek": {
+      "baseline": {
+        "existing": {
+          "runs": 30,
+          "contract_accepted": 30,
+          "plan_correct": 30,
+          "median_response_ms": 789.4546500001525,
+          "median_ttft_ms": 684.0195499999027,
+          "input_tokens": 14070,
+          "output_tokens": 282,
+          "by_case": {
+            "H1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M5": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M6": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            }
+          },
+          "simulated_success": 30,
+          "simulation_failures": {}
+        },
+        "unseen": {
+          "runs": 16,
+          "contract_accepted": 16,
+          "plan_correct": 16,
+          "median_response_ms": 785.2400499996293,
+          "median_ttft_ms": 653.5338499998034,
+          "input_tokens": 7412,
+          "output_tokens": 224,
+          "by_case": {
+            "U1": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U2": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U3": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U4": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U5": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U6": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U7": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U8": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            }
+          }
+        }
+      },
+      "shared": {
+        "existing": {
+          "runs": 30,
+          "contract_accepted": 30,
+          "plan_correct": 30,
+          "median_response_ms": 745.2432999998564,
+          "median_ttft_ms": 634.365699999762,
+          "input_tokens": 18390,
+          "output_tokens": 282,
+          "by_case": {
+            "H1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M5": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M6": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            }
+          },
+          "simulated_success": 30,
+          "simulation_failures": {}
+        },
+        "unseen": {
+          "runs": 16,
+          "contract_accepted": 16,
+          "plan_correct": 16,
+          "median_response_ms": 874.4674500003384,
+          "median_ttft_ms": 735.4174499996589,
+          "input_tokens": 9740,
+          "output_tokens": 247,
+          "by_case": {
+            "U1": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U2": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U3": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U4": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U5": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U6": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U7": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U8": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            }
+          }
+        }
+      },
+      "native_profile": {
+        "existing": {
+          "runs": 30,
+          "contract_accepted": 30,
+          "plan_correct": 30,
+          "median_response_ms": 793.570599999839,
+          "median_ttft_ms": 686.1747500006459,
+          "input_tokens": 19470,
+          "output_tokens": 282,
+          "by_case": {
+            "H1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M5": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M6": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            }
+          },
+          "simulated_success": 30,
+          "simulation_failures": {}
+        },
+        "unseen": {
+          "runs": 16,
+          "contract_accepted": 16,
+          "plan_correct": 16,
+          "median_response_ms": 749.6443999998519,
+          "median_ttft_ms": 648.4818999997515,
+          "input_tokens": 10316,
+          "output_tokens": 224,
+          "by_case": {
+            "U1": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U2": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U3": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U4": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U5": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U6": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U7": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U8": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            }
+          }
+        }
+      },
+      "cross_profile": {
+        "existing": {
+          "runs": 30,
+          "contract_accepted": 30,
+          "plan_correct": 30,
+          "median_response_ms": 711.9763999999122,
+          "median_ttft_ms": 638.0981000002066,
+          "input_tokens": 20340,
+          "output_tokens": 282,
+          "by_case": {
+            "H1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M5": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M6": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            }
+          },
+          "simulated_success": 30,
+          "simulation_failures": {}
+        },
+        "unseen": {
+          "runs": 16,
+          "contract_accepted": 16,
+          "plan_correct": 16,
+          "median_response_ms": 822.0495499999743,
+          "median_ttft_ms": 661.5819999988162,
+          "input_tokens": 10780,
+          "output_tokens": 252,
+          "by_case": {
+            "U1": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U2": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U3": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U4": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U5": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U6": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U7": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U8": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            }
+          }
+        }
+      },
+      "shared_json": {
+        "existing": {
+          "runs": 30,
+          "contract_accepted": 30,
+          "plan_correct": 30,
+          "median_response_ms": 771.3703000008536,
+          "median_ttft_ms": 655.973649999396,
+          "input_tokens": 19050,
+          "output_tokens": 282,
+          "by_case": {
+            "H1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "H4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M1": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M2": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M3": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M4": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M5": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            },
+            "M6": {
+              "runs": 3,
+              "accepted": 3,
+              "correct": 3
+            }
+          },
+          "simulated_success": 30,
+          "simulation_failures": {}
+        },
+        "unseen": {
+          "runs": 16,
+          "contract_accepted": 16,
+          "plan_correct": 16,
+          "median_response_ms": 811.8643499992686,
+          "median_ttft_ms": 686.9848499991349,
+          "input_tokens": 10092,
+          "output_tokens": 239,
+          "by_case": {
+            "U1": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U2": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U3": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U4": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U5": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U6": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U7": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            },
+            "U8": {
+              "runs": 2,
+              "accepted": 2,
+              "correct": 2
+            }
+          }
+        }
+      }
+    }
+  },
+  "paired": {
+    "qwen": {
+      "shared": {
+        "improved": 14,
+        "regressed": 0
+      },
+      "native_profile": {
+        "improved": 14,
+        "regressed": 0
+      },
+      "cross_profile": {
+        "improved": 14,
+        "regressed": 0
+      },
+      "shared_json": {
+        "improved": 14,
+        "regressed": 0
+      }
+    },
+    "deepseek": {
+      "shared": {
+        "improved": 0,
+        "regressed": 0
+      },
+      "native_profile": {
+        "improved": 0,
+        "regressed": 0
+      },
+      "cross_profile": {
+        "improved": 0,
+        "regressed": 0
+      },
+      "shared_json": {
+        "improved": 0,
+        "regressed": 0
+      }
+    }
+  },
+  "baseline_prompt_matches_previous_run": {
+    "qwen": {
+      "H1": true,
+      "H2": true,
+      "H3": true,
+      "H4": true,
+      "M1": true,
+      "M2": true,
+      "M3": true,
+      "M4": true,
+      "M5": true,
+      "M6": true
+    },
+    "deepseek": {
+      "H1": true,
+      "H2": true,
+      "H3": true,
+      "H4": true,
+      "M1": true,
+      "M2": true,
+      "M3": true,
+      "M4": true,
+      "M5": true,
+      "M6": true
+    }
+  },
+  "pytest": "........................................................................ [ 36%]\n........................................................................ [ 73%]\n....................................................                     [100%]\n196 passed in 13.33s",
+  "frozen_design": {
+    "experiment": "planner-prompt-ablation-v1",
+    "created_utc": "2026-10-07T06:17:29.099252+00:00",
+    "arms": [
+      "baseline",
+      "shared",
+      "native_profile",
+      "cross_profile",
+      "shared_json"
+    ],
+    "shared_prompt": "You interpret mission destinations; a trusted navigation session observes the world, plans collision-checked motion and stops at each destination. You generate no motion code. Return exactly one JSON object, with exactly one of these forms: {\"targets\":[\"catalogue_key\",...]} or {\"stop_reason\":\"reason\"}. targets must contain 1 to 8 strings, each an EXACT KEY of public_targets. Values in public_targets describe coordinates; use them to match coordinate requests to existing keys, never invent IDs or return coordinate objects. Include all and only requested visits, in order, including explicit returns and repeated visits. feedback.completed_targets is the already executed prefix of the original mission. Remove only that completed prefix when replanning; keep later requested revisits. Use stop_reason (1 to 200 characters) if a requested destination cannot be resolved from the catalogue or feedback reports an actual safety condition preventing continuation. A stop is an abort, not successful mission completion. An initially empty observed map means unobserved, not blocked or unsafe by itself. The trusted navigator obtains observations before moving. Exhausted local information does not establish global unreachability; keep unresolved requested destinations unless there is explicit evidence requiring an abort. No additional keys, markdown, explanations, Python, hidden map assumptions or unrequested targets.",
+    "profiles": {
+      "qwen": "Serialization checklist: targets elements are quoted catalogue keys, never objects. A key such as \"place_17\" must be copied exactly, even for a coordinate-only request. Do not rename it to \"target_0\" or a coordinate-derived name. Do not deduplicate repeated visits. Output only the final JSON.",
+      "deepseek": "Resolve the requested sequence against catalogue keys, subtract only the completed prefix, and serialize that sequence directly. Use the exact JSON shape and keep any abort reason within 200 characters."
+    },
+    "temperature": 0,
+    "max_tokens": 8192,
+    "thinking": false,
+    "stream": true,
+    "concurrency_per_vendor": 2,
+    "retries": 0,
+    "seed": 20261007,
+    "sources": {
+      "agent/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "agent/coder.py": "d28b1a1c06e262e045e53bbefc400c588d425b2dee93699cb909301cd3fa9e6b",
+      "agent/interactive.py": "ff1e34858c291b3123cdff655337a98d9c6501349159d3cae72a7045332ec84f",
+      "agent/mission.py": "1dfacb7aedf6c3b5088396e1ea9facf78fd7b0b97430a3ef14ce9a2d5bfbd818",
+      "agent/model.py": "b43d12de20a0e5a5f30585a05b2a2514f07b1f83115544a6f836005c5fd6cbf4",
+      "agent/observations.py": "54c3be53fa1162a0f443077c7306c192965066c64658b4fcca46f7f767e845e5",
+      "agent/prompts.py": "3d10ab7d826407b7baf687b4aabcf4b449bbbf673a857824951c4b8b93dd4a6d",
+      "agent/runner.py": "adcb47c2f84b202f20ea0be0f57fcb36abe2e744564535971f348d58241b0d11",
+      "agent/task_planner.py": "247df731a1055b8e1a32bbda890ab4dde7eff8d1e9b4a1ff485584d0a22cc1cd",
+      "robot/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "robot/backends/__init__.py": "a9cbe10f26337ab6fa65bbc04bca5bc36c0af89b7e9ea17c4ca6d9fed0985a6a",
+      "robot/backends/base.py": "23fe26259500339cff3eec0f45b48937726cdc13664415b78951096cfcacc52a",
+      "robot/backends/mock.py": "bd6b9048b73dfeffaeee3c6a132bf8279848a207548bff5e0dbfc01534f84d3f",
+      "robot/backends/perturbed.py": "a00a970ab7847f5e54fe9d2e6d8475e0a5dfd98572fad9a5f02d0dfa550ff8b4",
+      "robot/backends/physical.py": "d0f9c21baf79e720cc751c8eb321e1b98508447669e1da12fa9e1e4e5c3a8692",
+      "robot/backends/virtual.py": "5ece1dbb1227a01eac80eb0b010a6aca61a26fd8e7e11b772c43c7f21916826c",
+      "robot/base.py": "00a157d30dd10a574c7e8eee0ebdf2b0a9d67e43d1a28c389d64538ba0deaf2f",
+      "robot/capabilities.py": "16922d961611938565ed6991a2635142141802ff4c2330194374efa10cd18f72",
+      "robot/motion_validation.py": "97150584729c58ab34d9caa18681b8730e4ab104fed1ca368e073a7e69fd6ef6",
+      "robot/navigation_safety.py": "a4d9999655f836824cfcabc82de02d68e730f69b32f5772aa6bb21e21b2888d2",
+      "robot/proxy.py": "2cf09e90373a639464f06cd7ae5a618f52a5876e6bebdafb751fccbfc7d7b8e8",
+      "robot/runtime.py": "bfcf6512e291aaee9bb1fa9cd2ec55e5d5562258f59a7922c41be34e91775c21",
+      "robot/state.py": "875c7ba02d6035f1b6adc74cfb494aedf61217cfd8043d36c6bcaab373ddbb77",
+      "robot/trace.py": "eb97fad9b379d08e42380a75508dcf36ac4a28c297ba4471a700693a41b20838",
+      "robot/virtual.py": "371f3737e569ad4e0018c1db7827ce7035dd9bb192651a98863bbd1e2d2f42cb",
+      "runtime/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "runtime/decision_validator.py": "c3d4ccf633439a4557c9a25f564f4ffadf1ea12b58ffcd1f14a88b1a9b04ffed",
+      "runtime/errors.py": "1434705181aa36d09f06a78ac0b02cdc55e3ceaf40528844a788fc6369941a4e",
+      "runtime/executor.py": "925aef26db88256b464be3ab1af7829ac1774e0168c839489240a5cff81d6b98",
+      "runtime/limits.py": "077763f67d0f8e23af4012916d5dccd33c948e7a492a30c765fe462283e96808",
+      "runtime/result.py": "80b8c2889002010d3664ecd3e06d5378978d2a667fa1cf2d0e3f9e8cbb6e26c8",
+      "runtime/validator.py": "a9f28ad95edcc0a2d3545026054601bad0002032b74f0de3a6c6c3e099d9887a",
+      "runtime/worker.py": "4658f77c3bfec576a66a27f519ad0ce63e8281e0c4af0f804031d1a34771e168",
+      "navigation/__init__.py": "b8ed2ba3f7403f086249f61884789bfa84321730f82c8196140b2437478d7a1a",
+      "navigation/grid.py": "eca397b2b046ef39d0247a54d6edad4cca5e607a575bcf0127593d898014944b",
+      "navigation/observation.py": "77cf5cdae645e677f997d8cfd35c74e5970f71bf7d6c227ccf70f6e5757c9a09",
+      "navigation/planner.py": "a7baf0f8e9469e42c726ab5fd3403239925dfba296d7d0e8a6aced3a9cc1ea62",
+      "navigation/runner.py": "d834f017ba8375a128e7d3ad823026af4df0483b348e902195abdaa29bdfab68",
+      "task/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "task/benchmark_tasks.py": "86b7ef7b6d21687154e987f074ce18a1d131b7bf807c22d68e265e6530fa6ebd",
+      "task/complex_benchmark_tasks.py": "05a2bf2a147d054bb4f2d8e0b1b7faa1a7233b4af903bb51a2c62c57a173680e",
+      "task/complex_evaluator.py": "7a668d2b0c45b1dac38ad415f9259590aae2000d0d9d7a5acd4f4cadcad5ee56",
+      "task/evaluator.py": "acb73650cbcb8c94c0ea5b17477573c9a2efe7a0337da7f49ce0cc6670af5a87",
+      "task/interactive_benchmark_tasks.py": "2a757bc9e3cbea287870c45f98284c2e1a2aa3f0b2a96fc3220372a1c014702d",
+      "task/mission_benchmark_tasks.py": "94d07597fe01a9212e1579ce162bb81b976b981d306fc555d637d8d492089e0a",
+      "task/navigation_benchmark_tasks.py": "5f1618ca2cddb45262825a274ffb93561b51f4501a9be977af25dfd1c2bb1712",
+      "task/task.py": "4ccd07f0a132732b2525be227f294289c7181063a48479474283db3d56a9abc1",
+      "task/waypoint_evaluator.py": "d9d7000251526c47bea9f60344f53986f83df3821e0b78256739364643944dcb"
+    },
+    "runtime_limits": {
+      "timeout_seconds": 5,
+      "policy_timeout_seconds": null,
+      "max_actions": 100,
+      "max_move_distance": 2.0,
+      "max_turn_angle": 180.0,
+      "max_linear_speed": 0.5,
+      "max_angular_speed": 90.0,
+      "default_action_timeout_seconds": 2.0,
+      "communication_timeout_seconds": 2.0
+    },
+    "note": "Only system wording and declared JSON mode vary; user context, parser and scorer are fixed. New cases were designed after inspecting earlier failures, before this experiment, without iterative tuning."
+  },
+  "cases": [
+    {
+      "id": "H1",
+      "split": "existing",
+      "repeats": 3,
+      "catalogue": {
+        "target": {
+          "x": 4,
+          "y": 1,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "target"
+        ]
+      },
+      "user_message": "Task: 到达(4,1)并停稳。地图未知；依据每轮提供的局部位姿和前向测距避开障碍。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"target\": {\"x\": 4, \"y\": 1, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "H2",
+      "split": "existing",
+      "repeats": 3,
+      "catalogue": {
+        "target": {
+          "x": 4,
+          "y": 1,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "target"
+        ]
+      },
+      "user_message": "Task: 到达(4,1)并停稳。地图未知；依据每轮提供的局部位姿和前向测距避开障碍。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"target\": {\"x\": 4, \"y\": 1, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "H3",
+      "split": "existing",
+      "repeats": 3,
+      "catalogue": {
+        "target": {
+          "x": 4,
+          "y": 1,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "target"
+        ]
+      },
+      "user_message": "Task: 到达(4,1)并停稳。地图未知；依据每轮提供的局部位姿和前向测距避开障碍。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"target\": {\"x\": 4, \"y\": 1, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "H4",
+      "split": "existing",
+      "repeats": 3,
+      "catalogue": {
+        "target": {
+          "x": 4,
+          "y": 1,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "target"
+        ]
+      },
+      "user_message": "Task: 到达(4,1)并停稳。地图未知；依据每轮提供的局部位姿和前向测距避开障碍。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"target\": {\"x\": 4, \"y\": 1, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "M1",
+      "split": "existing",
+      "repeats": 3,
+      "catalogue": {
+        "A": {
+          "x": 3,
+          "y": 1,
+          "tolerance": 0.08
+        },
+        "B": {
+          "x": 3,
+          "y": 3,
+          "tolerance": 0.08
+        },
+        "start": {
+          "x": 1,
+          "y": 1,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "A",
+          "B",
+          "start"
+        ]
+      },
+      "user_message": "Task: 先去A，再去B，最后返回起点。 每个要求访问的点都要停稳。地图未知，使用局部观测避障。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"A\": {\"x\": 3, \"y\": 1, \"tolerance\": 0.08}, \"B\": {\"x\": 3, \"y\": 3, \"tolerance\": 0.08}, \"start\": {\"x\": 1, \"y\": 1, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "M2",
+      "split": "existing",
+      "repeats": 3,
+      "catalogue": {
+        "A": {
+          "x": 3,
+          "y": 1,
+          "tolerance": 0.08
+        },
+        "B": {
+          "x": 3,
+          "y": 3,
+          "tolerance": 0.08
+        },
+        "start": {
+          "x": 1,
+          "y": 1,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "B",
+          "A"
+        ]
+      },
+      "user_message": "Task: 先去B，最后去A。 每个要求访问的点都要停稳。地图未知，使用局部观测避障。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"A\": {\"x\": 3, \"y\": 1, \"tolerance\": 0.08}, \"B\": {\"x\": 3, \"y\": 3, \"tolerance\": 0.08}, \"start\": {\"x\": 1, \"y\": 1, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "M3",
+      "split": "existing",
+      "repeats": 3,
+      "catalogue": {
+        "A": {
+          "x": 3,
+          "y": 1,
+          "tolerance": 0.08
+        },
+        "B": {
+          "x": 3,
+          "y": 2,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "A",
+          "B",
+          "A"
+        ]
+      },
+      "user_message": "Task: 去A，然后去B，最后再去一次A。 每个要求访问的点都要停稳。地图未知，使用局部观测避障。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"A\": {\"x\": 3, \"y\": 1, \"tolerance\": 0.08}, \"B\": {\"x\": 3, \"y\": 2, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "M4",
+      "split": "existing",
+      "repeats": 3,
+      "catalogue": {
+        "A": {
+          "x": 2,
+          "y": 1,
+          "tolerance": 0.08
+        },
+        "B": {
+          "x": 3,
+          "y": 2,
+          "tolerance": 0.08
+        },
+        "start": {
+          "x": 1,
+          "y": 1,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "B"
+        ]
+      },
+      "user_message": "Task: 直接去B，不需要访问A，也不用返回起点。 每个要求访问的点都要停稳。地图未知，使用局部观测避障。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"A\": {\"x\": 2, \"y\": 1, \"tolerance\": 0.08}, \"B\": {\"x\": 3, \"y\": 2, \"tolerance\": 0.08}, \"start\": {\"x\": 1, \"y\": 1, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "M5",
+      "split": "existing",
+      "repeats": 3,
+      "catalogue": {
+        "A": {
+          "x": 3,
+          "y": 2,
+          "tolerance": 0.08
+        },
+        "B": {
+          "x": 4,
+          "y": 1,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "A",
+          "B"
+        ]
+      },
+      "user_message": "Task: 先去A，再去B。 每个要求访问的点都要停稳。地图未知，使用局部观测避障。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"A\": {\"x\": 3, \"y\": 2, \"tolerance\": 0.08}, \"B\": {\"x\": 4, \"y\": 1, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "M6",
+      "split": "existing",
+      "repeats": 3,
+      "catalogue": {
+        "A": {
+          "x": 3,
+          "y": 3,
+          "tolerance": 0.08
+        },
+        "start": {
+          "x": 5,
+          "y": 3,
+          "tolerance": 0.08
+        },
+        "B": {
+          "x": 5,
+          "y": 5,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "A",
+          "start"
+        ]
+      },
+      "user_message": "Task: 先去A，再返回出发点。 每个要求访问的点都要停稳。地图未知，使用局部观测避障。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"A\": {\"x\": 3, \"y\": 3, \"tolerance\": 0.08}, \"start\": {\"x\": 5, \"y\": 3, \"tolerance\": 0.08}, \"B\": {\"x\": 5, \"y\": 5, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 5, \"y\": 3, \"heading\": 180}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "U1",
+      "split": "unseen",
+      "repeats": 2,
+      "catalogue": {
+        "dock_K7": {
+          "x": 2.6,
+          "y": 1.4,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "dock_K7"
+        ]
+      },
+      "user_message": "Task: 到达(2.6,1.4)，停稳。地图未知。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"dock_K7\": {\"x\": 2.6, \"y\": 1.4, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "U2",
+      "split": "unseen",
+      "repeats": 2,
+      "catalogue": {
+        "充电位": {
+          "x": 2.2,
+          "y": 1,
+          "tolerance": 0.08
+        },
+        "窗边": {
+          "x": 3,
+          "y": 2,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "充电位",
+          "窗边",
+          "充电位"
+        ]
+      },
+      "user_message": "Task: 依次去充电位、窗边，再去一次充电位。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"充电位\": {\"x\": 2.2, \"y\": 1, \"tolerance\": 0.08}, \"窗边\": {\"x\": 3, \"y\": 2, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "U3",
+      "split": "unseen",
+      "repeats": 2,
+      "catalogue": {
+        "p-9": {
+          "x": -1.2,
+          "y": 0.8,
+          "tolerance": 0.08
+        },
+        "p-8": {
+          "x": 1,
+          "y": 2,
+          "tolerance": 0.08
+        },
+        "p-7": {
+          "x": 2,
+          "y": 3,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "p-9"
+        ]
+      },
+      "user_message": "Task: 直接去(-1.2,0.8)，不要访问另外两个点。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"p-9\": {\"x\": -1.2, \"y\": 0.8, \"tolerance\": 0.08}, \"p-8\": {\"x\": 1, \"y\": 2, \"tolerance\": 0.08}, \"p-7\": {\"x\": 2, \"y\": 3, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "U4",
+      "split": "unseen",
+      "repeats": 2,
+      "catalogue": {
+        "node_x": {
+          "x": 2,
+          "y": 1,
+          "tolerance": 0.08
+        },
+        "node_y": {
+          "x": 3,
+          "y": 2,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "node_y",
+          "node_x"
+        ]
+      },
+      "user_message": "Task: 先去node_x，再去node_y，最后再次去node_x。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"node_x\": {\"x\": 2, \"y\": 1, \"tolerance\": 0.08}, \"node_y\": {\"x\": 3, \"y\": 2, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 60, \"remaining_observations\": 120, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [\"node_x\"], \"trigger\": \"NavigationStalled\", \"execution_error\": null}}"
+    },
+    {
+      "id": "U5",
+      "split": "unseen",
+      "repeats": 2,
+      "catalogue": {
+        "station_C": {
+          "x": 2,
+          "y": 4,
+          "tolerance": 0.08
+        },
+        "origin_Z": {
+          "x": 5,
+          "y": 3,
+          "tolerance": 0.08
+        },
+        "unused": {
+          "x": 1,
+          "y": 1,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "station_C",
+          "origin_Z"
+        ]
+      },
+      "user_message": "Task: 先去station_C，再返回出发点。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"station_C\": {\"x\": 2, \"y\": 4, \"tolerance\": 0.08}, \"origin_Z\": {\"x\": 5, \"y\": 3, \"tolerance\": 0.08}, \"unused\": {\"x\": 1, \"y\": 1, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 5, \"y\": 3, \"heading\": 180}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "U6",
+      "split": "unseen",
+      "repeats": 2,
+      "catalogue": {
+        "bay_green": {
+          "x": 4,
+          "y": 3,
+          "tolerance": 0.08
+        },
+        "bay_red": {
+          "x": 3,
+          "y": 2,
+          "tolerance": 0.08
+        },
+        "bay_blue": {
+          "x": 2,
+          "y": 1,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "targets": [
+          "bay_red",
+          "bay_blue",
+          "bay_green"
+        ]
+      },
+      "user_message": "Task: Visit bay_blue, then bay_red; return to bay_blue, then finish at bay_green.\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"bay_green\": {\"x\": 4, \"y\": 3, \"tolerance\": 0.08}, \"bay_red\": {\"x\": 3, \"y\": 2, \"tolerance\": 0.08}, \"bay_blue\": {\"x\": 2, \"y\": 1, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 60, \"remaining_observations\": 120, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [\"bay_blue\"], \"trigger\": \"NavigationStalled\", \"execution_error\": null}}"
+    },
+    {
+      "id": "U7",
+      "split": "unseen",
+      "repeats": 2,
+      "catalogue": {
+        "desk_R": {
+          "x": 2,
+          "y": 1,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "abort": true
+      },
+      "user_message": "Task: 去目录中没有提供位置的仓库Q，不要把其他地点当作仓库Q。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"desk_R\": {\"x\": 2, \"y\": 1, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": null}}"
+    },
+    {
+      "id": "U8",
+      "split": "unseen",
+      "repeats": 2,
+      "catalogue": {
+        "port_N": {
+          "x": 2,
+          "y": 1,
+          "tolerance": 0.08
+        }
+      },
+      "expected": {
+        "abort": true
+      },
+      "user_message": "Task: 控制器报告急停已锁定。停止本次任务，不得继续前往port_N。\nRobot API:\nrobot.move(distance, speed=None) -> finite blocking move, returns stopped; distance in m (+ forward, - backward), max 2m; optional speed in m/s\nrobot.turn(angle, speed=None) -> finite blocking turn, returns stopped; angle in degrees (+ counterclockwise), max 180; optional speed in deg/s\nrobot.stop() -> stop immediately when needed\nrobot.get_distance() -> distance ahead to obstacle or boundary in m\nrobot.get_pose() -> Pose with x, y, heading\nrobot.get_state() -> state with pose, stopped, collision, last_action, action_count\nWorld state:\n{\"public_targets\": {\"port_N\": {\"x\": 2, \"y\": 1, \"tolerance\": 0.08}}, \"feedback\": {\"pose_estimate\": {\"x\": 1, \"y\": 1, \"heading\": 0}, \"stopped\": true, \"remaining_actions\": 80, \"remaining_observations\": 160, \"observed_map_summary\": {\"free_cells\": 0, \"occupied_cells\": 0}, \"completed_targets\": [], \"trigger\": \"mission-start\", \"execution_error\": \"EmergencyStopLatched\"}}"
+    }
+  ]
+}

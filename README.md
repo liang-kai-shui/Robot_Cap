@@ -255,6 +255,14 @@ Qwen 的 hybrid 失败包括 12 次公开目标 ID/结构错误和 1 次超长�
 
 两家共 2413 次正式 API 调用；本轮未输入图片，软件执行时间也不代表实车行驶时间。完整设置、逐题成绩、延迟、token、费用估算和失败分析见 [评测报告](reports/qwen37_deepseek_full_2026-10-07.md)、[汇总 JSON](reports/qwen37_deepseek_full_2026-10-07_summary.json) 和 [逐条台账](reports/qwen37_deepseek_full_2026-10-07_episodes.csv)。复测入口为 `scripts/compare_flash_benchmarks.py`，凭证仅从 `BENCH_API_KEY` 环境变量读取；原始 episode 和 API 审计保存在本机 `runs/flash-comparison-2026-10-07/`。
 
+## 目标规划提示词验证
+
+2026-10-07 又完成 **460 次真实 API 调用**，对比原提示词、改进共用提示词、本模型适配、互换模型适配和 JSON mode。每组包含原 10 个任务各 3 次及新 8 个目标规划案例各 2 次；任务、解析器、导航和评分器保持原样。
+
+原任务的计划正确率：Qwen 原提示词 **16/30**，改进共用提示词 **30/30**；DeepSeek 两者均 **30/30**。所有组的新案例各 **16/16**。专属适配、互换适配和 JSON mode 没有进一步提高正确率，因此下一步优先正式接入共用契约修正，保留模型配置入口。生产提示词本轮尚未替换。
+
+38 个不同任务与回答组合通过真实 worker 离线回放，改进组回答均能满足原按序停稳评分；所有回放最终停稳、零碰撞。回放去重结果不能算作 300 次独立执行。本次只验证文本目标规划，没有重测复杂策略、direct 动作生成、视觉或真机。软件回归 **196 passed**。完整设置、逐组耗时、失败回答及边界见 [验证报告](reports/planner_prompt_ablation_2026-10-07.md)、[汇总](reports/planner_prompt_ablation_2026-10-07_summary.json) 和 [460 条台账](reports/planner_prompt_ablation_2026-10-07_trials.csv)；复测入口 `scripts/verify_planner_prompts.py`。
+
 ## Metrics 与运行记录
 
 每次运行都写入 `runs/` 的 JSON，包括任务、Policy、初末状态、兼容旧调用的 Robot API 日志、异常、`RunMetrics` 和 `episode`。Episode 包含 `api_version="v1"`、本次暴露的完整 `api_surface_signature`、从 trace 提取的实际 `used_capabilities`、执行与任务结果及指标；默认 Benchmark 不读取 episode，也不进行 Policy reuse。Trace 记录 `started`、`completed`、`failed` 或 `cancelled`、观测及紧急停止事件，并附稳定的 `capability_id`、command ID、请求参数、结果或错误及可用的状态快照。
