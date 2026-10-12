@@ -89,7 +89,7 @@ function render() {
   const yawValid = yaw?.valid === 1;
   const fresh = age !== null && age < 1500 && yawValid && streamHealthy;
   $('yaw-value').textContent = yawValid ? fmt(yaw.angle_deg) : '—';
-  $('yaw-fresh').textContent = fresh ? '最近回传' : yaw ? '上次读数' : '等待回传';
+  $('yaw-fresh').textContent = fresh ? '最近回传' : yaw && !yawValid ? '航向失效 · 请静止归零' : yaw ? '回传过期' : '等待回传';
   $('yaw-fresh').className = `fresh-label ${fresh ? 'fresh' : ''}`;
   $('sample-age').textContent = age === null ? '等待数据' : `${Math.floor(age / 1000)}s 前更新`;
   $('roll-value').textContent = bmi?.tilt_valid === 1 ? `${fmt(bmi.roll)}°` : '—';
@@ -131,6 +131,7 @@ function render() {
   $('footer-state').textContent = active ? `${job.phase}，可随时停止` : !streamHealthy ? '等待本地服务回传' : device.connected ? '设备回传已接入' : '本地服务在线，设备未连接';
   $('server-state').textContent = streamHealthy ? '在线' : '连接中断';
   $('context-info').textContent = '当前开机上下文 · ' + (state.context_tasks || 0) + ' 条执行任务';
+  $('yaw-zero').disabled = !ready || !bmi?.fresh || bmi.calibrated !== 1 || bmi.error !== 0;
   $('range-calibrate').disabled = !idle || active || !owns() || !streamHealthy || !!device.fault;
   $('range-offset-save').disabled = active || !!state.holding || !owns() || (device.connected && !idle);
   if(!rangeOffsetDirty && document.activeElement !== $('range-offset-mm')) $('range-offset-mm').value = state.range_offset_mm || 0;
@@ -464,3 +465,5 @@ $('firmware-flash').addEventListener('click',async()=>{
 $('range-offset-save').addEventListener('click', async () => { const result=await act('/api/range-offset',{offset_mm:Number($('range-offset-mm').value)}); if(result) {rangeOffsetDirty=false;toast(`测距已校正 ${result.offset_mm} mm`);} });
 
 $('range-offset-mm').addEventListener('input', () => {rangeOffsetDirty=true;});
+
+$('yaw-zero').addEventListener('click', async () => { const result=await act('/api/yaw-zero',{}); if(result) toast('保持小车静止，正在等待新的有效转角零点。'); });

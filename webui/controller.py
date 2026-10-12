@@ -565,6 +565,21 @@ class ControlDesk:
         self.emit('task','info',reason+'：驱动停止，等待停稳回传')
         return {'released':True}
 
+    def zero_heading(self, owner):
+        self._healthy()
+        def run(job):
+            self._check(job)
+            self._phase(job,'保持小车静止，重建相对转角零点')
+            with self.lock:
+                self.plan=None; self.revision+=1
+            result=self.backend.zero_heading(cancel_event=job['cancel'])
+            # Record the new measurement reference without inventing chassis motion.
+            with self.lock:
+                self.tasks.append({'number':len(self.tasks)+1,'instruction':'相对航向归零，开始新的角度参考',
+                    'execution_success':False,'trace':[{'kind':'observation','phase':'completed','capability_id':'state.yaw_zero','result':result}]})
+            return result
+        return self._submit(owner,'calibration','航向归零 / 恢复',run)
+
     def set_range_offset(self, owner, offset):
         if type(offset) is not int or not -100<=offset<=100:
             raise ValueError('校正值需为-100..100的整数毫米')
@@ -761,6 +776,9 @@ class ControlDesk:
                     if fields.get('valid') == 1 and 'angle_deg' in fields:
                         self.telemetry['samples'] = (self.telemetry['samples']+[{'at': time.time(), 'yaw': fields['angle_deg']}])[-80:]
                 if 'ATTITUDE roll=' in line:
+                    previous=self.telemetry.get('attitude')
+                    if previous and fields.get('zero_epoch')!=previous.get('zero_epoch'):
+                        self.telemetry['samples']=[]  # Never join two different angle references.
                     self.telemetry['attitude'] = {**fields, '_at': time.monotonic()}
                     if 'yaw' in fields:
                         self.telemetry['yaw'] = {'angle_deg': fields['yaw'], 'valid': fields.get('yaw_valid', 0), '_at': time.monotonic()}

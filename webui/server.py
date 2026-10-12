@@ -161,6 +161,7 @@ class DeskHandler(BaseHTTPRequestHandler):
             elif path == '/api/stop': result = controller.stop('网页停止')
             elif path == '/api/manual': result = controller.manual(owner, body.get('action'), body.get('value'))
             elif path == '/api/generate': result = controller.generate(owner, body.get('instruction'), body.get('auto_execute', False))
+            elif path == '/api/yaw-zero': result = controller.zero_heading(owner)
             elif path == '/api/range-offset': result = controller.set_range_offset(owner, body.get('offset_mm'))
             elif path == '/api/range-calibrate': result = controller.calibrate_range(owner, body.get('known_mm'))
             elif path == '/api/execute': result = controller.execute(owner, body.get('plan_id'))

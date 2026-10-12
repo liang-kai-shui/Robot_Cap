@@ -20,6 +20,7 @@ class DemoBackend:
         self.fault = None
         self.action_count = 0
         self.last_action = self.last_result = None
+        self.zero_epoch = 0
         self.yaw = 22.8
         self._last_sample = 0
         self.range_mm=600
@@ -53,10 +54,20 @@ class DemoBackend:
         if self.teleop_direction and time.monotonic()-self._teleop_renewed>.25: self.teleop_release()
         self._range={'_at':time.monotonic()}
         self.record('rx',line=f'[DEMO] TOF ready=1 distance_mm={self.range_mm} valid=1 status=0 error=0 age_ms=0')
-        self.record('rx',line=f'[DEMO] ATTITUDE roll=0.6 pitch=-1.3 yaw={self.yaw:.1f} tilt_valid=1 yaw_valid=1 calibrated=1 age_ms=0 zero_epoch=0')
+        self.record('rx',line=f'[DEMO] ATTITUDE roll=0.6 pitch=-1.3 yaw={self.yaw:.1f} tilt_valid=1 yaw_valid=1 calibrated=1 age_ms=0 zero_epoch={self.zero_epoch}')
         velocity=100 if self.teleop_direction=='forward' else -100 if self.teleop_direction=='backward' else 0
         for motor,side in [('A','RIGHT'),('B','LEFT')]:
             self.record('rx',line=f'[DEMO] WHEEL motor={motor} side={side} count=0 forward_count=0 speed_mm_s={velocity} cps={velocity*19.2} rpm={velocity*.44415} valid=1 dt_ms=250 age_ms=0')
+
+    def zero_heading(self, *, cancel_event=None, **kwargs):
+        with self.lock:
+            if not self.connected or not self.ready or self.stopped is not True or self.fault or (cancel_event and cancel_event.is_set()):
+                raise RobotEmergencyStopError('演示设备需要健康停稳')
+            self.yaw=0;self.zero_epoch+=1
+            self.record('rx',line='[DEMO] ANGLE_ZERO_OK')
+            self._last_sample=0
+            self.sample()
+            return {'zero_acknowledged':True,'zero_epoch':self.zero_epoch,'angle_deg':0,'measurement':'new_relative_heading_reference'}
 
     def snapshot(self):
         with self.lock:

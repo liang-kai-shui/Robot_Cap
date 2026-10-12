@@ -84,6 +84,7 @@ class ESP32SerialBackend(PhysicalBackend):
         self._teleop = None
         self._teleop_next = 1
         self._teleop_ack_at = 0
+        self._zero_pending = self._zero_ack = self._zero_rejected = False
 
     @property
     def logs(self):
@@ -191,6 +192,10 @@ class ESP32SerialBackend(PhysicalBackend):
                 self._range = {**fields, "_at": time.monotonic()}
             if "ATTITUDE roll=" in line:
                 self._attitude = {**fields, "_at": time.monotonic()}
+            if self._zero_pending and 'ANGLE_ZERO_OK' in line:
+                self._zero_ack = True
+            if self._zero_pending and 'ANGLE_ZERO_REJECTED' in line:
+                self._zero_rejected = True
             if "TELEOP_ACK" in line:
                 if self._teleop and fields.get("session") == str(self._teleop['session']):
                     self._teleop_ack_at = time.monotonic()
@@ -485,6 +490,37 @@ class ESP32SerialBackend(PhysicalBackend):
             if self._teleop:
                 self._teleop['ending']=True
                 self._request_stop()  # Immediate write; READY arrives independently.
+
+    def zero_heading(self, *, cancel_event=None, timeout=2.0):
+        """Start a new relative angle while stopped; never a policy capability."""
+        if not math.isfinite(timeout) or timeout<=0: raise RobotActionError('Invalid zero timeout')
+        if not self._action_lock.acquire(blocking=False):
+            raise RobotActionError('先停止当前动作，再进行航向归零')
+        try:
+            with self._condition:
+                if not self._established or not self._ready or self._stopped is not True or self._failure or self._aborted or (cancel_event and cancel_event.is_set()):
+                    raise RobotActionError('航向归零要求健康停稳 READY')
+                sample=self._attitude
+                if not sample or time.monotonic()-sample['_at']>.5 or sample.get('calibrated')!='1' or sample.get('tilt_valid')!='1' or not 0<=_number(sample,'age_ms')<=50:
+                    raise RobotActionError('先等待新鲜、已校准的BMI323回传，保持小车静止')
+                epoch=_number(sample,'zero_epoch')
+                sent=time.monotonic()
+                self._zero_pending=True; self._zero_ack=self._zero_rejected=False
+                self._write('z')
+            def complete():
+                current=self._attitude
+                return self._zero_rejected or (self._zero_ack and current and
+                    current['_at']>=sent and time.monotonic()-current['_at']<=.5 and
+                    current.get('calibrated')=='1' and current.get('yaw_valid')=='1' and
+                    0<=_number(current,'age_ms')<=50 and _number(current,'zero_epoch')>epoch)
+            self._wait(complete,time.monotonic()+timeout,cancel_event)
+            with self._condition:
+                if self._zero_rejected: raise RobotActionError('固件拒绝航向归零：请保持静止并检查BMI323回传')
+                return {'zero_acknowledged':True,'zero_epoch':int(_number(self._attitude,'zero_epoch')),
+                        'angle_deg':_number(self._attitude,'yaw'),'measurement':'new_relative_heading_reference'}
+        finally:
+            with self._condition: self._zero_pending=False
+            self._action_lock.release()
 
     def configure_range_offset(self, offset):
         if isinstance(offset,bool) or not isinstance(offset,int) or not -100<=offset<=100:
