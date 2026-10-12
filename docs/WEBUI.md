@@ -102,3 +102,5 @@ python web_control.py --demo --port 8766 --open
 软件验证使用假串口和离线演示，真正的小车仍需用户连接，核对网页回传与动作。演示通过不代表实车已经验证。
 
 设计参考 [Anthropic frontend-design skill](https://github.com/anthropics/skills/tree/main/skills/frontend-design)，控制与日志分区参考 [Foxglove Teleop](https://docs.foxglove.dev/docs/visualization/panels/teleop) 和 [Log](https://docs.foxglove.dev/docs/visualization/panels/log)。方案见 [WEBUI_DESIGN](WEBUI_DESIGN.md)，协议见 [SERIAL_PROTOCOL](SERIAL_PROTOCOL.md)。
+
+排针视角和手动测距偏移见 [校正说明](POSE_RANGE_CALIBRATION.md)。

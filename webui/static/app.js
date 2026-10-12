@@ -7,6 +7,7 @@ let token = '', state = null, streamHealthy = false, receivedAt = performance.no
 let distance = 0.10, angle = 30, currentView = 'dashboard', paused = false;
 let events = [], eventCursor = 0, clearCursor = 0, toastTimer, stopOnLost = false;
 let historyPage = 0;
+let rangeOffsetDirty = false;
 let portCount = 0, portsError = '';
 const terminalHistory = []; let historyIndex = 0;
 
@@ -130,7 +131,9 @@ function render() {
   $('footer-state').textContent = active ? `${job.phase}，可随时停止` : !streamHealthy ? '等待本地服务回传' : device.connected ? '设备回传已接入' : '本地服务在线，设备未连接';
   $('server-state').textContent = streamHealthy ? '在线' : '连接中断';
   $('context-info').textContent = '当前开机上下文 · ' + (state.context_tasks || 0) + ' 条执行任务';
-  $('range-calibrate').disabled = !ready;
+  $('range-calibrate').disabled = !idle || active || !owns() || !streamHealthy || !!device.fault;
+  $('range-offset-save').disabled = active || !!state.holding || !owns() || (device.connected && !idle);
+  if(!rangeOffsetDirty && document.activeElement !== $('range-offset-mm')) $('range-offset-mm').value = state.range_offset_mm || 0;
   $('calibration-state').textContent = '校正 ' + (state.range_offset_mm || 0) + ' mm · 原始值保留';
   $('hold-mode').disabled = active || !!state.holding;
   $('reverse-label').textContent = $('hold-mode').checked ? '按住' : '0.8秒';
@@ -164,7 +167,7 @@ function renderRange(telemetry, device, demo) {
   $('tof-status').textContent = status;
   $('tof-dot').style.background = valid ? '#249b9a' : '#b5becb';
   $('range-value').textContent = valid ? fmt(sample.distance_mm / 10) : '—';
-  $('range-mm').textContent = valid ? `${fmt(sample.distance_mm, 0)} mm${demo ? ' · 演示数据' : ''}` : sample && !disabled ? `原始读数 ${fmt(sample.distance_mm, 0)} mm（无效，不采用）` : '当前没有有效距离';
+  $('range-mm').textContent = valid ? `${fmt(sample.distance_mm, 0)} mm${demo ? ' · 演示数据' : ''}` : sample && !disabled ? `原始读数 ${fmt(sample.raw_mm, 0)} mm（无效，不采用）` : '当前没有有效距离';
   if(valid) $('range-mm').textContent += ' · 原始 '+fmt(sample.raw_mm,0)+' mm';
   $('range-age').textContent = age === null ? '—' : `${fmt(age / 1000, 1)} s 前`;
   $('range-optical').textContent = sample ? `status ${sample.status ?? '—'}` : '—';
@@ -187,9 +190,12 @@ function renderMotionTelemetry(telemetry, device) {
   $('vehicle-speed').textContent = speeds.length === 2 ? fmt((speeds[0] + speeds[1]) / 20) : '—';
   badge($('wheel-status'), speeds.length === 2 ? '实时反馈' : '等待有效回传', speeds.length === 2 ? 'good' : 'neutral');
   const attitude = telemetry.attitude;
-  const valid = device.connected && streamHealthy && attitude?.fresh && attitude.age_ms + addedAge < 1500 && attitude.tilt_valid === 1 && attitude.yaw_valid === 1 && attitude.calibrated === 1;
-  badge($('attitude-status'), valid ? '实时姿态' : attitude ? '冻结 · 数据无效或过期' : '等待回传', valid ? 'good' : 'neutral');
-  for (const name of ['roll', 'pitch', 'yaw']) $('attitude-' + name).textContent = valid ? `${fmt(attitude[name])}°` : '—';
+  const attitudeFresh = device.connected && streamHealthy && attitude?.fresh && attitude.age_ms + addedAge < 1500 && attitude.calibrated === 1;
+  const tiltValid = attitudeFresh && attitude.tilt_valid === 1 && Number.isFinite(attitude.roll) && Number.isFinite(attitude.pitch);
+  const yawValid = attitudeFresh && attitude.yaw_valid === 1 && Number.isFinite(attitude.yaw);
+  badge($('attitude-status'), tiltValid ? yawValid ? '实时姿态' : '倾斜实时 · 航向失效' : attitude ? '冻结 · 数据无效或过期' : '等待回传', tiltValid && yawValid ? 'good' : 'neutral');
+  for (const name of ['roll', 'pitch', 'yaw']) $('attitude-' + name).textContent = (name === 'yaw' ? yawValid : tiltValid) ? `${fmt(attitude[name])}°` : '—';
+
   window.RoverVisuals?.update({attitude, wheels, receivedAt, enabled: device.connected && streamHealthy});
 }
 document.addEventListener('rover-visual-ready', () => { if (state) render(); });
@@ -454,3 +460,7 @@ $('firmware-flash').addEventListener('click',async()=>{
   const result=await act('/api/flash',{port:$('port-select').value,motor_power_disconnected:true});
   if(result) {$('settings-dialog').close();$('motor-power-off').checked=false;}
 });
+
+$('range-offset-save').addEventListener('click', async () => { const result=await act('/api/range-offset',{offset_mm:Number($('range-offset-mm').value)}); if(result) {rangeOffsetDirty=false;toast(`测距已校正 ${result.offset_mm} mm`);} });
+
+$('range-offset-mm').addEventListener('input', () => {rangeOffsetDirty=true;});

@@ -98,3 +98,5 @@ idf.py -C firmware/esp32s3 build
 `main` 展示当前完整项目，`v1-runtime-hardening` 保留维护线。原 V0.1/V0.2/Runtime 标签继续保留；本次快照为 `physical-cap-2026-10-12`。按标签复现，无需重写历史。
 
 第三方驱动的许可、来源和上游版本记录见 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)。本次整理没有擅自为全部自有代码新增开源许可证。
+
+当前姿态显示和尺测偏移更新见 [姿态与测距校正说明](docs/POSE_RANGE_CALIBRATION.md)。5V自动检测已按用户要求取消，原有固件与接线保留。

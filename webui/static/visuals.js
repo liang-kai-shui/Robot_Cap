@@ -1,13 +1,19 @@
+import { modelAngles, attitudeParts } from './attitude-math.js';
 import * as THREE from './vendor/three/three.module.js';
 import { OrbitControls } from './vendor/three/OrbitControls.js';
 
 // Sensor coordinates: X/Y in the board plane, Z up. Display coordinates: Y up.
-// R = Rz(relative yaw) Ry(pitch) Rx(roll). Mounting on the rover is uncalibrated.
+// Model frame is selectable; header view rotates the in-plane reference by 180deg.
+// Raw firmware angles remain sensor coordinates; this is not chassis localization.
 const canvas = document.getElementById('attitude-canvas');
 const status = document.getElementById('attitude-engine');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const mount = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
-let input = null, arrivedAt = 0, lastFrame = 0, renderer, scene, camera, controls, board;
+const frameSelect = document.getElementById('attitude-frame');
+frameSelect.value = 'header';
+try { if(localStorage.getItem('rover-attitude-frame') === 'sensor') frameSelect.value='sensor'; } catch (_) {}
+frameSelect.addEventListener('change', () => {try {localStorage.setItem('rover-attitude-frame', frameSelect.value);} catch (_) {} if(input) update(input);});
+let input = null, arrivedAt = 0, lastFrame = 0, lastYaw = 0, renderer, scene, camera, controls, board;
 let orientation = new THREE.Quaternion(), target = new THREE.Quaternion(), initialized = false;
 const wheelState = {A: {phase: 0, target: 0, received: false}, B: {phase: 0, target: 0, received: false}};
 
@@ -63,8 +69,11 @@ function valid(sample, keys = []) {
 function update(data) {
   input = data; arrivedAt = data.receivedAt;
   const attitude = data.attitude;
-  if (valid(attitude, ['roll', 'pitch', 'yaw']) && attitude.tilt_valid === 1 && attitude.yaw_valid === 1 && attitude.calibrated === 1) {
-    target.setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(attitude.roll), THREE.MathUtils.degToRad(attitude.pitch), THREE.MathUtils.degToRad(attitude.yaw), 'ZYX'));
+  if (valid(attitude, ['roll', 'pitch']) && attitudeParts(attitude).tilt) {
+    if(attitudeParts(attitude).yaw) lastYaw=attitude.yaw;
+    const angles = modelAngles({...attitude,yaw:lastYaw}, frameSelect.value);
+    target.setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(angles.roll), THREE.MathUtils.degToRad(angles.pitch), THREE.MathUtils.degToRad(angles.yaw), 'ZYX'));
+    status.textContent = (frameSelect.value === 'header' ? '排针视角 · X/Y 参考轴转180°' : '芯片原始轴 · X红 Y绿 Z蓝') + (attitudeParts(attitude).yaw ? '' : ' · 航向保持不更新');
     if (!initialized || reduced.matches) { orientation.copy(target); initialized = true; }
   }
   for (const [motor, countsPerMm] of [['A', 19.190], ['B', 19.294]]) {
@@ -80,7 +89,7 @@ function animate(now) {
   if (document.hidden) { lastFrame = now; return; }
   const dt = Math.min(.05, Math.max(0, (now - lastFrame) / 1000)); lastFrame = now;
   const attitude = input?.attitude;
-  if (valid(attitude, ['roll', 'pitch', 'yaw']) && attitude.tilt_valid === 1 && attitude.yaw_valid === 1) orientation.slerp(target, reduced.matches ? 1 : 1 - Math.exp(-14 * dt));
+  if (valid(attitude, ['roll', 'pitch']) && attitudeParts(attitude).tilt) orientation.slerp(target, reduced.matches ? 1 : 1 - Math.exp(-14 * dt));
   for (const [motor, side] of [['B', 'left'], ['A', 'right']]) {
     const sample = input?.wheels?.[motor], wheel = wheelState[motor];
     if (valid(sample, ['forward_count']) && sample.valid === 1) wheel.phase += (wheel.target - wheel.phase) * (reduced.matches ? 1 : 1 - Math.exp(-18 * dt));

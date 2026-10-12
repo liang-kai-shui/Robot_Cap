@@ -565,6 +565,21 @@ class ControlDesk:
         self.emit('task','info',reason+'：驱动停止，等待停稳回传')
         return {'released':True}
 
+    def set_range_offset(self, owner, offset):
+        if type(offset) is not int or not -100<=offset<=100:
+            raise ValueError('校正值需为-100..100的整数毫米')
+        with self.lock:
+            self._claim(owner)
+            if self._active() or self.holding: raise ValueError('先停止当前任务，再调整校正值')
+            if self.backend:
+                self._healthy()
+                self.backend.configure_range_offset(offset)
+            self.log_dir.mkdir(parents=True,exist_ok=True)
+            (self.log_dir/'range-calibration.json').write_text(json.dumps({'offset_mm':offset,'source':'ruler_manual','at':utc_now()}),encoding='utf-8')
+            self.range_offset_mm=offset; self.plan=None; self.revision+=1
+            self.emit('calibration','info',f'测距显示和模型距离校正 {offset:+d} mm；原始读数保留。')
+            return {'offset_mm':offset}
+
     def calibrate_range(self, owner, known_mm):
         if type(known_mm) is not int or not 100<=known_mm<=2000: raise ValueError('标定距离需为100..2000毫米；建议140毫米平整目标')
         self._healthy()

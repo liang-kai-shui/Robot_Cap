@@ -98,7 +98,7 @@ class DeskHandler(BaseHTTPRequestHandler):
                     raise ValueError('文档不存在')
                 file = Path(__file__).resolve().parents[1]/'docs'/files[name]
                 self._json({'name': files[name], 'text': file.read_text(encoding='utf-8')})
-            elif path in ('/', '/index.html', '/app.js', '/styles.css', '/visuals.js',
+            elif path in ('/', '/index.html', '/app.js', '/styles.css', '/visuals.js', '/attitude-math.js',
                           '/vendor/three/three.module.js', '/vendor/three/three.core.js',
                           '/vendor/three/OrbitControls.js'):
                 file = STATIC/('index.html' if path == '/' else path[1:])
@@ -161,6 +161,7 @@ class DeskHandler(BaseHTTPRequestHandler):
             elif path == '/api/stop': result = controller.stop('网页停止')
             elif path == '/api/manual': result = controller.manual(owner, body.get('action'), body.get('value'))
             elif path == '/api/generate': result = controller.generate(owner, body.get('instruction'), body.get('auto_execute', False))
+            elif path == '/api/range-offset': result = controller.set_range_offset(owner, body.get('offset_mm'))
             elif path == '/api/range-calibrate': result = controller.calibrate_range(owner, body.get('known_mm'))
             elif path == '/api/execute': result = controller.execute(owner, body.get('plan_id'))
             elif path == '/api/settings': result = controller.configure(owner, body)
