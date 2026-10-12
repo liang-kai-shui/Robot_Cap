@@ -9,7 +9,7 @@ import json
 import threading
 import time
 
-from agent.physical_policy import validate_physical_policy
+from agent.physical_policy import validate_physical_policy, capture_physical_feedback
 from agent.physical_context import build_physical_history
 from runtime.errors import RobotActionTimeoutError, RobotEmergencyStopError, UnsafePolicyError
 
@@ -49,10 +49,7 @@ def review_segment(provider, instruction, backend, completed_task, remaining_seg
     if (summary["status"] != "completed" or state.get("fault") or
             not state.get("connected") or not state.get("ready") or state.get("stopped") is not True):
         raise RobotEmergencyStopError("分段结果或停稳状态无效，不请求继续决策。")
-    sensors={}
-    for name in ('get_distance','get_attitude'):
-        try:sensors[name]=getattr(backend,name)()
-        except Exception:sensors[name]={'valid':False,'reason':'unavailable_or_stale'}
+    sensors=capture_physical_feedback(backend)['sensors']
     context = {"backend": "esp32-serial", "firmware":state.get('firmware'),
                "front_guard":state.get('front_guard'),"range_available":bool(state.get('range_available')),
                "pose_available": False, "execution_success": True,

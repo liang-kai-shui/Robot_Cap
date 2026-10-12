@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from agent.physical_policy import generate_physical_policy, validate_physical_policy
+from agent.physical_policy import generate_physical_policy, validate_physical_policy, capture_physical_feedback
 from agent.physical_context import build_physical_history
 from providers.base import LLMResponse
 from robot.backends.esp32_serial import ESP32SerialBackend, build_esp32_registry
@@ -101,3 +101,32 @@ def test_invalid_instruction_does_not_call_model(instruction):
     with pytest.raises(UnsafePolicyError):
         generate_physical_policy(model, instruction, hardware_registry())
     assert not model.requests
+
+
+def test_current_valid_sensors_are_explicit_even_after_failed_history():
+    from webui.demo import DemoBackend
+    backend=DemoBackend()
+    backend.connect()
+    backend.range_mm=265
+    feedback=capture_physical_feedback(backend)
+    assert feedback['sensors']['get_attitude']['valid'] is True
+    assert feedback['sensors']['get_distance']['valid'] is True
+    model=FakeModel('robot.approach(.1)\nrobot.stop()')
+    history=build_physical_history([{'number':1,'instruction':'旧失败任务','error':'BMI invalid','trace':[]}])
+    generate_physical_policy(model,'走到距离前方10厘米',build_esp32_registry(backend),feedback=feedback,history=history)
+    context=json.loads(model.requests[0][2])
+    assert context['sensors']['get_distance']['distance_m']==.265
+    assert context['sensors']['get_attitude']['valid'] is True
+    assert context['session_history']['recent_tasks'][0]['status']=='rejected_without_motion'
+
+
+def test_failed_sensor_is_never_relabelled_as_valid():
+    from runtime.errors import RobotActionError
+    class Backend:
+        def snapshot(self):return {'connected':True,'firmware':'1.9'}
+        def get_distance(self):return {'valid':True,'distance_m':.265}
+        def get_attitude(self):raise RobotActionError('Invalid yaw')
+    feedback=capture_physical_feedback(Backend())
+    assert feedback['sensors']['get_distance']['valid'] is True
+    assert feedback['sensors']['get_attitude']=={
+        'valid':False,'reason':'unavailable_or_stale','error_type':'RobotActionError'}

@@ -19,7 +19,7 @@ from urllib.parse import urlparse
 from agent.physical_context import build_physical_history
 from agent.physical_mission import split_mission, review_segment
 from agent.physical_context import _summary
-from agent.physical_policy import generate_physical_policy, validate_physical_policy
+from agent.physical_policy import generate_physical_policy, validate_physical_policy, capture_physical_feedback
 from physical_control import _physical_limits
 from providers.openai_compatible import OpenAICompatibleProvider
 from robot.backends.esp32_serial import ESP32SerialBackend, build_esp32_registry
@@ -381,12 +381,7 @@ class ControlDesk:
             connected = backend.snapshot()['connected']
             self._phase(job, '正在生成并校验完整计划')
             timings = {}; diagnostics=job['diagnostics']
-            feedback=backend.snapshot()
-            sensors={}
-            for name in ('get_distance','get_attitude'):
-                try: sensors[name]=getattr(backend,name)()
-                except Exception: sensors[name]={'valid':False,'reason':'unavailable_or_stale'}
-            feedback['sensors']=sensors
+            feedback=capture_physical_feedback(backend)
             try:
                 policy, response = self._wait_model(job, lambda: generate_physical_policy(provider, instruction,
                 registry, feedback=feedback, history=history, timings=timings, max_motion_calls=9, diagnostics=diagnostics,policy_library=self.policy_library if reuse else None), hardware=connected)
