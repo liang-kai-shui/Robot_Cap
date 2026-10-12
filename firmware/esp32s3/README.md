@@ -48,7 +48,9 @@ A=右轮：编码器10/11、方向12/13、PWM14；B=左轮：编码器4/5、方�
 
 PARAM1：`@F100\n` 前进100mm，`@J300\n` 左转30.0°，`@L300\n` 右转30.0°；T/t优先停止。单次前进50–300mm，转弯15–90°。动作反馈顺序和电脑端调用见 [串口协议说明](../../docs/SERIAL_PROTOCOL.md)。
 
-`main/test_mode.h` 当前为 `ROBOT_SUPERVISED_TEST=1`：ToF采集和前方停车保护关闭；编码器和BMI反馈、运动时间上限及T/BOOT停止仍在。不要仅为启用新电脑端模式改动这个开关。
+`main/test_mode.h` 当前为 `ROBOT_SUPERVISED_TEST=1` / `ROBOT_TOF_ENABLED=1`：测距采集ON，前方停车保护OFF。两个开关独立，启用显示不会默默启用停车保护；保护ON而测距OFF的配置会在编译时被拒绝。编码器、BMI保护、运动时间上限及T/BOOT停止沿用原逻辑。
+
+2026-10-12 新增约250ms间隔的 TOF / WHEEL / ATTITUDE 回传，传感器和低优先级遥测任务独立于电机控制循环。43mm轮径和左右19.190/19.294 counts/mm用于轮速换算。更新后的程序为 `0x49d90` 字节，完整构建和轮速C检查通过，已获用户授权烧录COM5；未执行电机运动测试。初始归档哈希保存在 SOURCE_MANIFEST.json 的 archive_sha256，当前源码另由 sha256 校验。
 
 ## 原键盘工具
 

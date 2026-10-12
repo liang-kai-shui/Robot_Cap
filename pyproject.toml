@@ -20,10 +20,12 @@ robot-cap-navigation-benchmark = "navigation_benchmark:main"
 robot-cap-mission-benchmark = "mission_benchmark:main"
 robot-cap-robustness-benchmark = "robustness_benchmark:main"
 robot-cap-physical = "physical_control:main"
+robot-cap-webui = "web_control:main"
 
 [tool.setuptools]
-py-modules = ["main", "benchmark", "navigation_benchmark", "mission_benchmark", "robustness_benchmark", "physical_control"]
-packages = ["agent", "robot", "robot.backends", "runtime", "world", "task", "providers", "metrics", "config", "policy", "navigation"]
+py-modules = ["main", "benchmark", "navigation_benchmark", "mission_benchmark", "robustness_benchmark", "physical_control", "web_control"]
+packages = ["agent", "robot", "robot.backends", "runtime", "world", "task", "providers", "metrics", "config", "policy", "navigation", "webui"]
 
 [tool.setuptools.package-data]
 config = ["default.yaml"]
+webui = ["static/*.html", "static/*.css", "static/*.js", "static/vendor/three/*"]

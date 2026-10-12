@@ -150,6 +150,17 @@ static void bmi_worker(void *ctx) {
         vTaskDelay(pdMS_TO_TICKS(2));
     }
 }
+static void tof_print(void) {
+    sensor_snapshot_t s;
+    portENTER_CRITICAL(&snapshot_lock);
+    s=snapshot;
+    int64_t now=esp_timer_get_time();
+    portEXIT_CRITICAL(&snapshot_lock);
+    bool valid=s.tof_ready&&s.tof_us&&now>=s.tof_us&&now-s.tof_us<=FRONT_FRESH_US&&
+        s.tof_error==0&&s.range_status==0&&s.mm>0;
+    ESP_LOGI(TAG,"TOF ready=%d distance_mm=%u valid=%d status=%u error=%d age_ms=%lld (SDA6 SCL7)",
+        s.tof_ready,s.mm,valid,s.range_status,s.tof_error,s.tof_us?(now-s.tof_us)/1000:-1LL);
+}
 static void tof_worker(void *ctx) {
     (void)ctx;
     bool ready=init_bus(I2C_NUM_1,6,7)&&tof_init();
@@ -157,7 +168,8 @@ static void tof_worker(void *ctx) {
     snapshot.tof_ready=ready; snapshot.tof_error=ready?0:-1;
     range_guard_reset(&forward_guard,ready);
     portEXIT_CRITICAL(&snapshot_lock);
-    if(!ready) { vTaskDelete(NULL); return; }
+    if(!ready) { tof_print(); vTaskDelete(NULL); return; }
+    int64_t last_report=0;
     while(true) {
         uint16_t mm=0; uint8_t status=255; bool error=false;
         bool fresh=tof_poll(&mm,&status,&error);
@@ -167,6 +179,9 @@ static void tof_worker(void *ctx) {
         range_guard_observe(&forward_guard,fresh,error,mm,status,now);
         if(fresh) { snapshot.mm=mm; snapshot.range_status=status; snapshot.tof_us=now; }
         portEXIT_CRITICAL(&snapshot_lock);
+        // Low-rate telemetry runs on the sensor task, even during motion. Never
+        // hold the snapshot lock while logging or perform I2C in the motor loop.
+        if(now-last_report>=250000) { tof_print(); last_report=now; }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
@@ -175,7 +190,10 @@ void sensors_start(void) {
     // acquisition or the motor loop. No I2C calls or worker UART logs in motor task.
     range_guard_reset(&forward_guard,false);
     if(xTaskCreatePinnedToCore(bmi_worker,"bmi-sample",8192,NULL,3,NULL,1)!=pdPASS) snapshot.bmi_error=-3;
-    if(!ROBOT_SUPERVISED_TEST && xTaskCreatePinnedToCore(tof_worker,"tof-sample",4096,NULL,2,NULL,1)!=pdPASS) snapshot.tof_error=-3;
+    if(ROBOT_TOF_ENABLED && xTaskCreatePinnedToCore(tof_worker,"tof-sample",4096,NULL,2,NULL,1)!=pdPASS) {
+        snapshot.tof_error=-3;
+        tof_print();
+    }
 }
 void sensors_zero_request(void) {
     portENTER_CRITICAL(&snapshot_lock);
@@ -200,6 +218,18 @@ yaw_sample_t sensors_yaw_read(void) {
     v.valid=v.valid&&projected;
     return v;
 }
+void sensors_attitude_print(void) {
+    sensor_snapshot_t s;
+    portENTER_CRITICAL(&snapshot_lock);
+    s=snapshot;
+    int64_t now=esp_timer_get_time();
+    portEXIT_CRITICAL(&snapshot_lock);
+    yaw_sample_t yaw=sensors_yaw_read();
+    bool fresh=s.bmi_ready&&s.bmi_us>0&&now>=s.bmi_us&&now-s.bmi_us<=50000&&s.bmi_error==0;
+    ESP_LOGI(TAG,"ATTITUDE roll=%.1f pitch=%.1f yaw=%.1f tilt_valid=%d yaw_valid=%d calibrated=%d age_ms=%lld zero_epoch=%u",
+        s.roll,s.pitch,yaw.angle_deg,s.tilt_valid&&fresh,yaw.valid,s.calibrated,
+        s.bmi_us?(now-s.bmi_us)/1000:-1LL,s.zero_epoch);
+}
 range_guard_view_t sensors_forward_guard(void) {
     portENTER_CRITICAL(&snapshot_lock);
     range_guard_view_t view=range_guard_read(&forward_guard,esp_timer_get_time());
@@ -216,14 +246,12 @@ void sensors_print(int64_t now) {
     range_guard_view_t front=range_guard_read(&forward_guard,now);
     portEXIT_CRITICAL(&snapshot_lock);
     bool bmi_fresh=s.bmi_ready&&s.bmi_us&&now>=s.bmi_us&&now-s.bmi_us<=50000&&s.bmi_error==0;
-    bool range_valid=s.tof_ready&&s.tof_us&&now>=s.tof_us&&now-s.tof_us<=FRONT_FRESH_US&&s.tof_error==0&&s.range_status==0&&s.mm>0;
     // The last numeric value may be retained for diagnosis, never marked valid
     // after a bus error, stale update or invalid optical return.
-    if(ROBOT_SUPERVISED_TEST) {
-        ESP_LOGI(TAG,"TOF DISABLED front_guard=OFF; supervised test. BMI and encoder feedback remain active.");
-    } else {
-    ESP_LOGI(TAG,"TOF ready=%d distance_mm=%u valid=%d status=%u error=%d age_ms=%lld (SDA6 SCL7)",
-        s.tof_ready,s.mm,range_valid,s.range_status,s.tof_error,s.tof_us?(now-s.tof_us)/1000:-1LL);
+    if(!ROBOT_TOF_ENABLED) {
+        ESP_LOGI(TAG,"TOF DISABLED front_guard=OFF; acquisition disabled.");
+    }
+    if(!ROBOT_SUPERVISED_TEST) {
     ESP_LOGI(TAG,"FORWARD_GUARD blocked=%d cause=%s distance_mm=%u age_ms=%lld clear_samples=%u/3; W stop<=250mm release>=350mm. Rear/sides unmonitored.",
         front.blocked,front_cause_name(front.cause),front.mm,front.age_us<0?-1LL:front.age_us/1000,front.clear_samples);
     }

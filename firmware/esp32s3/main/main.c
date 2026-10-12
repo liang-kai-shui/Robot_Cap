@@ -19,6 +19,7 @@
 #include "sensor_io.h"
 #include "heading_control.h"
 #include "distance_control.h"
+#include "wheel_telemetry.h"
 #include "test_mode.h"
 #include "command_parser.h"
 
@@ -196,6 +197,30 @@ static void encoders_read(encoder_sample_t sample[MOTOR_COUNT])
     for (unsigned i=0; i<MOTOR_COUNT; ++i) {
         ESP_ERROR_CHECK(pcnt_unit_get_count(motors[i].q_unit, &sample[i].quadrature));
         ESP_ERROR_CHECK(pcnt_unit_get_count(motors[i].edge_unit, &sample[i].edges));
+    }
+}
+static void telemetry_worker(void *ctx)
+{
+    (void)ctx;
+    encoder_sample_t previous[MOTOR_COUNT];
+    encoders_read(previous);
+    int64_t previous_us=esp_timer_get_time();
+    while(true) {
+        vTaskDelay(pdMS_TO_TICKS(250));
+        encoder_sample_t sample[MOTOR_COUNT];
+        encoders_read(sample);
+        int64_t now=esp_timer_get_time(),dt=now-previous_us;
+        for(unsigned j=0;j<MOTOR_COUNT;++j) {
+            long long delta=((long long)sample[j].quadrature-previous[j].quadrature)*motors[j].forward_sign;
+            long long edges=(long long)sample[j].edges-previous[j].edges;
+            wheel_telemetry_t v=wheel_telemetry(j,delta,edges,dt);
+            ESP_LOGI("telemetry","WHEEL motor=%s side=%s count=%d forward_count=%lld cps=%.1f speed_mm_s=%.1f rpm=%.2f valid=%d dt_ms=%.1f age_ms=0",
+                motors[j].name,motors[j].side,sample[j].quadrature,
+                (long long)sample[j].quadrature*motors[j].forward_sign,v.cps,v.speed_mm_s,v.rpm,v.valid,dt/1000.0);
+            previous[j]=sample[j];
+        }
+        previous_us=now;
+        sensors_attitude_print();
     }
 }
 static void distance_cal_cancel(const char *cause)
@@ -671,9 +696,11 @@ void app_main(void)
         ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 256, 0, 0, NULL, 0));
     ESP_ERROR_CHECK(uart_flush_input(UART_NUM_0));
     sensors_start();
+    if(xTaskCreatePinnedToCore(telemetry_worker,"ui-telemetry",4096,NULL,1,NULL,1)!=pdPASS)
+        ESP_LOGE("telemetry","TELEMETRY_UNAVAILABLE: sampling task allocation failed");
     print_status();
     if(ROBOT_SUPERVISED_TEST)
-        ESP_LOGI("sensors","SUPERVISED_TEST: TOF acquisition DISABLED, front_guard=OFF for W/F. User monitors clear space and T stop. BMI and encoder protections remain active.");
+        ESP_LOGI("sensors","SUPERVISED_TEST: TOF acquisition=%s, front_guard=OFF for W/F. User monitors clear space and T stop. BMI and encoder protections remain active.",ROBOT_TOF_ENABLED?"ON":"OFF");
     else
         ESP_LOGI("sensors", "BMI SDA8/SCL9; VL53L1X SDA6/SCL7 fixed facing FRONT. W/F stop at <=250mm, clear after 3 new valid readings >=350mm. Invalid/error/age>200ms blocks W/F. Rear/sides unmonitored.");
     ESP_LOGI("vehicle", "WASD: each fresh key <=800ms, cap 60%%. T or BOOT stops. No automatic run/retry, current or stall test.");
@@ -710,7 +737,7 @@ void app_main(void)
                      now-last_stop_us>=STOP_COOLDOWN_US && now-last_motion_us>=KEY_QUIET_US &&
                      now-last_motion_key_us>=KEY_QUIET_US) {
                 ready_reported=true;
-                ESP_LOGI("vehicle", "VEHICLE_READY: firmware=1.8 protocol=PARAM1 front_guard=%s move_min_mm=50 move_max_mm=300 turn_min_tdeg=150 turn_max_tdeg=900; valid calibrated BMI required. T stops. No BOOT unlock.",ROBOT_SUPERVISED_TEST?"OFF":"ON");
+                ESP_LOGI("vehicle", "VEHICLE_READY: firmware=1.8 protocol=PARAM1 front_guard=%s tof=%s move_min_mm=50 move_max_mm=300 turn_min_tdeg=150 turn_max_tdeg=900; valid calibrated BMI required. T stops. No BOOT unlock.",ROBOT_SUPERVISED_TEST?"OFF":"ON",ROBOT_TOF_ENABLED?"ON":"OFF");
             }
         }
         if (!running && now-last_sensor_print>=500000) {

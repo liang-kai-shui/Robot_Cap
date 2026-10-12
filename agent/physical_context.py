@@ -41,6 +41,11 @@ def _completed_actions(task):
                     raise ValueError("Invalid turn feedback")
                 action = {"name": "turn", "angle_deg": angle}
                 measurements = ("after_stop_deg", "error_deg")
+            elif capability == 'manual.reverse':
+                if request.get('duration') != .8 or result.get('duration_ms') != 800 or result.get('encoder_valid') is not True:
+                    raise ValueError('Invalid timed reverse feedback')
+                action = {'name':'manual_reverse','duration_s':.8,'measurement':'timed_not_distance_control'}
+                measurements = ('elapsed_ms',)
             elif capability == "motion.stop":
                 if result.get("stop_acknowledged") is not True or result.get("wheel_standstill_confirmed") is not True:
                     raise ValueError("Missing confirmed STOP")
@@ -89,7 +94,7 @@ def build_physical_history(tasks):
     reference = None
     for task in reversed(tasks):
         attempted_motion = any(event.get("kind") == "action" and
-                               event.get("capability_id") in ("motion.move", "motion.turn")
+                               event.get("capability_id") in ("motion.move", "motion.turn", "manual.reverse")
                                for event in task.get("trace", []))
         if not attempted_motion:
             continue

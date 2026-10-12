@@ -2,7 +2,7 @@
 
 自然语言任务通过模型生成 Python Policy，经能力注册、AST 校验和独立 Worker，由可信 RobotRuntime 执行。项目包含二维模拟评测与 ESP32-S3 实车后端，分别记录执行反馈和任务结果。
 
-**当前状态（2026-10-12）：** 双电机、编码器、BMI323、有界参数动作、DeepSeek 自然语言控制和会话上下文已实车测试；统一入口的两段反馈任务也已有一次用户实车验证。测距采集及前方停车保护仍关闭，未接入实车定位、自主导航或避障。完整 ESP-IDF 固件现随仓库归档。
+**当前状态（2026-10-12）：** 双电机、编码器、BMI323、有界参数动作、DeepSeek 自然语言控制和会话上下文已实车测试；统一入口的两段反馈任务也已有一次用户实车验证。WebUI 已加入测距、轮速/车速和 3D 姿态。测距采样已启用，前方停车保护仍 OFF；未接入实车定位、自主导航或避障。完整 ESP-IDF 固件随仓库提供。
 
 [文档索引](docs/README.md) · [硬件接口讲解](docs/HARDWARE_INTERFACES_GUIDE.md) · [系统架构](docs/ARCHITECTURE.md) · [项目状态](docs/PROJECT_STATUS.md) · [报告索引](reports/README.md)
 
@@ -12,6 +12,7 @@
 | --- | --- |
 | `main.py` | 统一入口，默认模拟，显式选择实车 |
 | `physical_control.py` | 实车状态、固定演示、自然语言和连续/分段控制 |
+| `web_control.py`、`webui/` | 本机网页控制台：回传、按钮、自然语言、终端和构建 |
 | `agent/`、`providers/` | 策略生成、上下文、任务规划和模型服务 |
 | `robot/`、`runtime/` | 能力注册、可信调度、Worker、后端和停止 |
 | `navigation/`、`world/`、`task/` | 模拟地图导航、环境和任务评分 |
@@ -28,7 +29,7 @@
 | 能力 | 模拟 | 实车 |
 | --- | --- | --- |
 | 移动/转弯 | 模拟 API 范围与可选速度 | 单次前进5–30cm、左右转15–90°，固定速度 |
-| 位姿与测距 | 按实验使用理想或扰动观测 | 编码器/相对陀螺仪估计；当前无地面位姿、ToF关闭 |
+| 位姿与测距 | 按实验使用理想或扰动观测 | 无地面位姿；ToF 已在 WebUI 显示，CaP 测距观测接口尚未开放 |
 | 任务执行 | Benchmark、观测导航和低频规划 | 有界动作、上下文和分段反馈审核 |
 | 评分 | 独立模拟真值与TaskEvaluator | execution_success；无独立地面评分，task_success=null |
 
@@ -50,6 +51,8 @@ python scripts/check_repository.py
 默认 `mock` 不需要模型密钥。自然语言真实模型与各批模拟实验命令见 [模拟指南](docs/SIMULATION_GUIDE.md)。配置模板见 [.env.example](.env.example)，项目不自动读取 .env；通过终端设置环境变量，不把密钥上传到仓库。
 
 ## 实车使用
+
+**网页入口：** Windows 双击 [Start_Robot_UI.vbs](Start_Robot_UI.vbs)，在浏览器选择串口并连接，无需反复打开 PowerShell。控制台提供姿态回传、动作反馈、计时、手动控制、自然语言计划、任务记录和机器人命令终端。旧v1.8/PARAM1兼容控制；新增测距、轮速与3D回传需遥测固件。离线体验可双击 [Preview_Robot_UI.vbs](Preview_Robot_UI.vbs)，详细操作见 [WebUI 使用说明](docs/WEBUI.md)。WebUI 已验证实车静止遥测及浏览器显示，新增遥测固件的运动验证待用户执行。
 
 硬件：ESP32-S3 N8R8、TB6612、双N20霍尔编码电机、43mm轮胎、BMI323、已接线但目前停用的VL53L1X。具体引脚、电源和非通用线色见 [硬件接口讲解](docs/HARDWARE_INTERFACES_GUIDE.md)。
 
@@ -82,7 +85,7 @@ idf.py -C firmware/esp32s3 build
 
 ## 验证与研究记录
 
-- 当前 Python 离线回归：**372项通过**，使用假串口和mock模型，不连接实车或付费API。
+- 当前 Python 离线回归：**418项通过**（含 WebUI），使用假串口和mock模型，不连接实车或付费API。
 - 固件归档逐文件核对来源；另有参数帧/转角 C 检查和完整 ESP-IDF 构建。
 - GitHub CI 运行离线检查和固件构建，验证构建能力，不证明实车精度。
 - 2026-10-12 用户两段任务执行完成并停稳，耗时约22.7秒；反馈测量不是独立地面定位。

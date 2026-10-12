@@ -7,6 +7,7 @@
 | BMI3XY / BMI323 SensorAPI | [Bosch Sensortec BMI3XY_SensorAPI](https://github.com/boschsensortec/BMI3XY_SensorAPI)，已记录提交 `b3033e78bc6e2c2e473f24e6d79afef0e16c4655` | [Bosch LICENSE](firmware/esp32s3/main/bosch/LICENSE) | 上游来源见 `SOURCE.txt`，本地源文件哈希见 `SHA256.json` |
 | VL53L1X 驱动 | [Pololu VL53L1X Arduino library](https://github.com/pololu/vl53l1x-arduino)，原有驱动也基于 ST 的 VL53L1X API | [ST/Pololu LICENSE](firmware/esp32s3/main/tof/LICENSE.txt) | 从现有已编译工程归档；原获取记录未保存确切上游提交，不能声称是某个固定发布版 |
 | ESP-IDF | [Espressif ESP-IDF](https://github.com/espressif/esp-idf)，本地使用5.1.2 | 安装的ESP-IDF自身许可 | 构建工具链外部安装，不把整个SDK或编译产物复制到本仓库 |
+| Three.js 0.186.1 | [Three.js](https://github.com/mrdoob/three.js)，官方 npm 版本，经 unpkg 镜像获取 | [MIT LICENSE](webui/static/vendor/three/LICENSE.txt) | 引擎本地打包，OrbitControls 的 import 改为本地模块；来源和 SHA256 见 `webui/static/vendor/three/SOURCE.json` |
 
 `main/tof/Arduino.h`、`Wire.h`、`Wire.cpp` 是为了让原驱动通过 ESP-IDF I²C 运行而提供的兼容层，不是完整 Arduino Core。`bmi_init.inc` 和 `tof_port.cpp` 是本项目的适配代码。
 

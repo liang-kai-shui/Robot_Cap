@@ -28,6 +28,11 @@ F_RESULT = ('DISTANCE_RESULT action=f target_mm=300 cutoff_right_mm=298.5 cutoff
             'after_stop_right_mm=315.2 after_stop_left_mm=317.0 after_stop_mean_mm=316.1 '
             'encoder_valid=1 yaw_valid=1 cutoff_yaw_error_deg=0.53 after_stop_yaw_error_deg=0.57 elapsed_ms=2634.6\n')
 F_DONE = 'VEHICLE_DONE action=f type=DISTANCE_MOVE; motors off.\n'
+REVERSE_START = 'VEHICLE_START action=s right_sign=-1 left_sign=-1 target=2200cps initial=40% cap=60% duration=800ms\n'
+REVERSE_A = 'VEHICLE_RESULT action=s motor=A side=RIGHT vehicle_sign=-1 tail_cps=2200 count_delta=1760 edges=1760\n'
+REVERSE_B = 'VEHICLE_RESULT action=s motor=B side=LEFT vehicle_sign=-1 tail_cps=2200 count_delta=-1760 edges=1760\n'
+REVERSE_DONE = 'VEHICLE_DONE elapsed_ms=804.2 samples=38 both_tracking=YES tail_speed_difference=0.0cps\n'
+REVERSE = REVERSE_START+REVERSE_A+REVERSE_B+REVERSE_DONE+READY
 
 
 def transcript(key):
@@ -487,3 +492,42 @@ def test_worker_stops_policy_after_failed_first_hardware_action():
         assert 'j' not in port.sent and port.sent[-1] == 't'
     finally:
         backend.close()
+
+
+def test_manual_reverse_uses_legacy_s_and_both_encoders_then_stopped_ready():
+    backend, port = connected(responses={'s': REVERSE}, chunks=True)
+    try:
+        result = backend.reverse()
+        assert port.sent == ['t', 's']
+        assert result['duration_ms'] == 800 and result['encoder_valid'] is True
+        assert result['measurement'] == 'timed_reverse_not_distance_control'
+        assert backend.snapshot()['stopped'] and backend.snapshot()['ready']
+        assert 'reverse' not in generate_robot_api_prompt(build_esp32_registry(backend))
+    finally:
+        backend.close()
+
+
+@pytest.mark.parametrize('transcript', [
+    REVERSE.replace('duration=800ms', 'duration=700ms'),
+    REVERSE.replace('right_sign=-1', 'right_sign=1'),
+    REVERSE.replace(REVERSE_B, ''),
+    REVERSE.replace(REVERSE_B, REVERSE_A),
+    REVERSE.replace('count_delta=-1760', 'count_delta=1760'),
+    REVERSE.replace('elapsed_ms=804.2', 'elapsed_ms=1500'),
+    REVERSE.replace(REVERSE_DONE, ''),
+])
+def test_reverse_rejects_mismatched_or_missing_feedback_without_retry(transcript):
+    backend, port = connected(responses={'s':transcript})
+    try:
+        with pytest.raises(RobotBackendError): backend.reverse()
+        assert port.sent.count('s') == 1 and port.sent[-1] == 't'
+        assert not backend.snapshot()['ready']
+    finally: backend.close()
+
+
+def test_reverse_missing_ready_times_out_and_requests_stop():
+    backend, port = connected(responses={'s':REVERSE.removesuffix(READY)})
+    try:
+        with pytest.raises(RobotActionTimeoutError): backend.reverse(deadline=time.monotonic()+.08)
+        assert port.sent.count('s') == 1 and port.sent[-1] == 't'
+    finally: backend.close()

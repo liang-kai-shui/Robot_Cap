@@ -3,11 +3,20 @@
 #include <math.h>
 #include "command_parser.h"
 #include "turn_control.h"
+#include "wheel_telemetry.h"
 
 static param_packet_t feed(param_parser_t *p,const char *s,int64_t now) {
     return param_feed(p,(const uint8_t *)s,strlen(s),now);
 }
 int main(void) {
+    wheel_telemetry_t speed=wheel_telemetry(0,1919,1919,1000000);
+    assert(speed.valid&&fabsf(speed.speed_mm_s-100.0f)<.01f);
+    assert(fabsf(speed.rpm-44.415f)<.01f);
+    speed=wheel_telemetry(1,-1929,1929,1000000);
+    assert(speed.valid&&speed.speed_mm_s<0);
+    assert(!wheel_telemetry(0,100,0,250000).valid);
+    assert(!wheel_telemetry(0,0,0,0).valid);
+    assert(!wheel_telemetry(2,0,0,250000).valid);
     const char *valid[]={"@F50\n","@F200\n","@F300\n","@J150\n","@J450\n","@L900\r\n"};
     for(unsigned n=0;n<sizeof(valid)/sizeof(*valid);n++) {
         size_t length=strlen(valid[n]);

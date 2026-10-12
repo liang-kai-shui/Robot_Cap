@@ -2,10 +2,10 @@
 
 The firmware has no command IDs. This adapter owns the port exclusively, allows
 one action at a time, and never retries movement. Only the measured 30cm and
-90-degree maximum are retained; no ground pose or disabled ToF is fabricated.
+90-degree maximum are retained; unimplemented observations are never fabricated.
 """
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 import re
 import threading
@@ -35,6 +35,7 @@ class _Motion:
     result: dict | None = None
     done: bool = False
     ready: bool = False
+    wheels: dict = field(default_factory=dict)
 
 
 def _number(fields, name):
@@ -229,13 +230,31 @@ class ESP32SerialBackend(PhysicalBackend):
                     else:
                         target_field = "target_mm" if motion.key == "f" else "target_deg"
                         try:
-                            if abs(_number(fields, target_field)-motion.target) > 0.05:
+                            value = _number(fields, target_field) if motion.key != 's' else float(fields.get('duration', '').removesuffix('ms'))
+                            if not math.isfinite(value) or abs(value-motion.target) > 0.05:
                                 raise RobotBackendError("START target differs from requested action")
+                            if motion.key == 's' and (fields.get('right_sign') != '-1' or fields.get('left_sign') != '-1'):
+                                raise RobotBackendError('Reverse START direction differs from requested action')
                             motion.started = True
                             motion.start_at = time.perf_counter()
                             self._stopped = False
-                        except RobotBackendError as exc:
-                            self._trip(exc)
+                        except (RobotBackendError, ValueError) as exc:
+                            self._trip(exc if isinstance(exc, RobotBackendError) else RobotBackendError(str(exc)))
+                if motion.key == 's' and 'VEHICLE_RESULT' in line:
+                    try:
+                        motor = fields.get('motor')
+                        if not motion.started or motor not in ('A', 'B') or motor in motion.wheels:
+                            raise RobotBackendError('Reverse result missing START or duplicate motor')
+                        if fields.get('action') != 's' or fields.get('vehicle_sign') != '-1' or fields.get('side') != ('RIGHT' if motor == 'A' else 'LEFT'):
+                            raise RobotBackendError('Reverse wheel identity/direction mismatch')
+                        q, edges, cps = (_number(fields, name) for name in ('count_delta', 'edges', 'tail_cps'))
+                        if q * (1 if motor == 'A' else -1) <= 0 or abs(q) > 4000 or edges <= 0 or abs(abs(q)-edges) > 8+edges/100 or not 0 < cps <= 4400:
+                            raise RobotBackendError('Invalid reverse encoder feedback')
+                        motion.wheels[motor] = {'count_delta': q, 'edges': edges, 'tail_cps': cps}
+                        if not motion.cutoff_at:
+                            motion.cutoff_at = time.perf_counter()
+                    except RobotBackendError as exc:
+                        self._trip(exc)
                 if "DISTANCE_RESULT" in line or "TURN_RESULT" in line:
                     if not motion.started or not motion.target_stop or motion.result is not None:
                         self._trip(RobotBackendError("Result without ordered START and target STOP"))
@@ -246,7 +265,18 @@ class ESP32SerialBackend(PhysicalBackend):
                         except RobotBackendError as exc:
                             self._trip(exc)
                 if "VEHICLE_DONE" in line:
-                    if not motion.started or motion.result is None or motion.done or fields.get("action") != motion.key or fields.get("type") != motion.kind:
+                    if motion.key == 's':
+                        try:
+                            elapsed = _number(fields, 'elapsed_ms')
+                            if not motion.started or set(motion.wheels) != {'A', 'B'} or motion.done or not 800 <= elapsed <= 900 or _number(fields, 'samples') < 6:
+                                raise RobotBackendError('Incomplete or invalid timed reverse completion')
+                            motion.result = {'action': 's', 'duration_ms': 800, 'elapsed_ms': elapsed,
+                                'encoder_valid': True, 'wheels': dict(motion.wheels), 'measurement': 'timed_reverse_not_distance_control'}
+                            motion.result_at = motion.done_at = time.perf_counter()
+                            motion.done = True
+                        except RobotBackendError as exc:
+                            self._trip(exc)
+                    elif not motion.started or motion.result is None or motion.done or fields.get("action") != motion.key or fields.get("type") != motion.kind:
                         self._trip(RobotBackendError("Missing/invalid/duplicate action completion"))
                     else:
                         motion.done = True
@@ -324,10 +354,10 @@ class ESP32SerialBackend(PhysicalBackend):
                 if self._action_count >= self.max_actions:
                     raise ActionLimitExceeded("Hardware session action budget exhausted")
                 self._action_count += 1
-                self._last_action = "MOVE" if key == "f" else "TURN"
+                self._last_action = "REVERSE" if key == 's' else "MOVE" if key == "f" else "TURN"
                 self._ready = False
                 self._stopped = None
-                self._active = _Motion(key, "DISTANCE_MOVE" if key == "f" else "ANGLE_TURN", target, time.perf_counter())
+                self._active = _Motion(key, "TIMED_REVERSE" if key == 's' else "DISTANCE_MOVE" if key == "f" else "ANGLE_TURN", target, time.perf_counter())
                 self._write(wire)
             self._wait(lambda: self._active.ready, end, cancel_event)
             with self._condition:
@@ -356,6 +386,16 @@ class ESP32SerialBackend(PhysicalBackend):
         if speed is not None:
             raise RobotActionError("Firmware speed is fixed; custom speed is unavailable")
         return self._move_action("f", mm, "f" if mm == 300 else f"@F{mm}\n", 9.0, cancel_event, deadline)
+
+    def reverse(self, duration=.8, *, cancel_event=None, deadline=None):
+        """Trusted manual jog only; legacy S runs 800ms and reports both encoders.
+
+        No policy capability is registered. This is not a requested distance.
+        Completion requires both measured wheel results, DONE, and fresh READY.
+        """
+        if isinstance(duration, bool) or duration != .8:
+            raise RobotActionError('Manual reverse duration is fixed at 0.8 seconds')
+        return self._move_action('s', 800, 's', 5.0, cancel_event, deadline)
 
     def begin_task(self):
         """Trusted console boundary: renew only the budget of a healthy idle car.
@@ -441,7 +481,7 @@ class ESP32SerialBackend(PhysicalBackend):
         raise RobotActionError("Ground pose is unavailable; no localization is installed")
 
     def get_distance(self, **_kwargs):
-        raise RobotActionError("ToF acquisition is disabled in this supervised firmware")
+        raise RobotActionError("ToF is shown in WebUI telemetry, but is not exposed as a CaP observation by this motion backend")
 
     def close(self):
         """Best-effort T on exit; disconnect does not prove the motors stopped."""
@@ -501,7 +541,7 @@ def build_esp32_registry(backend):
                         description="send T immediately; wait for drive-off acknowledgement and subsequent wheel-stopped READY"), backend.stop, None),
         (CapabilitySpec("state.get_state", "esp32-v1.8", (("get_state",),), observation=True,
                         return_fields={name: None for name in ("connected", "ready", "stopped", "front_guard", "pose_available", "range_available", "last_action", "action_count", "fault")},
-                        description="serial session and feedback status; stopped may be unknown; no ground pose, collision sensing or ToF"), backend.get_state, None),
+                        description="serial session and feedback status; stopped may be unknown; no ground pose or collision sensing; ToF telemetry is displayed separately in WebUI"), backend.get_state, None),
     )
     for spec, handler, validator in entries:
         registry.register(spec, handler, validator, backend.emergency_stop)

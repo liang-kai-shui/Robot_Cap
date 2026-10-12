@@ -46,3 +46,19 @@ PC Runtime的command ID在IPC中使用，重复ID返回缓存结果。固件串�
 固件前进驱动最长6秒，转弯最长3秒；电脑move/turn handler的9/6秒期限包含反馈和停稳等待。任务模式另有180秒PC计时线程，覆盖模型和动作；所有这些期限职责不同，不能相加作为某个动作的允许时长。
 
 详细结果字段、中文计时与运行日志见[实车说明](ESP32_HARDWARE.md)。
+
+## 手动短时后退
+
+WebUI的后退按钮发送已有单字节`s`，固件按原定800ms短时模式运行。它没有按距离控制，也没有DISTANCE_TARGET/ANGLE_TARGET停止日志。电脑专门核对START的`action=s`、左右`sign=-1`和`duration=800ms`，再核对A/RIGHT、B/LEFT两个VEHICLE_RESULT的编码方向、计数与边沿一致性，接收定时VEHICLE_DONE（800–900ms）后仍等待新的READY。缺少结果、错误方向、意外STOP或超时都停止并中止会话，不重发。此路径只用于可信手动控制，不扩展Policy的move参数范围。
+
+## WebUI遥测扩展（2026-10-12）
+
+协议仍为1.8/PARAM1，READY新增`tof=ON`。运动确认的顺序不变。下列只读日志约每250ms产生，空闲或运动时均可回传；PC不把它们当作动作完成确认。
+
+```text
+TOF ready=1 distance_mm=423 valid=1 status=0 error=0 age_ms=12
+WHEEL motor=A side=RIGHT count=-1234 forward_count=1234 cps=1919.0 speed_mm_s=100.0 rpm=44.42 valid=1 dt_ms=250.0 age_ms=0
+ATTITUDE roll=2.0 pitch=-3.0 yaw=10.0 tilt_valid=1 yaw_valid=1 calibrated=1 age_ms=4 zero_epoch=0
+```
+
+WHEEL正值表示轮子的车辆前向，不是排针电机极性；左右轮分别用19.190/19.294 counts/mm，RPM按43mm轮径计算。TOF有效性同时受光学status、总线错误和采样年龄约束。ATTITUDE横滚/俯仰是传感器轴下估计，相对yaw无绝对航向含义。WebUI叠加电脑接收后的年龄，过期或无效时冻结动画并隐藏当前测量值。测距显示不改变front_guard=OFF。

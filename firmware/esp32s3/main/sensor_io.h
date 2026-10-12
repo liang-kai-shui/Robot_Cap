@@ -10,6 +10,7 @@ extern "C" {
 void sensors_start(void);
 void sensors_zero_request(void);
 void sensors_print(int64_t now);
+void sensors_attitude_print(void);
 range_guard_view_t sensors_forward_guard(void);
 yaw_sample_t sensors_yaw_read(void);
 bool tof_init(void);

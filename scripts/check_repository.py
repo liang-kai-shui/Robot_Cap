@@ -34,6 +34,13 @@ def main():
     for relative in ('main/bosch/LICENSE', 'main/tof/LICENSE.txt', 'CMakeLists.txt', 'sdkconfig.defaults'):
         if not (firmware/relative).is_file():
             errors.append(f'firmware missing {relative}')
+    three = ROOT/'webui'/'static'/'vendor'/'three'
+    if (three/'SOURCE.json').is_file():
+        vendor = json.loads((three/'SOURCE.json').read_text(encoding='utf-8'))
+        for relative, expected in vendor['sha256'].items():
+            path = three/relative
+            if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+                errors.append(f'Three.js/{relative}: source hash mismatch')
     if errors:
         for error in errors:
             print(error)
