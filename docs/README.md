@@ -1,0 +1,25 @@
+# 文档索引
+
+## 第一次阅读
+
+1. [项目首页](../README.md)：项目目标、当前能力和目录。
+2. [项目状态](PROJECT_STATUS.md)：已实测、仅软件验证及尚未实现的区别。
+3. [硬件接口讲解](HARDWARE_INTERFACES_GUIDE.md)：逐个解释排针、电源、GPIO、PWM、I²C及编码器。
+4. [系统架构](ARCHITECTURE.md)：模型、Worker、可信Runtime、串口和固件怎样协作。
+
+## 运行、构建和复现
+
+| 文档 | 内容 |
+| --- | --- |
+| [实车使用说明](ESP32_HARDWARE.md) | 环境、自然语言/连续/分段控制、上下文、停止和计时 |
+| [完整固件说明](../firmware/esp32s3/README.md) | ESP-IDF配置、编译、主动烧录、源文件职责 |
+| [串口协议](SERIAL_PROTOCOL.md) | PARAM1格式、目标匹配、结果和停稳确认 |
+| [复现说明](REPRODUCING.md) | Python测试、固件C检查、完整编译与历史版本 |
+| [模拟实验详细指南](SIMULATION_GUIDE.md) | 原有Benchmark、P1/P2导航、P3规划、P4扰动、指标 |
+| [原始V0需求](V0_REQUIREMENTS.md) | 最初的软件原型要求；历史文档，不代表当前只支持模拟 |
+
+## 实验报告
+
+[报告索引](../reports/README.md)集中说明各批次日期、协议和数据文件。实车记录和模拟成绩分开存放和解释。
+
+原始运行记录、开发机路径和API密钥不作为复现资料提交；共享报告提供必要设置与结果摘要。

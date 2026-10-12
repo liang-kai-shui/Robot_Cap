@@ -1,5 +1,10 @@
 .deps/
+.venv/
+venv/
+dist/
 .env
+.env.*
+!.env.example
 .distcheck/
 .tmp/
 build/
@@ -8,6 +13,12 @@ build/
 .pytest-tmp/
 __pycache__/
 *.pyc
+*.bak
+*.log
+/firmware/**/sdkconfig
+/firmware/**/sdkconfig.old
+/firmware/**/managed_components/
+/.vscode/
 /runs/*
 !/runs/.gitkeep
 /.pytest-tmp-*/

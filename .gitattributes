@@ -1,0 +1,13 @@
+* text=auto
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+# Keep firmware archive bytes and recorded hashes identical across platforms.
+firmware/** -text whitespace=cr-at-eol,-blank-at-eof
+# Preserve upstream formatting without changing archived third-party sources.
+firmware/esp32s3/main/bosch/** -whitespace
+firmware/esp32s3/main/tof/** -whitespace

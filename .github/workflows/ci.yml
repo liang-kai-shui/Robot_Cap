@@ -1,0 +1,40 @@
+name: Offline checks and firmware build
+
+on:
+  push:
+    branches: [main, v1-runtime-hardening]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -e ".[dev,hardware]"
+      - run: python -m pytest -q
+      - run: python scripts/check_repository.py
+      - name: Firmware parser and turn control checks
+        run: |
+          mkdir -p .tmp
+          gcc -std=c11 -O0 -Wall -Wextra -I firmware/esp32s3/main tests/firmware_param_check.c -lm -o .tmp/firmware_param_check
+          .tmp/firmware_param_check
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ESP-IDF 5.1.2 build (no flashing)
+        run: docker run --rm -v "$PWD:/project" -w /project espressif/idf:v5.1.2 idf.py -C firmware/esp32s3 build

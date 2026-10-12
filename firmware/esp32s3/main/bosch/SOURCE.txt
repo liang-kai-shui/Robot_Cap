@@ -1,0 +1,4 @@
+Source: https://github.com/boschsensortec/BMI3XY_SensorAPI
+Commit: 
+b3033e78bc6e2c2e473f24e6d79afef0e16c4655
+SHA256.json records exact local file content.

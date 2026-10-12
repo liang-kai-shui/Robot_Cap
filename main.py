@@ -22,8 +22,17 @@ def load_config(path: str):
     return VirtualWorld(world.get("width", 10), world.get("height", 10), obstacles), Pose(**robot), RuntimeLimits(**data.get("runtime", {}))
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Robot CaP V0")
+def main(argv=None):
+    # Select before loading a simulated world or requesting a model/key.
+    selector = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    selector.add_argument("--backend", choices=["virtual", "esp32"], default="virtual")
+    selected, remaining = selector.parse_known_args(argv)
+    if selected.backend == "esp32":
+        from physical_control import main as physical_main
+        return physical_main(remaining)
+    parser = argparse.ArgumentParser(description="Robot CaP", allow_abbrev=False)
+    parser.add_argument("--backend", choices=["virtual", "esp32"], default="virtual",
+                        help="Default virtual; esp32 uses the hardware CLI and explicit --execute")
     parser.add_argument("instruction", nargs="?")
     parser.add_argument("--auto", action="store_true")
     parser.add_argument("--provider", choices=["mock", "openai-compatible"], default="mock")
@@ -33,7 +42,7 @@ def main():
     parser.add_argument("--config", default=str(Path(__file__).resolve().parent / "config" / "default.yaml"))
     parser.add_argument("--task-id", help="Use a benchmark task and its structured success condition")
     parser.add_argument("--success-file", help="JSON success spec for a custom instruction")
-    args = parser.parse_args()
+    args = parser.parse_args(remaining)
     world, pose, limits = load_config(args.config)
     if args.task_id:
         task = next((item for item in BENCHMARK_TASKS if item.id == args.task_id), None)
@@ -69,4 +78,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,4 +1,4 @@
-"""Physical backend contract placeholder; no device transport is implemented."""
+"""Physical backend contract; ESP32SerialBackend supplies the tested transport."""
 from robot.backends.base import RobotBackend
 
 
@@ -7,5 +7,5 @@ class PhysicalBackend(RobotBackend):
 
     Each registered action handler must accept cancel_event and deadline and
     check both during I/O. emergency_stop must work while any handler is active.
-    No physical transport is implemented here.
+    Concrete serial hardware support lives in robot.backends.esp32_serial.
     """
