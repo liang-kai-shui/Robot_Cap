@@ -1,9 +1,16 @@
-// Changing the model's in-plane reference by 180 degrees is a proper rotation,
-// not a mirror. Conjugating R by Rz(pi) reverses roll/pitch, retains yaw.
-// Raw sensor readings and the firmware's yaw controller remain unchanged.
-export function modelAngles(sample, frame = 'header') {
-  const sign = frame === 'header' ? -1 : 1;
-  return {roll:sign * sample.roll, pitch:sign * sample.pitch, yaw:sample.yaw};
+// Model mounting is a quarter-turn about sensor Z: C R C^-1.
+// Rotate quaternion X/Y, rather than swapping Euler angles (incorrect for mixed tilt).
+// Raw telemetry and the firmware's yaw controller remain unchanged.
+export function modelQuaternion(sample, frame = 'header') {
+  const half = Math.PI / 360;
+  const sx=Math.sin(sample.roll*half), cx=Math.cos(sample.roll*half);
+  const sy=Math.sin(sample.pitch*half), cy=Math.cos(sample.pitch*half);
+  const sz=Math.sin(sample.yaw*half), cz=Math.cos(sample.yaw*half);
+  const x=sx*cy*cz-cx*sy*sz, y=cx*sy*cz+sx*cy*sz;
+  const z=cx*cy*sz-sx*sy*cz, w=cx*cy*cz+sx*sy*sz;
+  if(frame === 'header') return {x:-y, y:x, z, w};
+  if(frame === 'header-negative') return {x:y, y:-x, z, w};
+  return {x,y,z,w};
 }
 
 export function attitudeParts(sample) {

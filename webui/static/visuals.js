@@ -1,9 +1,9 @@
-import { modelAngles, attitudeParts } from './attitude-math.js';
+import { modelQuaternion, attitudeParts } from './attitude-math.js';
 import * as THREE from './vendor/three/three.module.js';
 import { OrbitControls } from './vendor/three/OrbitControls.js';
 
 // Sensor coordinates: X/Y in the board plane, Z up. Display coordinates: Y up.
-// Model frame is selectable; header view rotates the in-plane reference by 180deg.
+// Model frame is selectable; header view rotates the in-plane reference by 90deg.
 // Raw firmware angles remain sensor coordinates; this is not chassis localization.
 const canvas = document.getElementById('attitude-canvas');
 const status = document.getElementById('attitude-engine');
@@ -11,7 +11,7 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const mount = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
 const frameSelect = document.getElementById('attitude-frame');
 frameSelect.value = 'header';
-try { if(localStorage.getItem('rover-attitude-frame') === 'sensor') frameSelect.value='sensor'; } catch (_) {}
+try { const saved=localStorage.getItem('rover-attitude-frame'); if(['sensor','header-negative'].includes(saved)) frameSelect.value=saved; } catch (_) {}
 frameSelect.addEventListener('change', () => {try {localStorage.setItem('rover-attitude-frame', frameSelect.value);} catch (_) {} if(input) update(input);});
 let input = null, arrivedAt = 0, lastFrame = 0, lastYaw = 0, renderer, scene, camera, controls, board;
 let orientation = new THREE.Quaternion(), target = new THREE.Quaternion(), initialized = false;
@@ -71,9 +71,9 @@ function update(data) {
   const attitude = data.attitude;
   if (valid(attitude, ['roll', 'pitch']) && attitudeParts(attitude).tilt) {
     if(attitudeParts(attitude).yaw) lastYaw=attitude.yaw;
-    const angles = modelAngles({...attitude,yaw:lastYaw}, frameSelect.value);
-    target.setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(angles.roll), THREE.MathUtils.degToRad(angles.pitch), THREE.MathUtils.degToRad(angles.yaw), 'ZYX'));
-    status.textContent = (frameSelect.value === 'header' ? '排针视角 · X/Y 参考轴转180°' : '芯片原始轴 · X红 Y绿 Z蓝') + (attitudeParts(attitude).yaw ? '' : ' · 航向保持不更新');
+    const rotation = modelQuaternion({...attitude,yaw:lastYaw}, frameSelect.value);
+    target.set(rotation.x,rotation.y,rotation.z,rotation.w);
+    status.textContent = (frameSelect.value === 'header' ? '排针视角 · Z轴 +90°' : frameSelect.value === 'header-negative' ? '排针视角 · Z轴 −90°' : '芯片原始轴 · X红 Y绿 Z蓝') + (attitudeParts(attitude).yaw ? '' : ' · 航向保持不更新');
     if (!initialized || reduced.matches) { orientation.copy(target); initialized = true; }
   }
   for (const [motor, countsPerMm] of [['A', 19.190], ['B', 19.294]]) {
