@@ -29,6 +29,8 @@ from robot.state import Pose
 from runtime.errors import RobotEmergencyStopError, RobotActionTimeoutError
 from runtime.executor import PolicyExecutor
 from webui.demo import DemoBackend, DemoProvider
+from policy.episode import EpisodeRecord
+from policy.reuse import PhysicalPolicyLibrary, default_library_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +48,7 @@ class ControlDesk:
         self.backend_factory = backend_factory or (DemoBackend if demo else ESP32SerialBackend)
         self.provider_factory = provider_factory
         self.log_dir = Path(log_dir) if log_dir else ROOT/'runs'/'webui'
+        self.policy_library=PhysicalPolicyLibrary((self.log_dir/('policy-library-'+('demo' if demo else 'hardware')+'.json')) if log_dir is not None else default_library_path('demo' if demo else 'hardware'),scope='demo' if demo else 'hardware')
         self.lock = threading.RLock()
         self.backend = None
         self.owner = None
@@ -74,7 +77,7 @@ class ControlDesk:
         self.serial_last = None
         self.telemetry = {'bmi': None, 'yaw': None, 'range': None, 'tof_disabled': None,
                           'wheels': {}, 'samples': [], 'last_move': None, 'attitude': None}
-        self.settings = {'base_url': 'https://api.deepseek.com', 'model': 'deepseek-flash', 'reasoning_effort':'none', 'review_mode':'local'}
+        self.settings = {'base_url': 'https://api.deepseek.com', 'model': 'deepseek-flash', 'reasoning_effort':'none', 'review_mode':'local','policy_reuse':True}
         self._key = os.getenv('LLM_API_KEY') or os.getenv('DEEPSEEK_API_KEY') or ''
         self.finished = threading.Event()
         self.thread = None
@@ -129,7 +132,8 @@ class ControlDesk:
             job = {'id': uuid.uuid4().hex, 'kind': kind, 'title': title, 'status': 'running',
                    'phase': '准备', 'started_at': utc_now(), 'started': time.monotonic(),
                    'cancel': threading.Event(), 'error': None, 'result': None, 'timings_ms': {},
-                   'motion_attempted': False, 'policy':None, 'diagnostics':{}, 'session_id':self.session_id}
+                   'motion_attempted': False, 'policy':None, 'diagnostics':{}, 'session_id':self.session_id,
+                   'initial_state':self.backend.snapshot() if self.backend else {}}
             self.job = job
             self.runtime = None
         self.emit('task', 'info', title)
@@ -163,11 +167,36 @@ class ControlDesk:
             finally:
                 with self.lock:
                     job['elapsed_ms'] = (time.monotonic()-job['started'])*1000
+                    episode=job.get('_episode')
+                    if episode is None and job['kind']=='plan':
+                        backend=self.backend or self.backend_factory('COM5')
+                        episode=EpisodeRecord.from_physical(instruction=job['title'],policy=job.get('policy') or '',
+                            registry=build_esp32_registry(backend),initial_state=job.get('initial_state') or {},
+                            final_state=backend.snapshot(),trace=[],execution_success=False,error=job['error'],
+                            metrics={'scope':'demo' if self.demo else 'hardware','timings_ms':dict(job['timings_ms']),
+                                     'diagnostics':deepcopy(job['diagnostics'])},task_id=job['id'])
+                    if episode:
+                        episode.execution_success=episode.execution_success and job['status']=='completed' and not job['cancel'].is_set()
+                        episode.metrics['timings_ms']['task_total']=job['elapsed_ms']
+                        episode.metrics['total_ms']=job['elapsed_ms']
+                        episode.metrics['execution_success']=episode.execution_success
+                        episode.metrics['timings_ms']['model_request']=job['timings_ms'].get('model_request',0)
+                        if self.settings['policy_reuse'] and (episode.execution_success or job['motion_attempted']):
+                            registry=build_esp32_registry(self.backend)
+                            if episode.execution_success:self.policy_library.record(episode,registry)
+                            elif job['motion_attempted']:self.policy_library.invalidate(episode.instruction,registry)
+                        for task in self.tasks:
+                            if (task.get('episode') or {}).get('episode_id')==episode.episode_id:task['episode']=episode.to_dict()
+                        try:
+                            folder=self.log_dir/'episodes';folder.mkdir(parents=True,exist_ok=True)
+                            (folder/(episode.episode_id+'.json')).write_text(json.dumps(self.redact(episode.to_dict()),ensure_ascii=False,indent=2),encoding='utf-8')
+                        except OSError as exc:self.emit('system','warning','Episode记录写入失败：'+type(exc).__name__)
                     self.jobs.append(self._public_job(job))
                     if job['kind']=='plan' and job['session_id']==self.session_id:
                         self.tasks.append({'number':len(self.tasks)+1,'instruction':job['title'],
                             'execution_success':False,'policy_validated':job['status']=='completed',
-                            'error':job['error'],'cancelled':job['cancel'].is_set(),'trace':[]})
+                            'error':job['error'],'cancelled':job['cancel'].is_set(),'trace':[],
+                            'episode':episode.to_dict() if episode else None})
                 self.save()
         threading.Thread(target=run, name='webui-job-'+kind, daemon=True).start()
         return {'job_id': job['id']}
@@ -314,7 +343,9 @@ class ControlDesk:
             review=data.get('review_mode',self.settings['review_mode'])
             if reasoning not in ('none','low','high') or review not in ('local','model'):
                 raise ValueError('无效的思考/分段审核配置')
-            self.settings.update(base_url=url, model=model, reasoning_effort=reasoning, review_mode=review)
+            reuse=data.get('policy_reuse',self.settings['policy_reuse'])
+            if type(reuse) is not bool: raise ValueError('策略复用设置必须为布尔值')
+            self.settings.update(base_url=url, model=model, reasoning_effort=reasoning, review_mode=review,policy_reuse=reuse)
         self.emit('system', 'success', '模型配置已保存到本次进程内存')
         return {'configured': bool(self._key) or self.demo}
 
@@ -328,13 +359,18 @@ class ControlDesk:
                 raise ValueError('请先在设置中填写模型API Key')
             return OpenAICompatibleProvider(api_key=self._key, base_url=self.settings['base_url'], model=self.settings['model'], reasoning_effort=self.settings['reasoning_effort'], stable_api_prefix=True)
 
-    def generate(self, owner, instruction, auto_execute=False):
+    def generate(self, owner, instruction, auto_execute=False,force_generate=False):
         if not isinstance(instruction, str) or not 1 <= len(instruction.strip()) <= 2000:
             raise ValueError('请输入不超过2000字的任务')
-        if type(auto_execute) is not bool: raise ValueError('执行模式无效')
+        if type(auto_execute) is not bool or type(force_generate) is not bool: raise ValueError('执行模式无效')
         if auto_execute: self._healthy()
         instruction = self.scrub(instruction.strip())
-        provider = self._provider()
+        reuse=self.settings['policy_reuse'] and not force_generate
+        if not self.demo and self.provider_factory is None and not self._key:
+            registry=build_esp32_registry(self.backend or self.backend_factory('COM5'))
+            match=self.policy_library.lookup(instruction,registry,track=False)[0] if reuse else None
+            if not match:self._provider()  # Preserve immediate missing-key errors on cache misses.
+        provider = self._provider
         def run(job):
             with self.lock:
                 self.plan = None
@@ -353,15 +389,18 @@ class ControlDesk:
             feedback['sensors']=sensors
             try:
                 policy, response = self._wait_model(job, lambda: generate_physical_policy(provider, instruction,
-                registry, feedback=feedback, history=history, timings=timings, max_motion_calls=9, diagnostics=diagnostics), hardware=connected)
+                registry, feedback=feedback, history=history, timings=timings, max_motion_calls=9, diagnostics=diagnostics,policy_library=self.policy_library if reuse else None), hardware=connected)
             finally:
                 job['timings_ms'].update(timings)
                 job['policy']=self.scrub(diagnostics.get('policy',diagnostics.get('raw_response','')))[:8192]
             diagnostics['stage']='validated'
+            diagnostics.setdefault('policy_source','model')
+            if diagnostics['policy_source']=='verified_reuse': self._phase(job,'命中已验证策略，重新校验完成；本次跳过模型请求')
             policies = split_mission(policy, registry)
             self._check(job, hardware=connected)
             plan = {'id': uuid.uuid4().hex, 'instruction': instruction, 'policy': policy, 'segments': policies,
-                    'model': response.model, 'timings_ms': dict(timings), 'epoch': stamp[0], 'revision': stamp[1]}
+                    'model': response.model, 'diagnostics':deepcopy(diagnostics), 'generation_job_id':job['id'],
+                    'timings_ms': dict(timings), 'epoch': stamp[0], 'revision': stamp[1]}
             with self.lock:
                 self._check(job, hardware=False)
                 if stamp != (self.epoch, self.revision):
@@ -374,7 +413,8 @@ class ControlDesk:
                 with self.lock: self.plan=None
                 job['kind']='execute'
                 job['diagnostics']['stage']='execution'
-                return self._execute(job,instruction,policies,provider)
+                reviewer=self._provider() if self.settings['review_mode']=='model' and len(policies)>1 else None
+                return self._execute(job,instruction,policies,reviewer)
             return {'plan_id': plan['id'], 'segment_count': len(policies), 'preview_only': True}
         return self._submit(owner, 'plan', instruction, run)
 
@@ -429,6 +469,7 @@ class ControlDesk:
             return {'execution_success':True,'manual_reverse':True,'duration_ms':800,'task_success':None}
         except BaseException as exc:
             task['error'] = self.scrub(exc)
+            task['error_type']=type(exc).__name__
             raise
         finally:
             with self.lock:
@@ -446,12 +487,14 @@ class ControlDesk:
                 raise ValueError('计划已失效或已执行，请重新生成')
             if self._active():
                 raise ValueError('已有任务在运行')
-            provider = self._provider()
+            provider = self._provider() if self.settings['review_mode']=='model' and len(plan['segments'])>1 else None
             self.plan = None
         def run(job):
             # Preserve the preview's actual model latency, while execution elapsed
             # remains the time since the user clicked Execute.
             job['policy']=plan['policy']
+            job['diagnostics'].update(plan.get('diagnostics',{}))
+            job['diagnostics'].update(planning_request_inherited=True, generation_job_id=plan.get('generation_job_id'))
             job['diagnostics']['stage']='execution'
             job['timings_ms'].update(plan['timings_ms'])
             return self._execute(job, plan['instruction'], plan['segments'], provider)
@@ -465,6 +508,7 @@ class ControlDesk:
             self.runtime = runtime
         task = {'number': len(self.tasks)+1, 'instruction': instruction, 'execution_success': False,
                 'policy_validated': True, 'error': None, 'trace': [], 'segments': [], 'reviews': []}
+        initial_state=backend.snapshot()
         motions = 0
         try:
             for index, policy in enumerate(policies):
@@ -512,10 +556,13 @@ class ControlDesk:
                     segment = {'number': index+1, 'instruction': instruction, 'execution_success': True,
                                'trace': outcome.trace}
                     timings = {}
-                    review = self._wait_model(job, lambda: review_segment(provider, instruction, backend,
-                        segment, policies[index+1:], timings=timings), hardware=True)
-                    job['timings_ms']['feedback_review'] = job['timings_ms'].get('feedback_review', 0)+timings.get('feedback_review', 0)
+                    review = {'source':'model'}
                     task['reviews'].append(review)
+                    try:
+                        review.update(self._wait_model(job, lambda: review_segment(provider, instruction, backend,
+                            segment, policies[index+1:], timings=timings, diagnostics=review), hardware=True))
+                    finally:
+                        job['timings_ms']['feedback_review'] = job['timings_ms'].get('feedback_review', 0)+timings.get('feedback_review', 0)
                     self.emit('task', 'info', '反馈决策：'+review['decision'])
                     if review['decision'] != 'CONTINUE':
                         raise RobotEmergencyStopError('模型中止：'+review.get('reason', ''))
@@ -525,9 +572,17 @@ class ControlDesk:
                     'execution_success': True, 'task_success': None}
         except BaseException as exc:
             task['error'] = self.scrub(exc)
+            task['error_type'] = type(exc).__name__
             raise
         finally:
             task.update(trace=list(runtime.trace), cancelled=job['cancel'].is_set(), timings_ms=dict(job['timings_ms']))
+            episode=EpisodeRecord.from_physical(instruction=instruction,policy=job.get('policy') or '\n'.join(policies),registry=registry,
+                initial_state=initial_state,final_state=backend.snapshot(),trace=runtime.trace,
+                execution_success=task['execution_success'] and not job['cancel'].is_set(),error=task.get('error'),error_type=task.get('error_type'),
+                metrics={'scope':'demo' if self.demo else 'hardware','timings_ms':dict(job['timings_ms']),
+                         'generation':deepcopy(job['diagnostics']),'diagnostics':deepcopy(job['diagnostics']),
+                         'reviews':deepcopy(task['reviews'])},task_id=job['id'])
+            job['_episode']=episode;task['episode']=episode.to_dict()
             with self.lock:
                 if job['session_id']==self.session_id: self.tasks.append(task)
                 self.revision += 1
@@ -564,6 +619,13 @@ class ControlDesk:
         if backend: backend.teleop_release()
         self.emit('task','info',reason+'：驱动停止，等待停稳回传')
         return {'released':True}
+
+    def clear_policy_library(self, owner):
+        with self.lock:
+            self._claim(owner)
+            if self._active() or self.holding:raise ValueError('先结束当前任务，再清空策略库')
+            self.policy_library.clear();self.plan=None;self.revision+=1
+            return {'cleared':self.policy_library.last_error is None}
 
     def zero_heading(self, owner):
         self._healthy()
@@ -717,7 +779,7 @@ class ControlDesk:
             data = {'mode': 'demo' if self.demo else 'hardware', 'owner': self.owner, 'epoch': self.epoch,
                     'lease_age_ms': (time.monotonic()-self.last_heartbeat)*1000,
                     'holding':deepcopy(self.holding),'session_id':self.session_id,'context_tasks':len(self.tasks),
-                    'errors':list(self.errors), 'range_offset_mm':self.range_offset_mm,
+                    'errors':list(self.errors), 'range_offset_mm':self.range_offset_mm, 'policy_library':self.policy_library.snapshot(),
                     'job': self._public_job(self.job), 'jobs': deepcopy(list(self.jobs)), 'plan': deepcopy(self.plan),
                     'settings': {**self.settings, 'key_configured': bool(self._key) or self.demo},
                     'telemetry': deepcopy(self.telemetry), 'event_cursor': self.event_id,

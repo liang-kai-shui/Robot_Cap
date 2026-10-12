@@ -126,13 +126,40 @@ def validate_physical_policy(policy, registry, *, max_motion_calls=MAX_MOTION_CA
             raise UnsafePolicyError(str(exc)) from exc
 
 
+def capture_physical_feedback(backend):
+    feedback=dict(backend.snapshot())
+    sensors={}
+    for name in ('get_distance','get_attitude'):
+        try:sensors[name]=getattr(backend,name)()
+        except Exception:sensors[name]={'valid':False,'reason':'unavailable_or_stale'}
+    feedback['sensors']=sensors
+    return feedback
+
+
 def generate_physical_policy(provider, instruction, registry, *, feedback=None, timings=None, history=None,
-                             max_motion_calls=MAX_MOTION_CALLS, diagnostics=None):
+                             max_motion_calls=MAX_MOTION_CALLS, diagnostics=None, policy_library=None):
     _check_motion_budget(max_motion_calls)
     if not instruction.strip() or len(instruction) > 2000:
         raise UnsafePolicyError("请输入不超过2000字的动作指令。")
+    if policy_library is not None:
+        started=time.perf_counter()
+        match,reason=policy_library.lookup(instruction,registry,max_motion_calls=max_motion_calls)
+        if timings is not None: timings['policy_lookup']=(time.perf_counter()-started)*1000
+        if diagnostics is not None: diagnostics.update(reuse_reason=reason,policy_source='model')
+        if match:
+            from providers.base import LLMResponse
+            started=time.perf_counter()
+            validate_physical_policy(match['policy'],registry,max_motion_calls=max_motion_calls)
+            if timings is not None:
+                timings['model_request']=0.0
+                timings['policy_validation']=(time.perf_counter()-started)*1000
+            if diagnostics is not None:
+                diagnostics.update(stage='validation',policy=match['policy'],policy_source='verified_reuse',
+                                   reused_from=match['source_episode_id'],reuse_entry_id=match['entry_id'],
+                                   model_call_skipped=True,model='verified-policy-reuse')
+            return match['policy'],LLMResponse(match['policy'],'verified-policy-reuse',0,0,None,0.0)
     # No dummy pose or simulated world is supplied to the model.
-    state = {"backend": "esp32-v1.9", "front_guard": "OFF",
+    state = {"backend": "esp32-serial", "firmware":feedback.get("firmware") if feedback else None, "front_guard": "OFF",
              "pose_available": False, "range_available": bool(feedback and feedback.get("range_available")),
              "max_motion_calls": max_motion_calls, "serial_connected": bool(feedback and feedback.get("connected"))}
     if feedback is not None:
@@ -146,6 +173,8 @@ def generate_physical_policy(provider, instruction, registry, *, feedback=None, 
     started = time.perf_counter()
     try:
         if diagnostics is not None: diagnostics['stage']='model_call'
+        if callable(provider) and not hasattr(provider,'generate_policy'): provider=provider()
+        if diagnostics is not None: diagnostics['model_call_started']=True
         response = provider.generate_policy(instruction, generate_robot_api_prompt(registry),
                                             context, physical_system_prompt(max_motion_calls))
     finally:
@@ -154,7 +183,10 @@ def generate_physical_policy(provider, instruction, registry, *, feedback=None, 
     started = time.perf_counter()
     try:
         if diagnostics is not None:
-            diagnostics.update(stage='validation', raw_response=response.text, model=response.model)
+            diagnostics.update(stage='validation', raw_response=response.text, model=response.model,
+                               policy_source='model',model_call_skipped=False,
+                               usage={'input_tokens':response.input_tokens,'output_tokens':response.output_tokens,
+                                      'ttft_ms':response.ttft_ms,'total_ms':response.total_ms})
         policy = extract_policy(response.text)
         if diagnostics is not None: diagnostics['policy']=policy
         if policy.startswith("REFUSE:"):

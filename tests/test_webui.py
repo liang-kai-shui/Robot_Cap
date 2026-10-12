@@ -227,8 +227,12 @@ def http_desk(tmp_path):
 def http_json(base, path, data=None, headers=None):
     req = urllib.request.Request(base+path, data=None if data is None else json.dumps(data).encode(),
                                  headers=headers or {})
-    with urllib.request.urlopen(req, timeout=3) as response:
-        return json.load(response)
+    try:
+        with urllib.request.urlopen(req, timeout=3) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        error.close()  # Expected rejection responses also own a socket.
+        raise
 
 
 def test_http_static_api_bootstrap_and_csrf_rejection(tmp_path):

@@ -8,6 +8,7 @@
 2. [项目状态](PROJECT_STATUS.md)：已实测、仅软件验证及尚未实现的区别。
 3. [硬件接口讲解](HARDWARE_INTERFACES_GUIDE.md)：逐个解释排针、电源、GPIO、PWM、I²C及编码器。
 4. [系统架构](ARCHITECTURE.md)：模型、Worker、可信Runtime、串口和固件怎样协作。
+5. [CAP 能力接入核对](CAP_INTEGRATION_AUDIT.md)：高层功能逐项实车对应、已验证 Policy 复用、Episode 与性能指标。
 
 ## 运行、构建和复现
 

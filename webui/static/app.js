@@ -108,6 +108,11 @@ function render() {
   renderChart(telemetry.samples);
 
   $('model-name').textContent = demo ? '离线演示策略' : state.settings.model;
+  const source = job?.diagnostics?.policy_source || state.plan?.diagnostics?.policy_source;
+  badge($('policy-source'), source === 'verified_reuse' ? '已验证策略复用' : source === 'model' ? '模型生成' : '等待计划', source === 'verified_reuse' ? 'good' : 'neutral');
+  const library=state.policy_library || {};
+  $('reuse-summary').textContent = `${state.settings.policy_reuse === false ? '复用已关闭' : '已验证策略库'} · ${library.verified_recipes || 0} 条 · 本会话命中 ${library.hits || 0} 次`;
+  $('policy-library-clear').disabled=active || !!state.holding || !owns();
   const plan = state.plan;
   $('plan-container').hidden = !plan;
   if (plan) {
@@ -231,6 +236,7 @@ function renderHistory() {
   for (const job of visible) {
     const card=element('article','history-card'),head=element('div','history-card-head'),status=element('span','badge');
     badge(status,job.status==='completed' ? job.kind==='plan' ? '已校验 · 未执行' : '已执行' : job.status==='cancelled' ? '中止' : '失败',job.status==='completed'?'good':'bad');
+    if(job.diagnostics?.policy_source==='verified_reuse')head.append(element('span','badge good','策略复用'));
     head.append(status,element('time','muted',new Date(job.started_at).toLocaleTimeString('zh-CN',{hour12:false})));
     card.append(head,element('h3','',job.title));
     const steps=element('div','history-steps');
@@ -287,7 +293,7 @@ async function refreshPorts() {
 }
 $('port-select').addEventListener('change', render);
 function openSettings() {
-  if (state) { $('setting-reasoning').value=state.settings.reasoning_effort || 'none'; $('setting-review').value=state.settings.review_mode || 'local'; $('setting-model').value = state.settings.model; $('setting-url').value = state.settings.base_url; }
+  if (state) { $('setting-reuse').checked=state.settings.policy_reuse !== false; $('setting-reasoning').value=state.settings.reasoning_effort || 'none'; $('setting-review').value=state.settings.review_mode || 'local'; $('setting-model').value = state.settings.model; $('setting-url').value = state.settings.base_url; }
   $('setting-key').value = ''; $('settings-dialog').showModal();
 }
 async function openDocument(name = 'webui') {
@@ -310,7 +316,7 @@ async function generate() {
   if (!state?.settings.key_configured) { openSettings(); toast('先配置模型服务，再生成计划。'); return; }
   const instruction = $('instruction').value.trim();
   if (!instruction) { $('instruction').focus(); toast('先输入一个任务，或点选示例。'); return; }
-  await act('/api/generate', {instruction, auto_execute:$('auto-execute').checked});
+  await act('/api/generate', {instruction, auto_execute:$('auto-execute').checked,force_generate:$('force-generate').checked});
 }
 
 $('refresh-ports').addEventListener('click', refreshPorts);
@@ -347,7 +353,7 @@ document.querySelectorAll('[data-tool]').forEach(button => button.addEventListen
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => $(button.dataset.close).close()));
 document.querySelectorAll('[data-document]').forEach(button => button.addEventListener('click', () => openDocument(button.dataset.document)));
 $('settings-form').addEventListener('submit', async e => {
-  e.preventDefault(); const payload = {model: $('setting-model').value, base_url: $('setting-url').value, reasoning_effort:$('setting-reasoning').value, review_mode:$('setting-review').value};
+  e.preventDefault(); const payload = {model: $('setting-model').value, base_url: $('setting-url').value, reasoning_effort:$('setting-reasoning').value, review_mode:$('setting-review').value,policy_reuse:$('setting-reuse').checked};
   if ($('setting-key').value.trim()) payload.api_key = $('setting-key').value.trim();
   const result = await act('/api/settings', payload); $('setting-key').value = '';
   if (result) { $('settings-dialog').close(); toast('模型配置已保存，仅本次进程使用。'); }
@@ -467,3 +473,5 @@ $('range-offset-save').addEventListener('click', async () => { const result=awai
 $('range-offset-mm').addEventListener('input', () => {rangeOffsetDirty=true;});
 
 $('yaw-zero').addEventListener('click', async () => { const result=await act('/api/yaw-zero',{}); if(result) toast('保持小车静止，正在等待新的有效转角零点。'); });
+
+$('policy-library-clear').addEventListener('click',async()=>{ const result=await act('/api/policy-library-clear',{}); if(result?.cleared) toast('已清空可复用策略；会话历史保留。'); });

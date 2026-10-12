@@ -93,7 +93,7 @@ class DeskHandler(BaseHTTPRequestHandler):
             elif path == '/api/document':
                 name = parse_qs(urlparse(self.path).query).get('name', ['webui'])[0]
                 files = {'webui': 'WEBUI.md', 'hardware': 'HARDWARE_INTERFACES_GUIDE.md',
-                         'protocol': 'SERIAL_PROTOCOL.md'}
+                         'protocol': 'SERIAL_PROTOCOL.md', 'cap': 'CAP_INTEGRATION_AUDIT.md'}
                 if name not in files:
                     raise ValueError('文档不存在')
                 file = Path(__file__).resolve().parents[1]/'docs'/files[name]
@@ -160,7 +160,8 @@ class DeskHandler(BaseHTTPRequestHandler):
             elif path == '/api/disconnect': result = controller.disconnect(owner)
             elif path == '/api/stop': result = controller.stop('网页停止')
             elif path == '/api/manual': result = controller.manual(owner, body.get('action'), body.get('value'))
-            elif path == '/api/generate': result = controller.generate(owner, body.get('instruction'), body.get('auto_execute', False))
+            elif path == '/api/generate': result = controller.generate(owner, body.get('instruction'), body.get('auto_execute', False),body.get('force_generate',False))
+            elif path == '/api/policy-library-clear': result = controller.clear_policy_library(owner)
             elif path == '/api/yaw-zero': result = controller.zero_heading(owner)
             elif path == '/api/range-offset': result = controller.set_range_offset(owner, body.get('offset_mm'))
             elif path == '/api/range-calibrate': result = controller.calibrate_range(owner, body.get('known_mm'))

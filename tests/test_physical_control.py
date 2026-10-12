@@ -64,7 +64,7 @@ def test_natural_preview_never_opens_serial(monkeypatch, tmp_path):
     assert record['preview_only'] and record['policy_validated'] and not record['execution_success']
     assert record['generation']['model'] == 'deepseek-flash'
     assert record['serial_log'] == [] and not record['status_only']
-    assert set(record['timings_ms']) == {'model_request', 'policy_validation', 'task_total'}
+    assert set(record['timings_ms']) == {'policy_lookup','model_request', 'policy_validation', 'task_total'}
     assert all(value >= 0 for value in record['timings_ms'].values())
 
 

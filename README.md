@@ -6,6 +6,8 @@
 
 [文档索引](docs/README.md) · [硬件接口讲解](docs/HARDWARE_INTERFACES_GUIDE.md) · [系统架构](docs/ARCHITECTURE.md) · [项目状态](docs/PROJECT_STATUS.md) · [报告索引](reports/README.md)
 
+**CAP 接入核对与策略复用：** 核心 Registry、Worker、Runtime、反馈、上下文和指标已接入实车。新增 CLI/WebUI 共享的已验证策略库：明确任务完成后学习，重复任务跳过模型生成，仍重新校验、执行并等待新反馈。预览、失败、上下文引用和动态测距任务不直接复用；地图导航等仍需真实定位能力。详见 [CAP 接入核对](docs/CAP_INTEGRATION_AUDIT.md)。
+
 ## 目录
 
 | 路径 | 内容 |
@@ -14,6 +16,7 @@
 | `physical_control.py` | 实车状态、固定演示、自然语言和连续/分段控制 |
 | `web_control.py`、`webui/` | 本机网页控制台：回传、按钮、自然语言、终端和构建 |
 | `agent/`、`providers/` | 策略生成、上下文、任务规划和模型服务 |
+| `policy/` | 共享 Episode 与实车已验证策略库 |
 | `robot/`、`runtime/` | 能力注册、可信调度、Worker、后端和停止 |
 | `navigation/`、`world/`、`task/` | 模拟地图导航、环境和任务评分 |
 | `metrics/`、`config/` | 指标记录与模拟配置 |
@@ -85,7 +88,7 @@ idf.py -C firmware/esp32s3 build
 
 ## 验证与研究记录
 
-- 当前 Python 离线回归：**444项通过**（含 WebUI），使用假串口和mock模型，不连接实车或付费API。
+- 当前 Python 离线回归：**492项通过**（含 WebUI、策略复用与共享指标），使用假串口和mock模型，不连接实车或付费API。
 - 固件归档逐文件核对来源；另有参数帧/转角 C 检查和完整 ESP-IDF 构建。
 - GitHub CI 运行离线检查和固件构建，验证构建能力，不证明实车精度。
 - 2026-10-12 用户两段任务执行完成并停稳，耗时约22.7秒；反馈测量不是独立地面定位。

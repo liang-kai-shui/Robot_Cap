@@ -42,32 +42,47 @@ def split_mission(policy, registry):
             for i in range(0, len(lines), SEGMENT_MAX_MOTIONS)]
 
 
-def review_segment(provider, instruction, backend, completed_task, remaining_segments, *, timings=None):
+def review_segment(provider, instruction, backend, completed_task, remaining_segments, *, timings=None, diagnostics=None):
     """Only a strict decision token is accepted; no executable model output."""
     state = backend.snapshot()
     summary = build_physical_history([completed_task])["recent_tasks"][0]
     if (summary["status"] != "completed" or state.get("fault") or
             not state.get("connected") or not state.get("ready") or state.get("stopped") is not True):
         raise RobotEmergencyStopError("分段结果或停稳状态无效，不请求继续决策。")
-    context = {"backend": "esp32-v1.8", "front_guard": "OFF", "range_available": False,
+    sensors={}
+    for name in ('get_distance','get_attitude'):
+        try:sensors[name]=getattr(backend,name)()
+        except Exception:sensors[name]={'valid':False,'reason':'unavailable_or_stale'}
+    context = {"backend": "esp32-serial", "firmware":state.get('firmware'),
+               "front_guard":state.get('front_guard'),"range_available":bool(state.get('range_available')),
                "pose_available": False, "execution_success": True,
+               "sensors":sensors,
                "feedback": {key: state.get(key) for key in ("connected", "ready", "stopped", "fault")},
                "completed_segment": summary, "remaining_segments": list(remaining_segments)}
     started = time.perf_counter()
     try:
+        if diagnostics is not None:
+            diagnostics['model_call_started'] = True
         response = provider.generate_policy(instruction, "No callable API; decision only.",
                                             json.dumps(context, ensure_ascii=False), REVIEW_PROMPT)
     finally:
+        elapsed_ms = (time.perf_counter()-started)*1000
         if timings is not None:
-            timings["feedback_review"] = (time.perf_counter()-started)*1000
+            timings["feedback_review"] = elapsed_ms
+        if diagnostics is not None:
+            diagnostics['elapsed_ms'] = elapsed_ms
+    usage = {"model": response.model, "input_tokens": response.input_tokens,
+             "output_tokens": response.output_tokens, "ttft_ms": response.ttft_ms,
+             "elapsed_ms": elapsed_ms, "model_call_started": True}
+    if diagnostics is not None:
+        diagnostics.update(usage)
     decision = response.text.strip()
     if decision == "CONTINUE":
-        return {"decision": "CONTINUE", "model": response.model,
-                "input_tokens": response.input_tokens, "output_tokens": response.output_tokens,
+        return {"decision": "CONTINUE", **usage,
                 "context": deepcopy(context)}
     if decision.startswith("ABORT:") and decision[6:].strip():
         return {"decision": "ABORT", "reason": decision[6:].strip()[:200],
-                "model": response.model, "context": deepcopy(context)}
+                **usage, "context": deepcopy(context)}
     raise UnsafePolicyError("反馈决策格式无效；只允许 CONTINUE 或 ABORT: 原因，不执行剩余计划。")
 
 

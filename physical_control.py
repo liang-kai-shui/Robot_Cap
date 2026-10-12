@@ -23,15 +23,34 @@ from robot.state import Pose
 from robot.hardware_limits import MAX_TASK_ACTIONS, MAX_MOTION_CALLS
 from runtime.executor import PolicyExecutor
 from runtime.limits import RuntimeLimits
-from agent.physical_policy import generate_physical_policy, validate_physical_policy
+from agent.physical_policy import generate_physical_policy, validate_physical_policy, capture_physical_feedback
 from agent.physical_context import build_physical_history
 from agent.physical_mission import (MISSION_MAX_MOTIONS, MISSION_TIMEOUT_SECONDS,
                                     MissionGuard, split_mission, review_segment)
 from providers.openai_compatible import OpenAICompatibleProvider
+from policy.episode import EpisodeRecord
+from policy.reuse import PhysicalPolicyLibrary, default_library_path
 from runtime.errors import PolicyError, RobotEmergencyStopError
 
 
 DEMO_POLICY = "robot.move(0.30)\nrobot.turn(90)\nrobot.stop()"
+
+
+def _policy_library(args,log_path):
+    if getattr(args,'no_policy_reuse',False):return None
+    path=getattr(args,'policy_library',None) or (log_path.parent/'policy-library-hardware.json' if args.log is not None else default_library_path())
+    return PhysicalPolicyLibrary(path)
+
+
+def _finish_episode(task,registry,initial,final,trace,library):
+    episode=EpisodeRecord.from_physical(instruction=task.get('instruction') or '',policy=task.get('policy',''),registry=registry,
+        initial_state=initial,final_state=final,trace=trace,execution_success=bool(task.get('execution_success')) and not task.get('cancelled'),
+        error=task.get('error'),metrics={'scope':'hardware','timings_ms':task.get('timings_ms',{}),'generation':task.get('generation'),
+                                     'diagnostics':task.get('diagnostics',{}),'reviews':task.get('reviews',[])})
+    task['episode']=episode.to_dict()
+    if library:
+        if episode.execution_success:library.record(episode,registry)
+        elif trace:library.invalidate(episode.instruction,registry)
 
 
 def _model_provider(args):
@@ -92,17 +111,17 @@ def _timed(timings, name):
 
 
 def _session_generate(provider, instruction, registry, backend, cancelled, execute, *, stage_timings=None, history=None,
-                      max_motion_calls=MAX_MOTION_CALLS):
+                      max_motion_calls=MAX_MOTION_CALLS,policy_library=None,diagnostics=None):
     """A cancelled model request can finish in the background but cannot actuate."""
     completed = threading.Event()
     result = {}
     timings = {}
-    feedback = backend.snapshot()
+    feedback = capture_physical_feedback(backend)
 
     def generate():
         try:
             result["value"] = generate_physical_policy(provider, instruction, registry, feedback=feedback,
-                                                       timings=timings, history=history, max_motion_calls=max_motion_calls)
+                                                       timings=timings, history=history, max_motion_calls=max_motion_calls,policy_library=policy_library,diagnostics=diagnostics)
         except BaseException as exc:
             result["error"] = exc
         finally:
@@ -126,13 +145,13 @@ def _session_generate(provider, instruction, registry, backend, cancelled, execu
             return (*result["value"], dict(timings))
 
 
-def _session_review(provider, instruction, backend, segment, remaining, cancelled, guard, stage_timings):
+def _session_review(provider, instruction, backend, segment, remaining, cancelled, guard, stage_timings, diagnostics=None):
     """Late model replies after a stop/deadline cannot advance the mission."""
     completed, result, timings = threading.Event(), {}, {}
 
     def review():
         try:
-            result["value"] = review_segment(provider, instruction, backend, segment, remaining, timings=timings)
+            result["value"] = review_segment(provider, instruction, backend, segment, remaining, timings=timings, diagnostics=diagnostics)
         except BaseException as exc:
             result["error"] = exc
         finally:
@@ -154,7 +173,7 @@ def _session_review(provider, instruction, backend, segment, remaining, cancelle
         stage_timings["review_wait"] = (time.perf_counter()-started)*1000
 
 
-def _run_mission_task(args, provider, backend, runtime, registry, limits, task, cancelled, save):
+def _run_mission_task(args, provider, backend, runtime, registry, limits, task, cancelled, save,policy_library=None):
     """Advance a preflighted immutable plan only after each stopped segment."""
     task.update(mission=True, mission_limits={"max_motion_calls": MISSION_MAX_MOTIONS,
                 "max_seconds": MISSION_TIMEOUT_SECONDS, "segment_max_motion_calls": MAX_MOTION_CALLS},
@@ -165,7 +184,7 @@ def _run_mission_task(args, provider, backend, runtime, registry, limits, task, 
             print("正在生成完整实车计划，最多9个运动动作；整项任务限时180秒。")
             policy, response, _ = _session_generate(provider, task["instruction"], registry, backend,
                 cancelled, args.execute, stage_timings=task["timings_ms"], history=task["model_history"],
-                max_motion_calls=MISSION_MAX_MOTIONS)
+                max_motion_calls=MISSION_MAX_MOTIONS,policy_library=policy_library,diagnostics=task.setdefault('diagnostics',{}))
             guard.check()
             policies = split_mission(policy, registry)
             task.update(policy=policy, policy_validated=True, segment_policies=policies,
@@ -216,7 +235,7 @@ def _run_mission_task(args, provider, backend, runtime, registry, limits, task, 
                     task["reviews"].append(review)
                     print("小车已停稳，正在根据本段反馈决定是否继续。")
                     review.update(_session_review(provider, task["instruction"], backend, segment,
-                                  policies[index+1:], cancelled, guard, review["timings_ms"]))
+                                  policies[index+1:], cancelled, guard, review["timings_ms"], review))
                     _show_timings(review["timings_ms"])
                     save()
                     if review["decision"] != "CONTINUE":
@@ -249,7 +268,7 @@ def _show_outcome(outcome, cancelled):
 
 def _show_timings(timings):
     labels = {"model_request": "模型请求", "policy_validation": "代码校验",
-              "generation_until_cancel": "生成等待（已中止）", "feedback_review": "模型反馈决策",
+              "generation_until_cancel": "生成等待（已中止）", "policy_lookup":"已验证策略检索", "feedback_review": "模型反馈决策",
               "review_wait": "反馈决策等待总耗时",
               "connection_handshake": "串口连接与握手", "pre_task_standstill": "动作前停稳确认",
               "serial_start_wait": "指令至开始确认", "host_start_to_cutoff": "开始至关闭驱动（电脑接收）",
@@ -263,6 +282,7 @@ def _show_timings(timings):
 
 def _interactive(args, log_path):
     """One model/key and one exclusive serial connection, fresh bounded tasks."""
+    policy_library=_policy_library(args,log_path)
     backend = ESP32SerialBackend(args.port, max_actions=MAX_TASK_ACTIONS)
     limits = _physical_limits()
     registry = build_esp32_registry(backend)
@@ -284,7 +304,8 @@ def _interactive(args, log_path):
             journal["startup_timings_ms"] = {}
             with _timed(journal["startup_timings_ms"], "connection_handshake"):
                 backend.connect()
-            print("已连接 v1.8 PARAM1，front_guard=OFF，收到停稳 READY。")
+            registry=build_esp32_registry(backend)
+            print("已连接 v"+str(backend.snapshot().get("firmware"))+"，front_guard=OFF，收到停稳 READY。")
             _show_timings(journal["startup_timings_ms"])
         else:
             print("连续预览：不打开串口、不执行动作；加 --execute 启用实车执行。")
@@ -330,6 +351,8 @@ def _interactive(args, log_path):
             task = {"number": len(journal["tasks"])+1, "instruction": instruction,
                     "policy": "", "policy_validated": False, "generation": None,
                     "execution_success": False, "task_success": None, "error": None, "timings_ms": {}}
+            task["diagnostics"]={}
+            task["initial_state"]=backend.snapshot()
             task["model_history"] = build_physical_history(journal["tasks"])
             journal["tasks"].append(task)
             save()
@@ -338,13 +361,13 @@ def _interactive(args, log_path):
                     listener = threading.Thread(target=_keyboard_stop, args=(runtime, finished, cancelled), daemon=True)
                     listener.start()
                 if args.mission:
-                    _run_mission_task(args, provider, backend, runtime, registry, limits, task, cancelled, save)
+                    _run_mission_task(args, provider, backend, runtime, registry, limits, task, cancelled, save,policy_library)
                     print("本次处理结束，可以输入下一条任务。")
                     continue
                 print("正在生成实车策略，模型："+args.model)
                 policy, response, stage_timings = _session_generate(provider, instruction, registry, backend,
                                                      cancelled, args.execute, stage_timings=task["timings_ms"],
-                                                     history=task["model_history"])
+                                                     history=task["model_history"],policy_library=policy_library,diagnostics=task["diagnostics"])
                 task["timings_ms"].update(stage_timings)
                 task.update(policy=policy, policy_validated=True,
                             generation={name: getattr(response, name) for name in
@@ -391,6 +414,7 @@ def _interactive(args, log_path):
                             trace=runtime.trace,
                             serial_log=[item for item in backend.logs if item["time_monotonic"] >= started])
                 task["timings_ms"]["task_total"] = (time.perf_counter()-task_started)*1000
+                _finish_episode(task,registry,task["initial_state"],backend.snapshot(),runtime.trace,policy_library)
                 _show_timings(task["timings_ms"])
                 save()
             print("本次处理结束，可以输入下一条任务。")
@@ -433,6 +457,8 @@ def main(argv=None):
     parser.add_argument("--model", default="deepseek-flash")
     parser.add_argument("--reasoning-effort", choices=['none','low','high'], default='none', help="Default non-thinking for lower planning latency")
     parser.add_argument("--base-url", default=os.getenv("LLM_BASE_URL") or "https://api.deepseek.com")
+    parser.add_argument('--no-policy-reuse',action='store_true',help='Always ask the model; do not learn/reuse verified recipes')
+    parser.add_argument('--policy-library',type=Path,help='Verified recipe file; default shared project hardware library')
     parser.add_argument("--log", type=Path, help="JSON record (default runs/physical/date-time.json)")
     args = parser.parse_args(argv)
     if args.mission and not args.interactive:
@@ -442,6 +468,7 @@ def main(argv=None):
     log_path = args.log or Path(__file__).resolve().parent/"runs"/"physical"/(datetime.now().strftime("%Y%m%d-%H%M%S-%f")+".json")
     if args.interactive:
         return _interactive(args, log_path)
+    policy_library=_policy_library(args,log_path)
     backend = ESP32SerialBackend(args.port, max_actions=MAX_TASK_ACTIONS)
     limits = _physical_limits()
     registry = build_esp32_registry(backend)
@@ -453,6 +480,8 @@ def main(argv=None):
     listener = None
     outcome = None
     generation = None
+    diagnostics={}
+    initial_state=backend.snapshot()
     timings = {}
     task_started = time.perf_counter()
     policy_validated = False
@@ -464,7 +493,7 @@ def main(argv=None):
             provider = _model_provider(args)
             # Human key-entry time is outside this task's software latency.
             task_started = time.perf_counter()
-            policy, response = generate_physical_policy(provider, args.instruction, registry, timings=timings)
+            policy, response = generate_physical_policy(provider, args.instruction, registry, timings=timings,policy_library=policy_library,diagnostics=diagnostics)
             generation = {name: getattr(response, name) for name in
                           ("model", "input_tokens", "output_tokens", "ttft_ms", "total_ms")}
         if policy:
@@ -476,13 +505,18 @@ def main(argv=None):
             print("仅预览：未打开 COM 口，未发送任何动作。加 --execute 才执行。")
             exit_code = 0
         else:
-            print("测距及前方停车保护关闭。关闭旧键盘程序/串口 monitor；小车平放，先静止校准。")
+            print("测距可用性以回传为准；普通前方停车保护关闭。关闭旧键盘程序/串口 monitor；小车平放，先静止校准。")
             if execute_policy:
                 print("动作方向留出空间，线材留足松量。终端保持焦点：T/Q 中止，BOOT 也可停止。")
             with _timed(timings, "connection_handshake"):
                 backend.connect()
-            print("已连接 v1.8 PARAM1，front_guard=OFF，收到停稳 READY。")
+            print("已连接 v"+str(backend.snapshot().get("firmware"))+"，front_guard=OFF，收到停稳 READY。")
             if execute_policy:
+                # A disconnected preview schema must never authorize a later unsupported call.
+                registry=build_esp32_registry(backend)
+                validate_physical_policy(policy,registry)
+                runtime.registry=registry
+                initial_state=backend.snapshot()
                 listener = threading.Thread(target=_keyboard_stop, args=(runtime, finished, cancelled), daemon=True)
                 listener.start()
                 # Simulator compatibility arguments are unused with this runtime.
@@ -511,7 +545,7 @@ def main(argv=None):
         backend.close()
         timings["task_total"] = (time.perf_counter()-task_started)*1000
         _show_timings(timings)
-        record = {"backend": "esp32-serial-v1.8", "port": args.port, "policy": policy, "timings_ms": timings,
+        record = {"backend": "esp32-serial", "port": args.port, "policy": policy, "timings_ms": timings,
                   "instruction": args.instruction, "generation": generation,
                   "policy_validated": policy_validated, "preview_only": preview_only,
                   "execution_success": bool(outcome and outcome.success and not cancelled.is_set()),
@@ -519,6 +553,8 @@ def main(argv=None):
                   "cancelled": cancelled.is_set(), "error": error,
                   "task_success": None, "task_success_note": "No ground truth/physical task evaluator; encoder and gyro estimates only",
                   "last_feedback_state": state, "trace": runtime.trace, "serial_log": backend.logs}
+        record["diagnostics"]=diagnostics
+        _finish_episode(record,registry,initial_state,state,runtime.trace,policy_library)
         if outcome is not None:
             record["worker_outcome"] = asdict(outcome) if is_dataclass(outcome) else outcome
         try:

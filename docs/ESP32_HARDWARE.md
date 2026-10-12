@@ -1,5 +1,7 @@
 # ESP32 实车接口：v1.8 参数控制与环节计时
 
+本文保留v1.8兼容操作与早期测试说明。当前v1.9/PARAM2能力、WebUI开机上下文见 [新版说明](ROVER_V19.md)；本轮CLI/WebUI共享的已验证Policy复用、Episode与模型用量见 [CAP接入核对](CAP_INTEGRATION_AUDIT.md)。明确任务重复命中会跳过模型生成，仍重新校验和执行；`--no-policy-reuse`可禁用。无需为本轮高层代码变更重新烧录。
+
 硬件及接线沿用已经验证的 ESP32-S3、TB6612、双 N20 编码电机及固定的 BMI323。电脑使用 COM5。按最新请求，VL53L1X 采样已启用并在 WebUI 回传，前方障碍物停车保护仍关闭，READY 必须为 `firmware=1.8 protocol=PARAM1 front_guard=OFF`。从 v1.7 升级需要重新烧录，后续连续任务不需重复烧录。完整源码现位于仓库内 `firmware/esp32s3/`；原开发机旧工程及其备份保留在本地，不依赖它即可构建。
 
 已有底层动作接入 Robot_Cap 的可信运行时和独立策略进程。`--demo` 使用固定策略；`--instruction` 通过 DeepSeek 生成受限实车策略，默认仅预览，加 `--execute` 才执行。两者都使用相同的串口后端，不使用虚拟世界评分。

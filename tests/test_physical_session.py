@@ -93,7 +93,7 @@ def test_variable_actions_and_timings_survive_worker_and_session_log(monkeypatch
     assert result == 0 and port.sent == ['t', 't', '@F200\n', '@J450\n', 't', 't', 't']
     assert log['startup_timings_ms']['connection_handshake'] >= 0
     task = log['tasks'][0]
-    assert set(task['timings_ms']) == {'model_request', 'policy_validation', 'pre_task_standstill',
+    assert set(task['timings_ms']) == {'policy_lookup','model_request', 'policy_validation', 'pre_task_standstill',
                                      'policy_execution', 'task_total'}
     assert all(value >= 0 for value in task['timings_ms'].values())
     assert task['timings_ms']['task_total'] >= sum(task['timings_ms'][key] for key in

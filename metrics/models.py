@@ -18,5 +18,5 @@ class RunMetrics:
     total_ms: float = 0.0
     action_count: int = 0
     execution_success: bool = False
-    task_success: bool = False
+    task_success: bool | None = False
     error_type: str | None = None
