@@ -801,6 +801,14 @@ main {
 .manual-panel {
   padding-bottom:15px
 }
+.pwm-control { margin: 18px 0; padding: 14px; background: #f4f8fa; border-radius: 12px; border: 1px solid #e3ecef; }
+.pwm-control label { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; }
+.pwm-control output { color: #168c8b; font-size: 20px; font-variant-numeric: tabular-nums; }
+.pwm-control input { width: 100%; margin: 15px 0 5px; accent-color: #168c8b; cursor: pointer; }
+.pwm-control input:disabled { cursor: default; opacity: .5; }
+.pwm-scale { display: flex; justify-content: space-between; color: #7a8896; font-size: 11px; }
+.pwm-control p { margin: 10px 0 6px; font-size: 11px; line-height: 1.6; color: #667787; }
+.pwm-control small { font-size: 11px; color: #168c8b; }
 .manual-panel .panel-heading {
   padding-bottom:18px
 }

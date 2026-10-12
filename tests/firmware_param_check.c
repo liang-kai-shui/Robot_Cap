@@ -11,6 +11,39 @@ static param_packet_t feed(param_parser_t *p,const char *s,int64_t now) {
     return param_feed(p,(const uint8_t *)s,strlen(s),now);
 }
 int main(void) {
+    teleop_control_t pwm={0};
+    assert(teleop_accept_pwm(&pwm,11040,1000,true));
+    assert(pwm.direct_pwm&&pwm.pwm_percent==40);
+    assert(teleop_accept_pwm(&pwm,11100,2000,false)&&pwm.pwm_percent==100&&pwm.began==1000);
+    assert(teleop_accept_pwm(&pwm,11001,3000,false)&&pwm.pwm_percent==1);
+    assert(!teleop_accept_pwm(&pwm,11000,4000,false));
+    assert(!teleop_accept_pwm(&pwm,11101,4000,false));
+    assert(!teleop_accept_pwm(&pwm,12040,4000,false)); // reversal needs a new press
+    assert(!teleop_accept(&pwm,11,4000,false)); // cannot switch modes during a press
+    assert(!teleop_accept_pwm(&pwm,11040,253000,true)); // expired lease cannot restart
+    teleop_close(&pwm);
+    assert(!teleop_accept_pwm(&pwm,11040,254000,true));
+    assert(teleop_accept_pwm(&pwm,22040,254000,true));
+    pwm.renewed=30253999;
+    assert(!teleop_accept_pwm(&pwm,22100,30254000,true)); // renewal does not extend max hold
+    const char *renewals[]={"@H11\n@H11\n@H11\n", "@U11040\n@U11100\n@U11001\n"};
+    for(unsigned i=0;i<2;i++) {
+        const char *wire=renewals[i];size_t len=strlen(wire);
+        for(size_t split=1;split<len;split++) {
+            param_parser_t parser={0};
+            param_packet_t a=param_feed(&parser,(const uint8_t *)wire,split,1000);
+            assert(!a.rejected&&a.commands<=1);
+            param_packet_t b=param_feed(&parser,(const uint8_t *)wire+split,len-split,2000);
+            assert(!b.rejected&&b.commands==1&&!b.waiting&&b.units==(i?11001:11));
+        }
+        param_parser_t parser={0};
+        param_packet_t all=feed(&parser,wire,1000);
+        assert(!all.rejected&&all.commands==1&&all.units==(i?11001:11));
+        for(size_t n=0;n<len;n++) {
+            param_packet_t byte=param_feed(&parser,(const uint8_t *)wire+n,1,2000+n);
+            assert(!byte.rejected&&byte.commands<=1);
+        }
+    }
     teleop_control_t hold={0};
     assert(!teleop_accept(&hold,11,1000,false));
     assert(teleop_accept(&hold,11,1000,true));
@@ -35,7 +68,7 @@ int main(void) {
     assert(!wheel_telemetry(0,100,0,250000).valid);
     assert(!wheel_telemetry(0,0,0,0).valid);
     assert(!wheel_telemetry(2,0,0,250000).valid);
-    const char *valid[]={"@F50\n","@F200\n","@F300\n","@J150\n","@J450\n","@L900\r\n","@B50\n","@B300\n","@R100\n","@R1000\n","@H11\n","@H9999994\n"};
+    const char *valid[]={"@F50\n","@F200\n","@F300\n","@J150\n","@J450\n","@L900\r\n","@B50\n","@B300\n","@R100\n","@R1000\n","@H11\n","@H9999994\n","@U11001\n","@U11100\n","@U999994100\n"};
     for(unsigned n=0;n<sizeof(valid)/sizeof(*valid);n++) {
         size_t length=strlen(valid[n]);
         for(size_t split=1;split<length;split++) {
@@ -48,11 +81,13 @@ int main(void) {
     }
     const char *invalid[]={"@F49\n","@F301\n","@F-200\n","@F200.0\n","@J149\n","@L901\n",
         "@Jnan\n","@F9999999999999999999999999999\n","@F200\n@J450\n","@F200\nf","@F200\n@J45",
-        "f@F20","@X200\n","@F200e\n","@B49\n","@B301\n","@R99\n","@R1001\n","@H10\n","@H15\n","@H10000001\n"};
+        "f@F20","@X200\n","@F200e\n","@B49\n","@B301\n","@R99\n","@R1001\n","@H10\n","@H15\n","@H10000001\n",
+        "@U11000\n","@U11101\n","@U15040\n","@U11040\n@U12040\n","@U11040\n@U21040\n","@U11040\n@H11\n",
+        "@U11040\n@F100\n","@U11040\n@J450","@F100\n@F100\n","@U2147483648\n"};
     for(unsigned n=0;n<sizeof(invalid)/sizeof(*invalid);n++) {
         param_parser_t p={0};assert(feed(&p,invalid[n],1000).rejected);
     }
-    const char *stop[]={"@F200\nt","t@J450\n","@FT200\n"};
+    const char *stop[]={"@F200\nt","t@J450\n","@FT200\n","@U11100\n@U11T040\n"};
     for(unsigned n=0;n<sizeof(stop)/sizeof(*stop);n++) {
         param_parser_t p={0};param_packet_t a=feed(&p,stop[n],1000);
         assert(a.stop&&a.commands==0&&!p.receiving&&!p.discarding);

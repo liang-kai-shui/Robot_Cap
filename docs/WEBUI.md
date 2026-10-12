@@ -1,5 +1,7 @@
 # 小车 WebUI 使用说明
 
+手动面板新增 [0–100% PWM 滑块](MANUAL_PWM.md)，默认 40%，0 停止。仅适用于持续模式；需要支持 `teleop_pwm=1` 的 `pwm-stream-v1` 新固件。
+
 这是运行在电脑本机的 Robot CaP 控制台。网页负责显示和交互，Python 服务沿用现有 Runtime、Policy 校验和 ESP32 串口后端。v1.8 / PARAM1 兼容控制功能；测距、轮速和3D姿态回传需要2026-10-12的新遥测固件，本次已更新用户的COM5开发板。
 
 ## v1.9 更新

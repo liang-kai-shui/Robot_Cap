@@ -183,7 +183,8 @@ def test_websocket_rejects_unmasked_fragmented_binary_oversize(frame):
     with pytest.raises((ValueError,EOFError)):read_frame(io.BytesIO(frame))
 
 
-def test_real_websocket_hold_disconnect_and_expired_challenge_stop(tmp_path):
+@pytest.mark.parametrize('pwm',[None,40])
+def test_real_websocket_hold_disconnect_and_expired_challenge_stop(tmp_path,pwm):
     desk=ControlDesk(demo=True,log_dir=tmp_path,monitor=False)
     desk.connect(CLIENT,'DEMO');wait_job(desk)
     server=DeskServer(('127.0.0.1',0),desk)
@@ -209,10 +210,11 @@ def test_real_websocket_hold_disconnect_and_expired_challenge_stop(tmp_path):
     try:
         sock,stream=open_channel()
         ack=send(stream,{'client':CLIENT,'token':server.token})
-        ack=send(stream,{'seq':1,'action':'start','direction':'forward','challenge':ack['challenge']})
+        ack=send(stream,{'seq':1,'action':'start','direction':'forward','pwm_percent':pwm,'challenge':ack['challenge']})
         assert ack['holding'] and desk.holding
         for seq in range(2,5):
-            ack=send(stream,{'seq':seq,'action':'pulse','challenge':ack['challenge']})
+            ack=send(stream,{'seq':seq,'action':'pulse','pwm_percent':100 if pwm else None,'challenge':ack['challenge']})
+        if pwm: assert desk.backend.snapshot()['manual_pwm_actual']=={'A':100,'B':100}
         stream.close();sock.close();stream=sock=None
         limit=time.monotonic()+1
         while desk.holding and time.monotonic()<limit:time.sleep(.01)

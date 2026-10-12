@@ -75,6 +75,8 @@ class ESP32SerialBackend(PhysicalBackend):
         self._stop_ack_at = self._stop_ready_at = 0
         self._await_stop = True
         self._firmware = self._guard = None
+        self._build = None
+        self._pwm_manual_available = False
         self._action_count = 0
         self._last_action = self._last_result = None
         self._logs = deque(maxlen=4096)
@@ -197,9 +199,11 @@ class ESP32SerialBackend(PhysicalBackend):
             if self._zero_pending and 'ANGLE_ZERO_REJECTED' in line:
                 self._zero_rejected = True
             if "TELEOP_ACK" in line:
-                if self._teleop and fields.get("session") == str(self._teleop['session']):
+                if self._teleop and not self._teleop['ending'] and fields.get("session") == str(self._teleop['session']):
                     self._teleop_ack_at = time.monotonic()
                     self._stopped = False
+                    if self._teleop.get('direct_pwm'):
+                        self._teleop['actual_pwm']={side:_number(fields,'applied_'+side.lower()) for side in ('A','B')} if 'applied_a' in fields and 'applied_b' in fields else None
             if "TELEOP_END" in line and self._teleop:
                 self._teleop['ending'] = True
                 self._ready = False
@@ -232,6 +236,8 @@ class ESP32SerialBackend(PhysicalBackend):
                         motion.cutoff_at = time.perf_counter()
             if "VEHICLE_READY:" in line:
                 self._firmware, self._guard = fields.get("firmware"), fields.get("front_guard")
+                self._build = fields.get('build')
+                self._pwm_manual_available = fields.get('teleop_pwm') == '1'
                 self._boot_id = fields.get('boot_id', self._boot_id)
                 try:
                     next_session=int(fields.get('teleop_next',self._teleop_next))
@@ -458,8 +464,24 @@ class ESP32SerialBackend(PhysicalBackend):
                       corrected_after_stop_mm=result['after_stop_mm']+self._range_offset)
         return result
 
-    def teleop_start(self, direction):
+    @staticmethod
+    def _pwm_percent(value):
+        if type(value) is not int or not 1 <= value <= 100:
+            raise RobotActionError('PWM必须为1–100的整数；0%使用停止指令')
+        return value
+
+    def _teleop_wire(self):
+        hold=self._teleop
+        if hold['direct_pwm']:
+            return f"@U{hold['session']*10000+hold['digit']*1000+hold['pwm_percent']}\n"
+        return f"@H{hold['session']*10+hold['digit']}\n"
+
+    def teleop_start(self, direction, *, pwm_percent=None):
         self._require_param2()
+        if pwm_percent is not None:
+            self._pwm_percent(pwm_percent)
+            if not self._pwm_manual_available:
+                raise RobotActionError('PWM滑块需要pwm-stream-v1固件；未发送运动')
         if direction not in ('forward','backward','left','right'):
             raise RobotActionError('Invalid teleop direction')
         if not self._action_lock.acquire(blocking=False):
@@ -469,20 +491,28 @@ class ESP32SerialBackend(PhysicalBackend):
                 if not self._ready or self._failure or self._aborted or self._stopped is not True:
                     raise RobotEmergencyStopError('持续控制必须从健康停稳 READY 开始')
                 session = self._teleop_next
+                if pwm_percent is not None and session>99999:
+                    raise RobotActionError('本次开机的PWM会话编号已耗尽，请停止并复位开发板')
                 self._teleop_next += 1
                 digit = ('forward','backward','left','right').index(direction)+1
-                self._teleop = {'session':session,'digit':digit,'ending':False}
+                self._teleop = {'session':session,'digit':digit,'ending':False,
+                                'direct_pwm':pwm_percent is not None,'pwm_percent':pwm_percent,'actual_pwm':None}
                 self._ready=False; self._stopped=None
-                self._write(f'@H{session*10+digit}\n')
+                self._write(self._teleop_wire())
                 return {'session':session, 'lease_ms':250}
         except BaseException:
             self._teleop=None;self._action_lock.release();raise
 
-    def teleop_pulse(self):
+    def teleop_pulse(self, *, pwm_percent=None):
         with self._condition:
             if not self._teleop or self._teleop['ending'] or self._failure or self._aborted:
                 raise RobotEmergencyStopError('持续控制已结束，需要重新按下')
-            self._write(f"@H{self._teleop['session']*10+self._teleop['digit']}\n")
+            if pwm_percent is not None:
+                self._pwm_percent(pwm_percent)
+                if not self._teleop['direct_pwm']:
+                    raise RobotActionError('不能在同一次按住期间更换控制模式')
+                self._teleop['pwm_percent']=pwm_percent
+            self._write(self._teleop_wire())
             return {'firmware_ack_age_ms':(time.monotonic()-self._teleop_ack_at)*1000 if self._teleop_ack_at else None}
 
     def teleop_release(self):
@@ -609,6 +639,9 @@ class ESP32SerialBackend(PhysicalBackend):
             return {"connected": self._established and self._port is not None and self._port.is_open and not self._closing.is_set(),
                     "ready": self._ready, "stopped": self._stopped,
                     "firmware": self._firmware, "front_guard": self._guard, "boot_id":self._boot_id, "teleop": bool(self._teleop),
+                    "firmware_build":self._build,"pwm_manual_available":self._pwm_manual_available,
+                    "manual_pwm_percent":self._teleop.get('pwm_percent') if self._teleop else None,
+                    "manual_pwm_actual":self._teleop.get('actual_pwm') if self._teleop else None,
                     "pose_available": False, "range_available": bool(self._range),
                     "collision": None, "last_action": self._last_action,
                     "action_count": self._action_count, "last_result": self._last_result,

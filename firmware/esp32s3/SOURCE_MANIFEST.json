@@ -1,7 +1,7 @@
 {
   "snapshot_date": "2026-10-12",
-  "firmware_protocol": "1.8/PARAM1",
-  "main_sources": "Original archive hashes preserved in archive_sha256; current sources independently hashed below. Current changes enable independent ToF acquisition and read-only wheel/attitude telemetry.",
+  "firmware_protocol": "1.9/PARAM2",
+  "main_sources": "Current sources: PARAM2, supervised closed-loop actions, direct manual PWM 1..100%, stream-safe coalesced same-press renewals. Original archive hashes remain in archive_sha256.",
   "sha256": {
     "CMakeLists.txt": "d281e3fd47590c0e721cc73a807babc19a79528de9339018c5c40174dffab12a",
     "keyboard_control.py": "2fb85dcdf452e080141c94caa9f69d747027bb8410019b8769ed1fb0b0c636f7",
@@ -16,11 +16,11 @@
     "main/bosch/SHA256.json": "8378c86edef097ac996151219ea4b097ce927420db73e663372f8958a2c10638",
     "main/bosch/SOURCE.txt": "5c3e3ebcc59018d181349bfecb4679c775ad4849a0a6283a8af63a1fa88366bd",
     "main/CMakeLists.txt": "8f29be5ce2bded814f6bf620998f288962cbcfaac17a9e92eedb559522d6e3ce",
-    "main/command_parser.h": "aa6a5ce8e173560f3d5d6d8f65b91c375b94bb55be8b7bf6ce7b244ba3da524b",
+    "main/command_parser.h": "259e0e76762ce8d0ce8f1b59334d97731415f098ac892c3f673cfbdd7095dd17",
     "main/distance_control.h": "09ad162a834c30989a327b66680ce8d3de81c19c386339a9f1167963c3a5d5f6",
     "main/heading_control.h": "00180da383c195d679550dc7aec12cac6e0568e946117c78662c92bbed282f63",
     "main/imu_sample.h": "aac69cc86d4cb0a6183929dbc04e8b872529824fca86fffade6b661f79034c5b",
-    "main/main.c": "659388bd9a039fba886c2aa42a3213435ea9f6e9424de9bb9d6f351b216655af",
+    "main/main.c": "e47a6755c233085d978b8bcb5f14979017e728bd7692b811bf40b5c28c302b80",
     "main/motion_math.h": "ed0f1820eb0d623ecb2014ec8d79b4887fe3b17a17fcec41f9c31abee6dbf4fa",
     "main/range_guard.h": "d61ac0a57954cdb453479186af1991e86a277ac5f76fb60ed2a61a12f44e6a52",
     "main/sensor_io.c": "dab4eb86a0e27d0fac733142674bc53a2f2f18a50386ae9da6d40be42d5dad32",
@@ -37,7 +37,7 @@
     "main/turn_control.h": "ea4472116977c2bc7fa278651f3971342497cd79d89eedc9c08bf1167a904427",
     "sdkconfig.defaults": "56c89546ca9693da8fe293f700c63d2ce6dc35cf6496224ad332e6fcc58cf81f",
     "main/wheel_telemetry.h": "05d6338791ba89684dba2593f5beb22f1fb304a8d125b0514c545d40c0eac440",
-    "main/teleop_control.h": "a23ed9113f11568892863e9bd983b726b6ae26902f959197f86f6981757f8cfa"
+    "main/teleop_control.h": "004791d45e59f54dddbfa460cdf914c1a90dd20e7834458202c90f9635f34742"
   },
   "archive_sha256": {
     "CMakeLists.txt": "d281e3fd47590c0e721cc73a807babc19a79528de9339018c5c40174dffab12a",
@@ -74,5 +74,6 @@
     "main/turn_control.h": "ea4472116977c2bc7fa278651f3971342497cd79d89eedc9c08bf1167a904427",
     "sdkconfig.defaults": "56c89546ca9693da8fe293f700c63d2ce6dc35cf6496224ad332e6fcc58cf81f"
   },
-  "archive_tag": "physical-cap-2026-10-12"
+  "archive_tag": "physical-cap-2026-10-12",
+  "build": "pwm-stream-v1"
 }

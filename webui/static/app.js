@@ -66,7 +66,12 @@ function render() {
   $('port-select').disabled = device.connected || active;
   $('refresh-ports').disabled = active || device.connected;
   badge($('firmware-badge'), device.firmware ? `固件 v${device.firmware} / ${device.firmware === '1.9' ? 'PARAM2' : 'PARAM1'}` : '等待固件回传', device.firmware ? 'good' : 'neutral');
-  for (const id of ['move-forward', 'move-backward', 'turn-left', 'turn-right']) $(id).disabled = !(ready || heldButton === id);
+  const pwmZero = device.pwm_manual_available && $('hold-mode').checked && Number($('manual-pwm').value) === 0;
+  for (const id of ['move-forward', 'move-backward', 'turn-left', 'turn-right']) $(id).disabled = pwmZero || !(ready || heldButton === id);
+  $('manual-pwm').disabled = !device.pwm_manual_available || !$('hold-mode').checked || active || !owns() || !streamHealthy || !!device.fault;
+  $('manual-pwm-hint').textContent = !device.connected ? '连接后检查固件是否支持 PWM' : !device.pwm_manual_available ? '需要烧录 PWM 新固件；当前持续模式沿用原速度' : !$('hold-mode').checked ? '仅用于持续按住模式；步进与自然语言速度不变' : '实际占空比 · 0 停止 · 手动不做航向保持';
+  const applied = device.manual_pwm_actual;
+  $('manual-pwm-actual').textContent = applied ? `右轮 ${fmt(applied.A, 0)}% · 左轮 ${fmt(applied.B, 0)}%（固件回传）` : '右轮 — · 左轮 —（等待输出回传）';
   $('keyboard-enabled').disabled = !device.connected || !owns() || !!device.fault || !streamHealthy;
   $('generate-button').disabled = !!state.holding || active || !owns() || !streamHealthy;
   $('build-nav').disabled = active || device.connected;
@@ -398,7 +403,8 @@ boot();
 
 // Hold channel: one in-flight heartbeat, no motion queue, expiring server challenge.
 let teleopSocket=null, challenge=null, wsSeq=0, inFlight=false, sentAt=0, ackAt=0;
-let heldButton=null, heldKey=null, heldDirection=null, holdBegan=0, startWanted=false, startedHold=false;
+let heldButton=null, heldKey=null, heldDirection=null, holdBegan=0, startWanted=false, startedHold=false, heldPwm=false;
+function pwmPayload() { return heldPwm ? {pwm_percent:Number($('manual-pwm').value)} : {}; }
 function sendControl(action,extra={}) {
   if (!teleopSocket || teleopSocket.readyState!==WebSocket.OPEN || !challenge) return false;
   if (teleopSocket.bufferedAmount>1024) { teleopSocket.close();return false; }
@@ -418,7 +424,7 @@ function openTeleop() {
     if(inFlight) $('control-latency').textContent='网页↔服务 '+Math.round(now-sentAt)+' ms';
     challenge=msg.challenge;inFlight=false;ackAt=now;
     if(startWanted && heldButton && now-holdBegan<180) {
-      startWanted=false;startedHold=sendControl('start',{direction:heldDirection});
+      startWanted=false;startedHold=sendControl('start',{direction:heldDirection,...pwmPayload()});
     }
   };
   teleopSocket.onclose=()=>{ releaseHold(); challenge=null; $('control-latency').textContent='遥控通道断开 · 松开后刷新'; };
@@ -426,11 +432,12 @@ function openTeleop() {
 }
 function beginHold(direction,id,key=null) {
   if(!driveReady() || heldButton) return;
+  if(state.device.pwm_manual_available && Number($('manual-pwm').value)===0) { toast('PWM 为 0，请先调高再按方向。');return; }
   if(state.device.firmware!=='1.9') { toast('持续控制需要烧录v1.9固件；可取消持续模式使用步进。');return; }
   if(!challenge || performance.now()-ackAt>180) { toast('遥控通道尚未就绪，请稍后再按。');return; }
-  heldButton=id;heldKey=key;heldDirection=direction;holdBegan=performance.now();
+  heldButton=id;heldKey=key;heldDirection=direction;holdBegan=performance.now();heldPwm=!!state.device.pwm_manual_available;
   $(id).classList.add('held'); startWanted=true;
-  if(!inFlight) { startWanted=false;startedHold=sendControl('start',{direction}); }
+  if(!inFlight) { startWanted=false;startedHold=sendControl('start',{direction,...pwmPayload()}); }
 }
 function releaseHold() {
   startWanted=false;
@@ -438,12 +445,12 @@ function releaseHold() {
   $(heldButton).classList.remove('held');
   heldButton=heldKey=heldDirection=null;
   if(startedHold) sendControl('release');
-  startedHold=false;
+  startedHold=false;heldPwm=false;
 }
 setInterval(()=>{
   if(!challenge || document.hidden) return;
   if(heldButton && (performance.now()-holdBegan>=30000 || performance.now()-ackAt>180)) { releaseHold();return; }
-  if(!inFlight) sendControl(startedHold?'pulse':'ping');
+  if(!inFlight) sendControl(startedHold?'pulse':'ping',startedHold?pwmPayload():{});
 },65);
 for(const [id,direction] of [['move-forward','forward'],['move-backward','backward'],['turn-left','left'],['turn-right','right']]) {
   const button=$(id);
@@ -455,6 +462,12 @@ for(const [id,direction] of [['move-forward','forward'],['move-backward','backwa
 }
 document.addEventListener('keyup',e=>{ if(e.key.toLowerCase()===heldKey) {e.preventDefault();releaseHold();} });
 $('hold-mode').addEventListener('change',releaseHold);
+$('hold-mode').addEventListener('change',render);
+$('manual-pwm').addEventListener('input',()=>{
+  $('manual-pwm-value').textContent=$('manual-pwm').value+'%';
+  if(Number($('manual-pwm').value)===0) releaseHold();
+  render();
+});
 $('keyboard-enabled').addEventListener('change',()=>{if(!$('keyboard-enabled').checked)releaseHold();});
 $('range-calibrate').addEventListener('click',()=>act('/api/range-calibrate',{known_mm:Number($('calibration-mm').value)}));
 for(const id of ['history-search','history-filter']) $(id).addEventListener('input',()=>{historyPage=0;renderHistory();});

@@ -93,10 +93,10 @@ def serve(handler):
                     if message.get('challenge') != challenge or time.monotonic()-issued > .2:
                         raise ValueError('Expired control challenge; release and press again')
                     if action == 'start' and not holding:
-                        desk.teleop_start(owner, message.get('direction')); holding = True
+                        desk.teleop_start(owner, message.get('direction'),pwm_percent=message.get('pwm_percent')); holding = True
                         handler.connection.settimeout(.2)
                     elif action == 'pulse' and holding:
-                        desk.teleop_pulse(owner)
+                        desk.teleop_pulse(owner,pwm_percent=message.get('pwm_percent'))
                     elif action != 'ping':
                         raise ValueError('Invalid hold state')
             challenge = secrets.token_urlsafe(12)

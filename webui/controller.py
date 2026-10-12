@@ -583,25 +583,26 @@ class ControlDesk:
                 self.revision += 1
                 self.plan = None
 
-    def teleop_start(self, owner, direction):
+    def teleop_start(self, owner, direction, *, pwm_percent=None):
         with self.lock:
             self._claim(owner)
             if self._active() or self.holding: raise ValueError('任务运行中，持续控制不能排队')
             self._healthy()
-            result=self.backend.teleop_start(direction)
+            result=self.backend.teleop_start(direction,**({'pwm_percent':pwm_percent} if pwm_percent is not None else {}))
             self.plan=None;self.revision+=1
-            self.holding={'direction':direction,'session':result['session'],'started_at':utc_now(),'_pulse_at':time.monotonic(),'_began':time.monotonic()}
+            self.holding={'direction':direction,'session':result['session'],'pwm_percent':pwm_percent,'started_at':utc_now(),'_pulse_at':time.monotonic(),'_began':time.monotonic()}
             # Manual repositioning invalidates previous turn-back reference.
             self.tasks.append({'number':len(self.tasks)+1,'instruction':'按住手动控制 '+direction,
                 'execution_success':False,'trace':[{'kind':'action','phase':'started','capability_id':'manual.teleop'}]})
             return result
 
-    def teleop_pulse(self, owner):
+    def teleop_pulse(self, owner, *, pwm_percent=None):
         with self.lock:
             if owner!=self.owner or not self.holding: raise ValueError('当前按键已失效，请重新按下')
             if time.monotonic()-self.holding['_pulse_at']>.2 or time.monotonic()-self.holding['_began']>=30:
                 self.teleop_release(owner,reason='按住超时');raise ValueError('持续控制已超时')
-            result=self.backend.teleop_pulse()
+            result=self.backend.teleop_pulse(**({'pwm_percent':pwm_percent} if pwm_percent is not None else {}))
+            if pwm_percent is not None:self.holding['pwm_percent']=pwm_percent
             self.holding['_pulse_at']=time.monotonic()
             self.last_heartbeat=time.monotonic()
             return result

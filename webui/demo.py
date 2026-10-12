@@ -27,6 +27,7 @@ class DemoBackend:
         self.range_offset=0
         self.teleop_direction=None
         self.teleop_session=0
+        self.teleop_pwm=None
         self._teleop_renewed=0
         self._range=None
 
@@ -42,7 +43,7 @@ class DemoBackend:
     def connect(self, **_kwargs):
         with self.lock:
             self.connected = self.ready = self.stopped = True
-            self.record('rx', line='[DEMO] VEHICLE_READY: firmware=1.9 protocol=PARAM2 boot_id=DEMOBOOT front_guard=OFF tof=ON')
+            self.record('rx', line='[DEMO] VEHICLE_READY: firmware=1.9 protocol=PARAM2 build=pwm-stream-v1 teleop_pwm=1 boot_id=DEMOBOOT front_guard=OFF tof=ON')
         return self
 
     def sample(self):
@@ -55,8 +56,10 @@ class DemoBackend:
         self._range={'_at':time.monotonic()}
         self.record('rx',line=f'[DEMO] TOF ready=1 distance_mm={self.range_mm} valid=1 status=0 error=0 age_ms=0')
         self.record('rx',line=f'[DEMO] ATTITUDE roll=0.6 pitch=-1.3 yaw={self.yaw:.1f} tilt_valid=1 yaw_valid=1 calibrated=1 age_ms=0 zero_epoch={self.zero_epoch}')
-        velocity=100 if self.teleop_direction=='forward' else -100 if self.teleop_direction=='backward' else 0
+        speed=100 if self.teleop_pwm is None else self.teleop_pwm*2.5
         for motor,side in [('A','RIGHT'),('B','LEFT')]:
+            sign=({'forward':(1,1),'backward':(-1,-1),'left':(1,-1),'right':(-1,1)}.get(self.teleop_direction,(0,0)))[0 if motor=='A' else 1]
+            velocity=sign*speed
             self.record('rx',line=f'[DEMO] WHEEL motor={motor} side={side} count=0 forward_count=0 speed_mm_s={velocity} cps={velocity*19.2} rpm={velocity*.44415} valid=1 dt_ms=250 age_ms=0')
 
     def zero_heading(self, *, cancel_event=None, **kwargs):
@@ -73,6 +76,9 @@ class DemoBackend:
         with self.lock:
             return {'connected': self.connected, 'ready': self.ready, 'stopped': self.stopped,
                     'firmware': '1.9' if self.connected else None, 'front_guard': 'OFF' if self.connected else None,
+                    'firmware_build':'pwm-stream-v1','pwm_manual_available':True,
+                    'manual_pwm_percent':self.teleop_pwm if self.teleop_direction else None,
+                    'manual_pwm_actual':{'A':self.teleop_pwm,'B':self.teleop_pwm} if self.teleop_direction and self.teleop_pwm is not None else None,
                     'pose_available': False, 'range_available': True, 'boot_id':'DEMOBOOT', 'teleop':bool(self.teleop_direction), 'collision': None,
                     'last_action': self.last_action, 'last_result': self.last_result,
                     'action_count': self.action_count, 'fault': self.fault}
@@ -141,15 +147,21 @@ class DemoBackend:
     def configure_range_offset(self,offset):
         self.range_offset=offset
 
-    def teleop_start(self,direction):
+    def teleop_start(self,direction,*,pwm_percent=None):
         self.begin_task_check()
+        if direction not in ('forward','backward','left','right'):raise ValueError('Invalid direction')
+        if pwm_percent is not None and (type(pwm_percent) is not int or not 1<=pwm_percent<=100):raise ValueError('Invalid PWM')
+        self.teleop_pwm=pwm_percent
         self.teleop_direction=direction;self.teleop_session+=1
         self.ready=self.stopped=False
         self._teleop_renewed=time.monotonic()
         return {'session':self.teleop_session,'lease_ms':250}
 
-    def teleop_pulse(self):
+    def teleop_pulse(self,*,pwm_percent=None):
         if not self.teleop_direction: raise ValueError('Hold expired')
+        if pwm_percent is not None:
+            if type(pwm_percent) is not int or not 1<=pwm_percent<=100 or self.teleop_pwm is None:raise ValueError('Invalid PWM/mode')
+            self.teleop_pwm=pwm_percent
         self._teleop_renewed=time.monotonic()
         return {'firmware_ack_age_ms':0}
 

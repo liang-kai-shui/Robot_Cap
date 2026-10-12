@@ -95,9 +95,10 @@ static long long magnitude(long long value) { return value<0 ? -value : value; }
 static bool angle_key(char action) {return action=='j'||action=='l';}
 static bool forward_key(char action) {return action=='w'||action=='f'||action=='r';}
 static bool straight_key(char action) {return forward_key(action)||action=='b';}
+static bool manual_pwm(void) {return teleop.active&&teleop.direct_pwm;}
 static void pwm_set(motor_t *m, uint32_t duty)
 {
-    if (duty>614) duty=614;
+    if (duty>1023) duty=1023; // Direct manual PWM may use 100%; closed-loop PI keeps its own 60% cap.
     ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, m->channel, duty));
     ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, m->channel));
 }
@@ -378,7 +379,7 @@ static void motor_start(char action,float amount)
         if (front.blocked) {forward_stop(front,true);return;}
         forward_start_sequence=front.unsafe_sequence;
     }
-    if(straight_key(action)&&!heading_start_checked(action))return;
+    if(straight_key(action)&&!manual_pwm()&&!heading_start_checked(action))return;
     current_action=action;
     // A is RIGHT, B is LEFT. Positive command_sign means vehicle forward.
     motors[0].command_sign=(action=='s' || action=='b' || action=='d' || action=='l')?-1:1;
@@ -390,9 +391,12 @@ static void motor_start(char action,float amount)
         overspeed_frames[i]=0;
         ESP_ERROR_CHECK(gpio_set_level(motors[i].in1, motors[i].forward_sign*motors[i].command_sign>0));
         ESP_ERROR_CHECK(gpio_set_level(motors[i].in2, motors[i].forward_sign*motors[i].command_sign<0));
-        pwm_set(&motors[i], 410);
+        if(manual_pwm())motors[i].pi.percent=(float)teleop.pwm_percent;
+        pwm_set(&motors[i], manual_pwm()?(uint32_t)(teleop.pwm_percent*1023U/100U):410);
     }
-    if(angle_key(action))
+    if(manual_pwm())
+        ESP_LOGI("vehicle","VEHICLE_START action=%c MANUAL_PWM percent=%d heading_hold=OFF; lease and encoder checks active.",action,teleop.pwm_percent);
+    else if(angle_key(action))
         ESP_LOGI("dual-test","VEHICLE_START action=%c ANGLE_TURN v1.1 target_deg=%+.1f pwm=28..40%% max_ms=3000. T stops; rear/sides unmonitored.",action,turn.sign*turn.target_deg);
     else if(action=='w')
         ESP_LOGI("dual-test","VEHICLE_START action=w HEADING_HOLD v1.0 target=current heading base=2200cps correction<=400cps cap=60%% duration=800ms front_guard=%s.",ROBOT_SUPERVISED_TEST?"OFF":"ON");
@@ -404,7 +408,7 @@ static void motor_start(char action,float amount)
         ESP_LOGI("dual-test", "VEHICLE_START action=%c right_sign=%d left_sign=%d target=2200cps initial=40%% cap=60%% duration=800ms", action, motors[0].command_sign, motors[1].command_sign);
     // Console output can take time. Recheck immediately before enabling bridges;
     // keep any unsafe reading even if subsequent readings have already cleared it.
-    if (straight_key(action)) {
+    if (straight_key(action)&&!manual_pwm()) {
         if(forward_key(action)&&!ROBOT_SUPERVISED_TEST) {
             range_guard_view_t front=sensors_forward_guard();
             if (front.blocked || front.unsafe_sequence!=forward_start_sequence) {
@@ -563,7 +567,7 @@ static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
         if(result==TURN_REACHED) {turn_complete();return;}
         if(result!=TURN_RUN) {fault_stop(turn_cause(result),-1);return;}
     }
-    if (straight_key(current_action)) {
+    if (straight_key(current_action)&&!manual_pwm()) {
         if(forward_key(current_action)&&!ROBOT_SUPERVISED_TEST) {
             range_guard_view_t front=sensors_forward_guard();
             if (front.blocked || front.unsafe_sequence!=forward_start_sequence) {
@@ -603,7 +607,7 @@ static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
     if (trace_count>=TRACE_CAPACITY) { fault_stop("TRACE_CAPACITY", -1); return; }
     trace_t frame={.elapsed_us=now-run_started_us, .dt_us=dt_us};
     float target[MOTOR_COUNT]={SPEED_TARGET_CPS,SPEED_TARGET_CPS};
-    if(straight_key(current_action)&&!heading_targets(&heading,forward_yaw,dt_us*0.000001f,target)) {
+    if(straight_key(current_action)&&!manual_pwm()&&!heading_targets(&heading,forward_yaw,dt_us*0.000001f,target)) {
         fault_stop(heading_cause(HEADING_SAMPLE),-1);return;
     }
     if(current_action=='b'){float temp=target[0];target[0]=target[1];target[1]=temp;}
@@ -624,7 +628,10 @@ static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
         float raw=fmaxf(0, (float)(forward_q*1000000.0/dt_us));
         if (raw>2*SPEED_TARGET_CPS) ++overspeed_frames[j]; else overspeed_frames[j]=0;
         if (overspeed_frames[j]>=2) { fault_stop("SPEED_OVER_2X_TARGET", j); return; }
-        if(angle_key(current_action)) {
+        if(manual_pwm()) {
+            m->pi.filtered_cps=raw;
+            m->pi.percent=(float)teleop.pwm_percent;
+        } else if(angle_key(current_action)) {
             // Outer angle feedback sets bounded PWM; encoder checks remain active.
             // No integral speed demand can accelerate the wheels near the target.
             m->pi.filtered_cps=raw;
@@ -676,13 +683,15 @@ static void serial_poll(int64_t now)
         ESP_LOGW("vehicle","VEHICLE_BLOCKED action=? source=PARAM1 cause=FRAME_INVALID_MIXED_OR_TIMEOUT; motors off, no queued motion. T resets parser.");
         return;
     }
-    if(packet.waiting)return;
-    if(packet.commands==1&&packet.action=='h') {
+    if(packet.waiting&&!packet.commands)return;
+    if(packet.commands==1&&(packet.action=='h'||packet.action=='u')) {
         bool was_active=teleop.active;
         bool idle=!running&&!turn_report_pending&&!distance_move.report_pending&&!range_report_pending&&
             !distance_cal.active&&motor_ready&&!fault_latched&&gpio_get_level(TEST_BUTTON)&&
             now-last_stop_us>=STOP_COOLDOWN_US&&now-last_motion_us>=KEY_QUIET_US;
-        if(!teleop_accept(&teleop,(unsigned)packet.units,now,idle)) {
+        bool accepted=packet.action=='u'?teleop_accept_pwm(&teleop,(unsigned)packet.units,now,idle):
+            teleop_accept(&teleop,(unsigned)packet.units,now,idle);
+        if(!accepted) {
             if(running)fault_stop("TELEOP_EXPIRED_OR_WRONG_SESSION",-1);
             return;
         }
@@ -693,7 +702,8 @@ static void serial_poll(int64_t now)
             teleop.began=teleop.renewed=esp_timer_get_time();
             ESP_LOGI("vehicle","TELEOP_START session=%u direction=%d lease_ms=250 max_hold_ms=30000",teleop.session,teleop.direction);
         }
-        ESP_LOGI("vehicle","TELEOP_ACK session=%u direction=%d",teleop.session,teleop.direction);
+        ESP_LOGI("vehicle","TELEOP_ACK session=%u direction=%d direct_pwm=%d pwm_percent=%d applied_a=%.1f applied_b=%.1f",
+            teleop.session,teleop.direction,teleop.direct_pwm,teleop.pwm_percent,motors[0].pi.percent,motors[1].pi.percent);
         return;
     }
     uint8_t *bytes=packet.legacy;count=(int)packet.legacy_len;
@@ -756,7 +766,7 @@ static void serial_poll(int64_t now)
 void app_main(void)
 {
     boot_id=esp_random();
-    ESP_LOGI("vehicle", "KEYBOARD_DRIVE v1.9 protocol=PARAM2: @F/@B50..300 (mm), @J/@L150..900 (tenths deg), @R100..1000 front mm, @H session*10+direction lease. Newline terminates frames. T stop, no BOOT arming.");
+    ESP_LOGI("vehicle", "KEYBOARD_DRIVE v1.9 protocol=PARAM2 build=pwm-stream-v1: @F/@B50..300 (mm), @J/@L150..900 (tenths deg), @R100..1000 front mm, @H session*10+direction lease. Newline terminates frames. T stop, no BOOT arming.");
     ESP_LOGI("vehicle", "A=RIGHT encoder=10/11 IN1=12 IN2=13 PWM=14; B=LEFT encoder=4/5 IN1=16 IN2=17 PWM=18; STBY=15.");
     ESP_LOGI("vehicle", "Keep wiring. VCC and encoder BLACKs=3V3; encoder BLUEs and adapter BLACK=GND; adapter RED=VM only.");
     motor_init_guarded();
@@ -815,7 +825,7 @@ void app_main(void)
                      now-last_stop_us>=STOP_COOLDOWN_US && now-last_motion_us>=KEY_QUIET_US &&
                      now-last_motion_key_us>=KEY_QUIET_US) {
                 ready_reported=true;
-                ESP_LOGI("vehicle", "VEHICLE_READY: firmware=1.9 protocol=PARAM2 boot_id=%08lx teleop_next=%u front_guard=%s tof=%s move_min_mm=50 move_max_mm=300 turn_min_tdeg=150 turn_max_tdeg=900; valid calibrated BMI required. T stops. No BOOT unlock.",(unsigned long)boot_id,teleop.closed+1,ROBOT_SUPERVISED_TEST?"OFF":"ON",ROBOT_TOF_ENABLED?"ON":"OFF");
+                ESP_LOGI("vehicle", "VEHICLE_READY: firmware=1.9 protocol=PARAM2 build=pwm-stream-v1 teleop_pwm=1 boot_id=%08lx teleop_next=%u front_guard=%s tof=%s move_min_mm=50 move_max_mm=300 turn_min_tdeg=150 turn_max_tdeg=900; valid calibrated BMI required. T stops. No BOOT unlock.",(unsigned long)boot_id,teleop.closed+1,ROBOT_SUPERVISED_TEST?"OFF":"ON",ROBOT_TOF_ENABLED?"ON":"OFF");
             }
         }
         if (!running && now-last_sensor_print>=500000) {
