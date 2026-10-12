@@ -626,8 +626,9 @@ static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
             fault_stop("QUADRATURE_VS_C1_C2_EDGE_SUM_MISMATCH", j); return;
         }
         float raw=fmaxf(0, (float)(forward_q*1000000.0/dt_us));
-        if (raw>2*SPEED_TARGET_CPS) ++overspeed_frames[j]; else overspeed_frames[j]=0;
-        if (overspeed_frames[j]>=2) { fault_stop("SPEED_OVER_2X_TARGET", j); return; }
+        if (speed_target_guard(&overspeed_frames[j], raw, manual_pwm())) {
+            fault_stop("SPEED_OVER_2X_TARGET", j); return;
+        }
         if(manual_pwm()) {
             m->pi.filtered_cps=raw;
             m->pi.percent=(float)teleop.pwm_percent;
@@ -766,7 +767,7 @@ static void serial_poll(int64_t now)
 void app_main(void)
 {
     boot_id=esp_random();
-    ESP_LOGI("vehicle", "KEYBOARD_DRIVE v1.9 protocol=PARAM2 build=pwm-stream-v1: @F/@B50..300 (mm), @J/@L150..900 (tenths deg), @R100..1000 front mm, @H session*10+direction lease. Newline terminates frames. T stop, no BOOT arming.");
+    ESP_LOGI("vehicle", "KEYBOARD_DRIVE v1.9 protocol=PARAM2 build=pwm-stream-v2: @F/@B50..300 (mm), @J/@L150..900 (tenths deg), @R100..1000 front mm, @H session*10+direction lease. Newline terminates frames. T stop, no BOOT arming.");
     ESP_LOGI("vehicle", "A=RIGHT encoder=10/11 IN1=12 IN2=13 PWM=14; B=LEFT encoder=4/5 IN1=16 IN2=17 PWM=18; STBY=15.");
     ESP_LOGI("vehicle", "Keep wiring. VCC and encoder BLACKs=3V3; encoder BLUEs and adapter BLACK=GND; adapter RED=VM only.");
     motor_init_guarded();
@@ -825,7 +826,7 @@ void app_main(void)
                      now-last_stop_us>=STOP_COOLDOWN_US && now-last_motion_us>=KEY_QUIET_US &&
                      now-last_motion_key_us>=KEY_QUIET_US) {
                 ready_reported=true;
-                ESP_LOGI("vehicle", "VEHICLE_READY: firmware=1.9 protocol=PARAM2 build=pwm-stream-v1 teleop_pwm=1 boot_id=%08lx teleop_next=%u front_guard=%s tof=%s move_min_mm=50 move_max_mm=300 turn_min_tdeg=150 turn_max_tdeg=900; valid calibrated BMI required. T stops. No BOOT unlock.",(unsigned long)boot_id,teleop.closed+1,ROBOT_SUPERVISED_TEST?"OFF":"ON",ROBOT_TOF_ENABLED?"ON":"OFF");
+                ESP_LOGI("vehicle", "VEHICLE_READY: firmware=1.9 protocol=PARAM2 build=pwm-stream-v2 teleop_pwm=1 boot_id=%08lx teleop_next=%u front_guard=%s tof=%s move_min_mm=50 move_max_mm=300 turn_min_tdeg=150 turn_max_tdeg=900; valid calibrated BMI required. T stops. No BOOT unlock.",(unsigned long)boot_id,teleop.closed+1,ROBOT_SUPERVISED_TEST?"OFF":"ON",ROBOT_TOF_ENABLED?"ON":"OFF");
             }
         }
         if (!running && now-last_sensor_print>=500000) {

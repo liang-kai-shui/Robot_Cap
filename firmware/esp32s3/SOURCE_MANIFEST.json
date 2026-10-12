@@ -1,7 +1,7 @@
 {
   "snapshot_date": "2026-10-12",
   "firmware_protocol": "1.9/PARAM2",
-  "main_sources": "Current sources: PARAM2, supervised closed-loop actions, direct manual PWM 1..100%, stream-safe coalesced same-press renewals. Original archive hashes remain in archive_sha256.",
+  "main_sources": "Current sources: PARAM2, closed-loop target overspeed guard; direct manual PWM 1..100% without a speed-target comparison; stream-safe renewals. Original archive hashes remain in archive_sha256.",
   "sha256": {
     "CMakeLists.txt": "d281e3fd47590c0e721cc73a807babc19a79528de9339018c5c40174dffab12a",
     "keyboard_control.py": "2fb85dcdf452e080141c94caa9f69d747027bb8410019b8769ed1fb0b0c636f7",
@@ -20,12 +20,12 @@
     "main/distance_control.h": "09ad162a834c30989a327b66680ce8d3de81c19c386339a9f1167963c3a5d5f6",
     "main/heading_control.h": "00180da383c195d679550dc7aec12cac6e0568e946117c78662c92bbed282f63",
     "main/imu_sample.h": "aac69cc86d4cb0a6183929dbc04e8b872529824fca86fffade6b661f79034c5b",
-    "main/main.c": "e47a6755c233085d978b8bcb5f14979017e728bd7692b811bf40b5c28c302b80",
+    "main/main.c": "bb31cd052c1c45b840ffd8a21495c14229480d5213c966aa8c4e9d0027d9d75b",
     "main/motion_math.h": "ed0f1820eb0d623ecb2014ec8d79b4887fe3b17a17fcec41f9c31abee6dbf4fa",
     "main/range_guard.h": "d61ac0a57954cdb453479186af1991e86a277ac5f76fb60ed2a61a12f44e6a52",
     "main/sensor_io.c": "dab4eb86a0e27d0fac733142674bc53a2f2f18a50386ae9da6d40be42d5dad32",
     "main/sensor_io.h": "645e03aa7898bdb55222619174310820cbf88cf5619042f2bd666d2f4698b736",
-    "main/speed_pi.h": "373e4e6ab1287591fab59a86e5de592ec5231568d4a42fbedcdc6faae6632036",
+    "main/speed_pi.h": "048cece807104962bf0adc93322fdb5447bcea5104b86954a538b8425f513d41",
     "main/test_mode.h": "de8b281858f4749b14c74e6fb73b911c0b69c7858846b181bc2f18cc18a8f9ad",
     "main/tof/Arduino.h": "6ad362c06a558826d6bf1e11948be4d3670cd382d325b8bba4e5b68ceaad5324",
     "main/tof/LICENSE.txt": "8a5d285dc3e559642cea15f72bf88ac2660e9ff4497660a76546f39e5fe060e1",
@@ -75,5 +75,5 @@
     "sdkconfig.defaults": "56c89546ca9693da8fe293f700c63d2ce6dc35cf6496224ad332e6fcc58cf81f"
   },
   "archive_tag": "physical-cap-2026-10-12",
-  "build": "pwm-stream-v1"
+  "build": "pwm-stream-v2"
 }

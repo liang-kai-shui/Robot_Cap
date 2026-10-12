@@ -11,6 +11,16 @@ static param_packet_t feed(param_parser_t *p,const char *s,int64_t now) {
     return param_feed(p,(const uint8_t *)s,strlen(s),now);
 }
 int main(void) {
+    unsigned speed_frames=0;
+    assert(!speed_target_guard(&speed_frames,4400,false));
+    assert(!speed_target_guard(&speed_frames,4401,false));
+    assert(speed_target_guard(&speed_frames,4401,false)); // closed-loop protection retained
+    assert(!speed_target_guard(&speed_frames,4400,false)&&speed_frames==0);
+    assert(!speed_target_guard(&speed_frames,6000,false));
+    assert(!speed_target_guard(&speed_frames,6000,true)&&speed_frames==0); // no speed target in PWM mode
+    for(unsigned i=0;i<100;i++)assert(!speed_target_guard(&speed_frames,6000,true));
+    assert(!speed_target_guard(&speed_frames,6000,false)); // no carry-over from manual mode
+    assert(speed_target_guard(&speed_frames,6000,false));
     teleop_control_t pwm={0};
     assert(teleop_accept_pwm(&pwm,11040,1000,true));
     assert(pwm.direct_pwm&&pwm.pwm_percent==40);

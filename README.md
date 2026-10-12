@@ -1,6 +1,6 @@
 # Robot CaP：模拟研究与 ESP32-S3 实车
 
-手动面板现支持 [0–100% 实际 PWM 滑块](docs/MANUAL_PWM.md)，默认 40%，0 停止；需要 `pwm-stream-v1` 新固件。已完成离线测试与编译，更新后的运动验证由用户执行。
+手动面板现支持 [0–100% 实际 PWM 滑块](docs/MANUAL_PWM.md)，默认 40%，0 停止；需要 `pwm-stream-v2` 新固件。已完成离线测试与编译，更新后的运动验证由用户执行。
 
 自然语言任务通过模型生成 Python Policy，经能力注册、AST 校验和独立 Worker，由可信 RobotRuntime 执行。项目包含二维模拟评测与 ESP32-S3 实车后端，分别记录执行反馈和任务结果。
 

@@ -10,6 +10,15 @@
 #define SPEED_FILTER_TAU_S 0.040f
 #define SPEED_SLEW_PERCENT_S 100.0f
 
+// This checks tracking of a SPEED_TARGET_CPS command, not a motor's rated RPM.
+// Direct PWM has no commanded speed target, so the relative guard is inapplicable.
+static inline bool speed_target_guard(unsigned *frames, float raw_cps, bool direct_pwm)
+{
+    if (!direct_pwm && raw_cps > 2*SPEED_TARGET_CPS) ++*frames;
+    else *frames = 0;
+    return *frames >= 2;
+}
+
 typedef struct {
     float filtered_cps, integral, percent;
 } speed_pi_t;
