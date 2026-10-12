@@ -234,9 +234,11 @@ def test_speed_pose_and_range_are_not_fabricated():
             call()
     registry = build_esp32_registry(backend)
     prompt = generate_robot_api_prompt(registry)
-    assert 'get_distance' not in prompt and 'get_pose' not in prompt
+    assert 'get_distance' in prompt and 'get_pose' not in prompt
+    assert 'reverse' in prompt and 'approach' in prompt
     assert 'distance=0.05..0.30' in prompt and 'obstacle guard OFF' in prompt
-    for policy in ('robot.get_distance()', 'robot.get_pose()', 'robot.move(.3, speed=.1)'):
+    PolicyValidator(registry).validate('robot.get_distance()')
+    for policy in ('robot.get_distance(1)', 'robot.get_pose()', 'robot.move(.3, speed=.1)'):
         with pytest.raises(UnsafePolicyError):
             PolicyValidator(registry).validate(policy)
 

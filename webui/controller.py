@@ -3,6 +3,7 @@ from collections import deque
 from copy import deepcopy
 from datetime import datetime, timezone
 import json
+import ast
 import math
 import os
 from pathlib import Path
@@ -17,6 +18,7 @@ from urllib.parse import urlparse
 
 from agent.physical_context import build_physical_history
 from agent.physical_mission import split_mission, review_segment
+from agent.physical_context import _summary
 from agent.physical_policy import generate_physical_policy, validate_physical_policy
 from physical_control import _physical_limits
 from providers.openai_compatible import OpenAICompatibleProvider
@@ -54,7 +56,17 @@ class ControlDesk:
         self.runtime = None
         self.process = None
         self.plan = None
-        self.tasks = deque(maxlen=64)
+        self.tasks = []
+        self.session_id = uuid.uuid4().hex
+        self.boot_id = None
+        self.holding = None
+        self.range_offset_mm = 0
+        self.errors = deque(maxlen=50)
+        try:
+            calibration=json.loads((self.log_dir/'range-calibration.json').read_text(encoding='utf-8'))
+            value=calibration.get('offset_mm')
+            if type(value) is int and -100<=value<=100: self.range_offset_mm=value
+        except (OSError,ValueError): pass
         self.jobs = deque(maxlen=24)
         self.events = deque(maxlen=1600)
         self.event_id = 0
@@ -62,7 +74,7 @@ class ControlDesk:
         self.serial_last = None
         self.telemetry = {'bmi': None, 'yaw': None, 'range': None, 'tof_disabled': None,
                           'wheels': {}, 'samples': [], 'last_move': None, 'attitude': None}
-        self.settings = {'base_url': 'https://api.deepseek.com', 'model': 'deepseek-flash'}
+        self.settings = {'base_url': 'https://api.deepseek.com', 'model': 'deepseek-flash', 'reasoning_effort':'none', 'review_mode':'local'}
         self._key = os.getenv('LLM_API_KEY') or os.getenv('DEEPSEEK_API_KEY') or ''
         self.finished = threading.Event()
         self.thread = None
@@ -101,7 +113,7 @@ class ControlDesk:
         if not isinstance(owner, str) or not 8 <= len(owner) <= 80:
             raise ValueError('页面标识无效，请刷新页面')
         if self.owner not in (None, owner):
-            if self._active() or time.monotonic()-self.last_heartbeat <= self.lease_seconds:
+            if self._active() or self.holding or time.monotonic()-self.last_heartbeat <= self.lease_seconds:
                 raise ValueError('设备正由另一页面控制；可先停止，再由原页面断开')
         self.owner = owner
         self.last_heartbeat = time.monotonic()
@@ -112,12 +124,12 @@ class ControlDesk:
     def _submit(self, owner, kind, title, function):
         with self.lock:
             self._claim(owner)
-            if self._active():
+            if self._active() or self.holding:
                 raise ValueError('当前任务尚未停稳，不接受排队动作')
             job = {'id': uuid.uuid4().hex, 'kind': kind, 'title': title, 'status': 'running',
                    'phase': '准备', 'started_at': utc_now(), 'started': time.monotonic(),
                    'cancel': threading.Event(), 'error': None, 'result': None, 'timings_ms': {},
-                   'motion_attempted': False}
+                   'motion_attempted': False, 'policy':None, 'diagnostics':{}, 'session_id':self.session_id}
             self.job = job
             self.runtime = None
         self.emit('task', 'info', title)
@@ -133,16 +145,29 @@ class ControlDesk:
                 self.emit('task', 'success', title+'：完成')
             except BaseException as exc:
                 if job['motion_attempted'] and self.backend:
-                    self.backend.emergency_stop()
+                    try:
+                        self.backend.emergency_stop()
+                    except Exception as stop_error:
+                        self.emit('system','error','停止发送失败：'+self.scrub(stop_error))
                 with self.lock:
                     job.update(status='cancelled' if job['cancel'].is_set() else 'failed',
                                phase='已中止' if job['cancel'].is_set() else '失败',
                                error=self.scrub(f'{type(exc).__name__}: {exc}'))
-                self.emit('task', 'error', job['error'])
+                diagnostics=self.redact(job.get('diagnostics') or {})
+                category='model_call' if diagnostics.get('stage')=='model_call' else 'validation' if diagnostics.get('stage')=='validation' else 'execution' if job['motion_attempted'] else 'service'
+                if diagnostics.get('raw_response'): diagnostics['raw_response']=diagnostics['raw_response'][:8192]
+                item={'id':job['id'],'at':utc_now(),'instruction':job['title'],'category':category,
+                      'type':type(exc).__name__,'message':job['error'],**diagnostics}
+                with self.lock: self.errors.append(item)
+                self.emit('model_error' if category in ('model_call','validation') else 'task', 'error', job['error'])
             finally:
                 with self.lock:
                     job['elapsed_ms'] = (time.monotonic()-job['started'])*1000
                     self.jobs.append(self._public_job(job))
+                    if job['kind']=='plan' and job['session_id']==self.session_id:
+                        self.tasks.append({'number':len(self.tasks)+1,'instruction':job['title'],
+                            'execution_success':False,'policy_validated':job['status']=='completed',
+                            'error':job['error'],'cancelled':job['cancel'].is_set(),'trace':[]})
                 self.save()
         threading.Thread(target=run, name='webui-job-'+kind, daemon=True).start()
         return {'job_id': job['id']}
@@ -210,11 +235,16 @@ class ControlDesk:
                 self.serial_cursor = 0
                 self.serial_last = None
                 self.plan = None
-                self.tasks.clear()
                 self.epoch += 1
                 self.telemetry = {'bmi': None, 'yaw': None, 'range': None, 'tof_disabled': None, 'wheels': {}, 'samples': [], 'last_move': None, 'attitude': None}
             started = time.perf_counter()
             backend.connect()
+            new_boot=backend.snapshot().get('boot_id')
+            with self.lock:
+                if new_boot is None or new_boot!=self.boot_id:
+                    self.tasks.clear(); self.session_id=uuid.uuid4().hex
+                self.boot_id=new_boot
+            if hasattr(backend,'configure_range_offset'): backend.configure_range_offset(self.range_offset_mm)
             job['timings_ms']['connection_handshake'] = (time.perf_counter()-started)*1000
             self._check(job)
             return backend.snapshot()
@@ -237,6 +267,8 @@ class ControlDesk:
     def stop(self, reason='停止按钮'):
         with self.lock:
             job, backend, runtime, process = self.job, self.backend, self.runtime, self.process
+            holding=self.holding
+            self.holding=None
             active = self._active()
             if active:
                 job['cancel'].set()
@@ -244,6 +276,8 @@ class ControlDesk:
             self.plan = None
         self.emit('system', 'warning', reason+'：请求停止')
         if backend:
+            if holding:
+                backend.teleop_release()
             if active:
                 (runtime.emergency_stop if runtime else backend.emergency_stop)()
             elif backend.snapshot()['connected']:
@@ -263,7 +297,7 @@ class ControlDesk:
     def configure(self, owner, data):
         with self.lock:
             self._claim(owner)
-            if self._active():
+            if self._active() or self.holding:
                 raise ValueError('任务运行中不能修改模型配置')
             url = data.get('base_url', self.settings['base_url']).strip().rstrip('/')
             model = data.get('model', self.settings['model']).strip()
@@ -276,7 +310,11 @@ class ControlDesk:
                 if not isinstance(key, str) or len(key) > 2000:
                     raise ValueError('API Key格式无效')
                 self._key = key.strip()
-            self.settings.update(base_url=url, model=model)
+            reasoning=data.get('reasoning_effort',self.settings['reasoning_effort'])
+            review=data.get('review_mode',self.settings['review_mode'])
+            if reasoning not in ('none','low','high') or review not in ('local','model'):
+                raise ValueError('无效的思考/分段审核配置')
+            self.settings.update(base_url=url, model=model, reasoning_effort=reasoning, review_mode=review)
         self.emit('system', 'success', '模型配置已保存到本次进程内存')
         return {'configured': bool(self._key) or self.demo}
 
@@ -288,11 +326,13 @@ class ControlDesk:
         with self.lock:
             if not self._key:
                 raise ValueError('请先在设置中填写模型API Key')
-            return OpenAICompatibleProvider(api_key=self._key, **self.settings)
+            return OpenAICompatibleProvider(api_key=self._key, base_url=self.settings['base_url'], model=self.settings['model'], reasoning_effort=self.settings['reasoning_effort'], stable_api_prefix=True)
 
-    def generate(self, owner, instruction):
+    def generate(self, owner, instruction, auto_execute=False):
         if not isinstance(instruction, str) or not 1 <= len(instruction.strip()) <= 2000:
             raise ValueError('请输入不超过2000字的任务')
+        if type(auto_execute) is not bool: raise ValueError('执行模式无效')
+        if auto_execute: self._healthy()
         instruction = self.scrub(instruction.strip())
         provider = self._provider()
         def run(job):
@@ -304,10 +344,20 @@ class ControlDesk:
             registry = build_esp32_registry(backend)
             connected = backend.snapshot()['connected']
             self._phase(job, '正在生成并校验完整计划')
-            timings = {}
-            policy, response = self._wait_model(job, lambda: generate_physical_policy(provider, instruction,
-                registry, feedback=backend.snapshot(), history=history, timings=timings, max_motion_calls=9), hardware=connected)
-            job['timings_ms'].update(timings)
+            timings = {}; diagnostics=job['diagnostics']
+            feedback=backend.snapshot()
+            sensors={}
+            for name in ('get_distance','get_attitude'):
+                try: sensors[name]=getattr(backend,name)()
+                except Exception: sensors[name]={'valid':False,'reason':'unavailable_or_stale'}
+            feedback['sensors']=sensors
+            try:
+                policy, response = self._wait_model(job, lambda: generate_physical_policy(provider, instruction,
+                registry, feedback=feedback, history=history, timings=timings, max_motion_calls=9, diagnostics=diagnostics), hardware=connected)
+            finally:
+                job['timings_ms'].update(timings)
+                job['policy']=self.scrub(diagnostics.get('policy',diagnostics.get('raw_response','')))[:8192]
+            diagnostics['stage']='validated'
             policies = split_mission(policy, registry)
             self._check(job, hardware=connected)
             plan = {'id': uuid.uuid4().hex, 'instruction': instruction, 'policy': policy, 'segments': policies,
@@ -317,7 +367,14 @@ class ControlDesk:
                 if stamp != (self.epoch, self.revision):
                     raise ValueError('设备会话已变化，请重新生成计划')
                 self.plan = plan
+            job['policy']=policy
             self.emit('policy', 'success', policy)
+            if auto_execute:
+                self._check(job)
+                with self.lock: self.plan=None
+                job['kind']='execute'
+                job['diagnostics']['stage']='execution'
+                return self._execute(job,instruction,policies,provider)
             return {'plan_id': plan['id'], 'segment_count': len(policies), 'preview_only': True}
         return self._submit(owner, 'plan', instruction, run)
 
@@ -376,7 +433,7 @@ class ControlDesk:
         finally:
             with self.lock:
                 task['cancelled'] = job['cancel'].is_set()
-                self.tasks.append(task)
+                if job['session_id']==self.session_id: self.tasks.append(task)
                 self.revision += 1
                 self.plan = None
 
@@ -394,6 +451,8 @@ class ControlDesk:
         def run(job):
             # Preserve the preview's actual model latency, while execution elapsed
             # remains the time since the user clicked Execute.
+            job['policy']=plan['policy']
+            job['diagnostics']['stage']='execution'
             job['timings_ms'].update(plan['timings_ms'])
             return self._execute(job, plan['instruction'], plan['segments'], provider)
         return self._submit(owner, 'execute', plan['instruction'], run)
@@ -411,18 +470,21 @@ class ControlDesk:
             for index, policy in enumerate(policies):
                 self._check(job)
                 validate_physical_policy(policy, registry)
-                motions += len(policy.splitlines())-1
+                motions += sum(isinstance(node,ast.Expr) and isinstance(node.value,ast.Call) and
+                    isinstance(node.value.func,ast.Attribute) and node.value.func.attr in ('move','reverse','turn','approach')
+                    for node in ast.parse(policy).body)
                 if motions > 9:
                     raise ValueError('整项任务运动预算超过9次')
                 self._phase(job, f'执行第 {index+1}/{len(policies)} 段')
                 started = time.perf_counter()
-                backend.stop()
+                self._healthy()
                 job['timings_ms']['pre_task_standstill'] = job['timings_ms'].get('pre_task_standstill', 0)+(time.perf_counter()-started)*1000
                 self._check(job)
                 backend.begin_task()
                 self._check(job)
                 runtime.begin_decision(4)
                 job['motion_attempted'] = True
+                job['policy']=job.get('policy') or '\n'.join(policies)
                 try:
                     outcome = PolicyExecutor(limits).execute(policy, None, Pose(0, 0, 0), runtime=runtime)
                 finally:
@@ -436,7 +498,17 @@ class ControlDesk:
                 if not outcome.success:
                     raise RobotEmergencyStopError(outcome.error_message or '动作未完成')
                 if index+1 < len(policies):
-                    self._phase(job, '已停稳，正在审核本段反馈')
+                    self._phase(job, '已停稳，检查本段反馈')
+                    if self.settings['review_mode']=='local':
+                        started_review=time.perf_counter()
+                        summary=_summary({'execution_success':outcome.success,'trace':outcome.trace})
+                        self._healthy()
+                        if summary['status']!='completed':
+                            raise RobotEmergencyStopError('本地反馈审核失败，不执行剩余计划')
+                        task['reviews'].append({'decision':'CONTINUE','source':'local_validated_feedback'})
+                        job['timings_ms']['feedback_review']=job['timings_ms'].get('feedback_review',0)+(time.perf_counter()-started_review)*1000
+                        continue
+                    self._phase(job,'已停稳，等待模型审核反馈')
                     segment = {'number': index+1, 'instruction': instruction, 'execution_success': True,
                                'trace': outcome.trace}
                     timings = {}
@@ -457,15 +529,80 @@ class ControlDesk:
         finally:
             task.update(trace=list(runtime.trace), cancelled=job['cancel'].is_set(), timings_ms=dict(job['timings_ms']))
             with self.lock:
-                self.tasks.append(task)
+                if job['session_id']==self.session_id: self.tasks.append(task)
                 self.revision += 1
                 self.plan = None
 
-    def build(self, owner):
+    def teleop_start(self, owner, direction):
+        with self.lock:
+            self._claim(owner)
+            if self._active() or self.holding: raise ValueError('任务运行中，持续控制不能排队')
+            self._healthy()
+            result=self.backend.teleop_start(direction)
+            self.plan=None;self.revision+=1
+            self.holding={'direction':direction,'session':result['session'],'started_at':utc_now(),'_pulse_at':time.monotonic(),'_began':time.monotonic()}
+            # Manual repositioning invalidates previous turn-back reference.
+            self.tasks.append({'number':len(self.tasks)+1,'instruction':'按住手动控制 '+direction,
+                'execution_success':False,'trace':[{'kind':'action','phase':'started','capability_id':'manual.teleop'}]})
+            return result
+
+    def teleop_pulse(self, owner):
+        with self.lock:
+            if owner!=self.owner or not self.holding: raise ValueError('当前按键已失效，请重新按下')
+            if time.monotonic()-self.holding['_pulse_at']>.2 or time.monotonic()-self.holding['_began']>=30:
+                self.teleop_release(owner,reason='按住超时');raise ValueError('持续控制已超时')
+            result=self.backend.teleop_pulse()
+            self.holding['_pulse_at']=time.monotonic()
+            self.last_heartbeat=time.monotonic()
+            return result
+
+    def teleop_release(self, owner, reason='松开按键'):
+        with self.lock:
+            if owner!=self.owner or not self.holding: return {'released':True}
+            self.holding=None
+            backend=self.backend
+        if backend: backend.teleop_release()
+        self.emit('task','info',reason+'：驱动停止，等待停稳回传')
+        return {'released':True}
+
+    def calibrate_range(self, owner, known_mm):
+        if type(known_mm) is not int or not 100<=known_mm<=2000: raise ValueError('标定距离需为100..2000毫米；建议140毫米平整目标')
+        self._healthy()
+        def run(job):
+            self._phase(job,'采集20个测距样本，保持目标静止')
+            import statistics
+            values=[];last=None
+            end=time.monotonic()+7
+            while len(values)<20 and time.monotonic()<end:
+                self._check(job)
+                value=self.backend.get_distance()
+                sample=getattr(self.backend,'_range',None)
+                identity=sample.get('_at') if sample else time.monotonic()
+                if identity!=last:
+                    values.append(value['raw_mm']);last=identity
+                job['cancel'].wait(.065)
+            if len(values)<20 or max(values)-min(values)>20: raise ValueError('有效测距样本不足或目标不稳定，请重新摆放')
+            offset=round(known_mm-statistics.median(values))
+            if not -100<=offset<=100: raise ValueError('偏差超过100毫米，先检查镜头与测量基准')
+            self.backend.configure_range_offset(offset)
+            with self.lock: self.range_offset_mm=offset;self.plan=None;self.revision+=1
+            self.log_dir.mkdir(parents=True,exist_ok=True)
+            (self.log_dir/'range-calibration.json').write_text(json.dumps({'offset_mm':offset,'known_mm':known_mm,'samples':values,'at':utc_now()}),encoding='utf-8')
+            return {'offset_mm':offset,'known_mm':known_mm,'raw_median_mm':statistics.median(values)}
+        return self._submit(owner,'calibration','测距偏移标定',run)
+
+    def build(self, owner, *, flash_port=None, motor_power_disconnected=False):
         if self.backend and self.backend.snapshot()['connected']:
             raise ValueError('编译前先断开设备，避免同时占用控制资源')
+        if flash_port is not None:
+            if motor_power_disconnected is not True:
+                raise ValueError('烧录前请拔下电机独立5V电源，只保留USB，并勾选确认')
+            if not isinstance(flash_port,str) or not re.fullmatch(r'COM[1-9]\d{0,3}',flash_port):
+                raise ValueError('请选择开发板对应的COM串口')
+            if not self.demo and flash_port not in {p['device'] for p in self.ports()}:
+                raise ValueError('选定串口不存在，请刷新串口')
         def run(job):
-            self._phase(job, '编译固件（不烧录）')
+            self._phase(job, '编译并烧录v1.9固件' if flash_port else '编译固件（不烧录）')
             if self.demo:
                 self.emit('build', 'info', '演示模式：展示构建入口，不运行工具链')
                 return {'demo': True, 'flashed': False}
@@ -486,6 +623,7 @@ class ControlDesk:
             env['PATH'] = os.pathsep.join(bins+[env.get('PATH', '')])
             command = [str(python) if python.is_file() else sys.executable, '-u', str(script),
                        '-C', str(ROOT/'firmware'/'esp32s3'), 'build']
+            if flash_port: command=[*command[:-1],'-p',flash_port,'flash']
             with self.lock:
                 self._check(job, hardware=False)
                 process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -499,13 +637,16 @@ class ControlDesk:
                 code = process.wait(timeout=5)
                 if code:
                     raise ValueError(f'构建退出码{code}，查看终端输出')
-                return {'build_success': True, 'flashed': False}
+                if flash_port:
+                    with self.lock:
+                        self.tasks.clear();self.boot_id=None;self.session_id=uuid.uuid4().hex;self.plan=None;self.epoch+=1
+                return {'build_success': True, 'flashed': bool(flash_port)}
             finally:
                 if process.poll() is None:
                     process.terminate()
                 with self.lock:
                     self.process = None
-        return self._submit(owner, 'build', '构建ESP32固件', run)
+        return self._submit(owner, 'flash' if flash_port else 'build', '烧录ESP32固件' if flash_port else '构建ESP32固件', run)
 
     def terminal(self, owner, command):
         if not isinstance(command, str) or len(command) > 2100:
@@ -536,7 +677,7 @@ class ControlDesk:
     def _public_job(self, job):
         if job is None:
             return None
-        data = {key: deepcopy(job.get(key)) for key in ('id', 'kind', 'title', 'status', 'phase', 'started_at', 'error', 'result', 'timings_ms')}
+        data = {key: deepcopy(job.get(key)) for key in ('id', 'kind', 'title', 'status', 'phase', 'started_at', 'error', 'result', 'timings_ms', 'policy', 'diagnostics', 'session_id')}
         data['elapsed_ms'] = job.get('elapsed_ms', (time.monotonic()-job['started'])*1000)
         return self.redact(data)
 
@@ -545,6 +686,8 @@ class ControlDesk:
             backend = self.backend
             data = {'mode': 'demo' if self.demo else 'hardware', 'owner': self.owner, 'epoch': self.epoch,
                     'lease_age_ms': (time.monotonic()-self.last_heartbeat)*1000,
+                    'holding':deepcopy(self.holding),'session_id':self.session_id,'context_tasks':len(self.tasks),
+                    'errors':list(self.errors), 'range_offset_mm':self.range_offset_mm,
                     'job': self._public_job(self.job), 'jobs': deepcopy(list(self.jobs)), 'plan': deepcopy(self.plan),
                     'settings': {**self.settings, 'key_configured': bool(self._key) or self.demo},
                     'telemetry': deepcopy(self.telemetry), 'event_cursor': self.event_id,
@@ -552,6 +695,7 @@ class ControlDesk:
         data['device'] = backend.snapshot() if backend else {'connected': False, 'ready': False, 'stopped': None,
             'fault': None, 'firmware': None, 'front_guard': 'OFF', 'pose_available': False, 'range_available': False,
             'last_action': None, 'last_result': None, 'action_count': 0}
+        if data['holding']: data['holding']={k:v for k,v in data['holding'].items() if not k.startswith('_')}
         data['port'] = backend.port_name if backend else None
         for name in ('bmi', 'yaw', 'range', 'attitude'):
             sample = data['telemetry'][name]
@@ -559,6 +703,10 @@ class ControlDesk:
                 received_age = max(0, (time.monotonic()-sample.pop('_at'))*1000)
                 if name == 'range':
                     sensor_age = sample.get('age_ms', -1)
+                    sample['raw_mm']=sample.get('distance_mm')
+                    sample['offset_mm']=self.range_offset_mm
+                    if sample.get('distance_mm') is not None: sample['distance_mm']+=self.range_offset_mm
+                    sample['near_field']=sample.get('raw_mm',1000)<40
                     sample['sensor_age_ms'] = sensor_age
                     sample['received_age_ms'] = received_age
                     sample['age_ms'] = received_age + max(0, sensor_age)
@@ -588,6 +736,9 @@ class ControlDesk:
                 if math.isfinite(number):
                     fields[key] = number
             with self.lock:
+                if 'KEYBOARD_DRIVE' in line and self.boot_id is not None:
+                    self.tasks.clear();self.plan=None;self.epoch+=1;self.session_id=uuid.uuid4().hex;self.boot_id=None
+                    self.emit('system','warning','开发板重启：模型上下文已清空')
                 if 'BMI ready=' in line:
                     self.telemetry['bmi'] = {**fields, '_at': time.monotonic()}
                 if 'BODY_YAW' in line:
@@ -642,13 +793,15 @@ class ControlDesk:
                     if backend is self.backend:
                         self.serial_cursor = entries[-1]['time_monotonic']
                         self.serial_last = entries[-1]
+        if self.holding and time.monotonic()-self.holding['_pulse_at']>.2:
+            self.teleop_release(self.owner,reason='控制心跳过期')
         if job and job['status'] == 'running' and not job['cancel'].is_set():
             now = time.monotonic()
             if now-job['started'] >= 180 or now-self.last_heartbeat > self.lease_seconds:
                 self.stop('任务超时' if now-job['started'] >= 180 else '控制页面失联')
 
     def _monitor(self):
-        while not self.finished.wait(.2):
+        while not self.finished.wait(.05):
             try:
                 self.poll()
             except Exception as exc:

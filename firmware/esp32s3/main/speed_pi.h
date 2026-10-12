@@ -24,9 +24,9 @@ static inline void speed_pi_reset(speed_pi_t *s)
     *s = (speed_pi_t){.percent = SPEED_START_PERCENT};
 }
 
-static inline bool speed_pi_update_target(speed_pi_t *s, float raw_cps, float target_cps, float dt_s)
+static inline bool speed_pi_update_bounded(speed_pi_t *s, float raw_cps, float target_cps, float dt_s, float minimum)
 {
-    if (!isfinite(raw_cps) || raw_cps < 0 || !isfinite(target_cps) || target_cps < 1800 || target_cps > 2600 ||
+    if (!isfinite(raw_cps) || raw_cps < 0 || !isfinite(target_cps) || target_cps < minimum || target_cps > 2600 ||
         !isfinite(dt_s) || dt_s <= 0 || dt_s > 0.060f)
         return false;
     float alpha = dt_s / (SPEED_FILTER_TAU_S + dt_s);
@@ -48,6 +48,10 @@ static inline bool speed_pi_update_target(speed_pi_t *s, float raw_cps, float ta
     }
     s->percent = output;
     return true;
+}
+static inline bool speed_pi_update_target(speed_pi_t *s, float raw_cps, float target_cps, float dt_s)
+{
+    return speed_pi_update_bounded(s,raw_cps,target_cps,dt_s,1800.0f);
 }
 static inline bool speed_pi_update(speed_pi_t *s, float raw_cps, float dt_s)
 {

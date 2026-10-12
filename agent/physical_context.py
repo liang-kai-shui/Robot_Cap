@@ -25,14 +25,18 @@ def _completed_actions(task):
         capability = event.get("capability_id")
         request, result = event.get("request") or {}, event.get("result") or {}
         try:
-            if capability == "motion.move":
+            if capability in ("motion.move","motion.reverse"):
                 distance = request.get("distance")
                 mm = move_mm(distance)
                 if (result.get("encoder_valid") is not True or result.get("yaw_valid") is not True or
                         not _number(result.get("target_mm")) or abs(result["target_mm"]-mm) > .05):
                     raise ValueError("Invalid move feedback")
-                action = {"name": "move", "distance_m": distance}
+                action = {"name": "reverse" if capability=="motion.reverse" else "move", "distance_m": distance}
                 measurements = ("after_stop_mean_mm", "after_stop_yaw_error_deg")
+            elif capability == 'motion.approach':
+                action={'name':'approach','clearance_m':request.get('distance')}
+                if result.get('valid') is not True: raise ValueError('Invalid range completion')
+                measurements=('corrected_after_stop_mm',)
             elif capability == "motion.turn":
                 angle = request.get("angle")
                 turn_tenths(angle)
@@ -51,6 +55,8 @@ def _completed_actions(task):
                     raise ValueError("Missing confirmed STOP")
                 action = {"name": "stop"}
                 measurements = ()
+            elif capability.startswith(('state.','sensors.')):
+                continue
             else:
                 valid = False
                 continue
@@ -94,7 +100,7 @@ def build_physical_history(tasks):
     reference = None
     for task in reversed(tasks):
         attempted_motion = any(event.get("kind") == "action" and
-                               event.get("capability_id") in ("motion.move", "motion.turn", "manual.reverse")
+                               event.get("capability_id") in ("motion.move", "motion.reverse", "motion.approach", "motion.turn", "manual.reverse", "manual.teleop")
                                for event in task.get("trace", []))
         if not attempted_motion:
             continue
@@ -109,5 +115,9 @@ def build_physical_history(tasks):
             turn_back = {"task_number": reference["task_number"], "commanded_turns_deg": turns,
                          "inverse_turns_deg": [-angle for angle in reversed(turns)],
                          "meaning": "inverse_commanded_turns_only_not_position_or_measured_heading"}
-    return {"scope": "current_session_only", "recent_tasks": recent,
+    older=[]
+    for task in tasks[:-HISTORY_TASK_LIMIT]:
+        summary=_summary(task)
+        older.append({k:summary[k] for k in ('task_number','instruction','status','completed_actions')})
+    return {"scope": "current_session_only", "total_tasks":len(tasks), "earlier_tasks":older, "recent_tasks": recent,
             "last_completed_motion_task": reference, "turn_back_reference": turn_back}

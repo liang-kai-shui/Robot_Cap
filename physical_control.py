@@ -7,6 +7,7 @@ generates a bounded model policy; only --execute opens serial and executes it.
 feedback between segments; it never changes or retries the original plan.
 """
 import argparse
+import ast
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
@@ -40,7 +41,8 @@ def _model_provider(args):
         key = getpass("请输入 DeepSeek API Key（隐藏输入，仅本次进程使用）：").strip()
     if not key:
         raise ValueError("未提供 API Key；未连接串口。")
-    return OpenAICompatibleProvider(base_url=args.base_url, api_key=key, model=args.model)
+    return OpenAICompatibleProvider(base_url=args.base_url, api_key=key, model=args.model,
+                                    reasoning_effort=getattr(args,'reasoning_effort','none'), stable_api_prefix=True)
 
 
 def _keyboard_stop(runtime, finished, cancelled):
@@ -178,7 +180,9 @@ def _run_mission_task(args, provider, backend, runtime, registry, limits, task, 
                 guard.check()
                 _require_idle(backend)
                 # This host count persists across backend.begin_task renewals.
-                motions = len(segment_policy.splitlines())-1
+                motions = sum(isinstance(node,ast.Expr) and isinstance(node.value,ast.Call) and
+                    isinstance(node.value.func,ast.Attribute) and node.value.func.attr in ('move','reverse','turn','approach')
+                    for node in ast.parse(segment_policy).body)
                 if task["completed_motion_calls"]+motions > MISSION_MAX_MOTIONS:
                     raise RobotEmergencyStopError("整项任务运动预算耗尽。")
                 segment = {"number": index+1, "instruction": task["instruction"], "policy": segment_policy,
@@ -427,6 +431,7 @@ def main(argv=None):
     parser.add_argument("--execute", action="store_true", help="Execute the generated and validated instruction on the real car")
     parser.add_argument("--mission", action="store_true", help="Interactive segmented plan: up to 9 motions, 180s, stopped feedback reviews")
     parser.add_argument("--model", default="deepseek-flash")
+    parser.add_argument("--reasoning-effort", choices=['none','low','high'], default='none', help="Default non-thinking for lower planning latency")
     parser.add_argument("--base-url", default=os.getenv("LLM_BASE_URL") or "https://api.deepseek.com")
     parser.add_argument("--log", type=Path, help="JSON record (default runs/physical/date-time.json)")
     args = parser.parse_args(argv)

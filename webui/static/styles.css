@@ -1913,3 +1913,33 @@ main {
     scroll-behavior:auto!important
   }
 }
+.execution-options,.history-tools,.history-pager,.history-card-head,.range-calibration,.hold-option { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.execution-options { margin:12px 0; justify-content:space-between; font-size:12px; color:#687c92; }
+.execution-options label { color:#334d69; }
+.hold-option { font-size:13px; margin-bottom:18px; }
+.hold-option small { font-size:11px; color:#667b92; }
+.direction.held { background:#dceef8; border-color:#2b7ed2; box-shadow:0 0 0 3px #2b7ed21f; }
+.direction { touch-action:none; user-select:none; }
+.range-calibration { border-top:1px solid #e7edf4; padding-top:12px; margin-top:12px; font-size:12px; color:#677c94; }
+.range-calibration input { width:72px; padding:6px; border:1px solid #d7e0eb; border-radius:6px; }
+.history-tools { margin-bottom:20px; }
+.history-tools input { flex:1; min-width:180px; }
+.history-tools input,.history-tools select,.settings-dialog select { padding:10px 12px; border:1px solid #d7e0eb; border-radius:8px; background:#fff; color:#324c68; }
+.history-list { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.history-card { min-width:0; border:1px solid #e0e7f1; border-radius:12px; padding:18px; background:#fbfcfe; }
+.history-card-head { justify-content:space-between; }
+.history-card h3 { font-size:15px; line-height:1.6; margin:14px 0; overflow-wrap:anywhere; }
+.history-steps { display:flex; gap:7px; flex-wrap:wrap; margin:12px 0; }
+.action-chip { font:12px/1.5 system-ui; padding:5px 9px; border-radius:6px; background:#eaf0f8; color:#365b86; }
+.history-code { border-top:1px solid #e0e7ef; padding-top:12px; font-size:12px; color:#5b7089; }
+.history-code summary,.model-errors summary { cursor:pointer; }
+.history-code pre,.model-errors pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#edf2f7; border-radius:7px; padding:12px; margin:10px 0; color:#324860; font:12px/1.6 Consolas,monospace; }
+.history-error { color:#b54c4c; font-size:12px; overflow-wrap:anywhere; }
+.history-pager { justify-content:center; margin-top:20px; font-size:12px; color:#6a7e95; }
+.model-errors { margin:22px 0; border-color:#efd6d6; }
+#error-message { font-size:13px; color:#b54c4c; line-height:1.6; margin-bottom:12px; overflow-wrap:anywhere; }
+.model-errors details { font-size:12px; }
+@media(max-width:680px) { .history-list { grid-template-columns:minmax(0,1fr); } }
+.firmware-update { border:1px solid #dee5f0; padding:14px; border-radius:10px; margin:16px 0; }
+.firmware-update p { font-size:12px; line-height:1.7; }
+.firmware-update input[type=checkbox] { width:auto; }

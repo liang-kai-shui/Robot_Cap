@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import secrets
 import threading
+import socket
 from urllib.parse import urlparse, parse_qs
 
 
@@ -23,6 +24,10 @@ class DeskServer(ThreadingHTTPServer):
 
 class DeskHandler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
+
+    def setup(self):
+        super().setup()
+        self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
     def log_message(self, *_args):
         pass  # Never write request bodies, API keys, or query contents to stdout.
@@ -70,7 +75,10 @@ class DeskHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         controller = self.server.controller
         try:
-            if path == '/api/health':
+            if path == '/api/teleop':
+                from webui.teleop_socket import serve
+                serve(self)
+            elif path == '/api/health':
                 self._json({'service': 'robot-cap-webui', 'version': 1})
             elif path == '/api/bootstrap':
                 self._json({'token': self.server.token, 'state': controller.snapshot()})
@@ -120,7 +128,7 @@ class DeskHandler(BaseHTTPRequestHandler):
                 payload = json.dumps(data, ensure_ascii=False, allow_nan=False)
                 self.wfile.write(f'data: {payload}\n\n'.encode('utf-8'))
                 self.wfile.flush()
-                controller.finished.wait(.35)
+                controller.finished.wait(.1)
         except (BrokenPipeError, ConnectionResetError, TimeoutError, OSError):
             pass
         self.close_connection = True
@@ -152,11 +160,13 @@ class DeskHandler(BaseHTTPRequestHandler):
             elif path == '/api/disconnect': result = controller.disconnect(owner)
             elif path == '/api/stop': result = controller.stop('网页停止')
             elif path == '/api/manual': result = controller.manual(owner, body.get('action'), body.get('value'))
-            elif path == '/api/generate': result = controller.generate(owner, body.get('instruction'))
+            elif path == '/api/generate': result = controller.generate(owner, body.get('instruction'), body.get('auto_execute', False))
+            elif path == '/api/range-calibrate': result = controller.calibrate_range(owner, body.get('known_mm'))
             elif path == '/api/execute': result = controller.execute(owner, body.get('plan_id'))
             elif path == '/api/settings': result = controller.configure(owner, body)
             elif path == '/api/terminal': result = controller.terminal(owner, body.get('command'))
             elif path == '/api/build': result = controller.build(owner)
+            elif path == '/api/flash': result = controller.build(owner, flash_port=body.get('port'), motor_power_disconnected=body.get('motor_power_disconnected'))
             elif path == '/api/shutdown':
                 controller.stop('结束本地服务')
                 result = {'shutting_down': True}

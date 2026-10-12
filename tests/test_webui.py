@@ -62,7 +62,7 @@ def test_connection_and_manual_action_use_original_worker_and_stopped_feedback(t
         desk.manual(CLIENT, 'move', .1)
         job = wait_job(desk)
         assert job['status'] == 'completed' and job['result']['task_success'] is None
-        assert port.sent == ['t', 't', '@F100\n', 't']
+        assert port.sent == ['t', '@F100\n', 't']
         assert desk.snapshot()['device']['stopped'] is True
         assert not model.requests and desk.tasks[-1]['execution_success']
 
@@ -88,7 +88,8 @@ def test_model_plan_is_preview_only_then_two_segments_use_actual_review(tmp_path
         job = wait_job(desk)
         assert job['status'] == 'completed' and job['result']['completed_motion_calls'] == 4
         assert [w for w in port.sent if w != 't'] == ['@F100\n', '@J300\n', '@L300\n', '@F100\n']
-        assert model.requests[1][1]['completed_segment']['status'] == 'completed'
+        assert len(model.requests)==1
+        assert desk.tasks[-1]['reviews'][0]['source']=='local_validated_feedback'
         assert desk.snapshot()['plan'] is None
         with pytest.raises(ValueError):
             desk.execute(CLIENT, plan['id'])
@@ -113,6 +114,7 @@ def test_whole_invalid_plan_is_rejected_without_motion(tmp_path):
 @pytest.mark.parametrize('reply', ['ABORT: 反馈不确定', 'CONTINUE\nrobot.move(.3)', 'robot.turn(90)'])
 def test_feedback_cannot_add_actions_or_resume_after_abort(tmp_path, reply):
     with fake_desk(tmp_path, [FOUR, reply]) as (desk, port, _):
+        desk.settings['review_mode']='model'
         connect(desk); desk.generate(CLIENT, '任务'); wait_job(desk)
         desk.execute(CLIENT, desk.snapshot()['plan']['id'])
         assert wait_job(desk)['status'] == 'failed'

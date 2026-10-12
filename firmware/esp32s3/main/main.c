@@ -22,6 +22,8 @@
 #include "wheel_telemetry.h"
 #include "test_mode.h"
 #include "command_parser.h"
+#include "teleop_control.h"
+#include "esp_random.h"
 
 #define MOTOR_STBY GPIO_NUM_15
 #define TEST_BUTTON GPIO_NUM_0
@@ -29,8 +31,8 @@
 #define CONTROL_US 20000LL
 #define CONTROL_GAP_US 60000LL
 #define NO_FEEDBACK_US 150000LL
-#define STOP_COOLDOWN_US 1000000LL
-#define KEY_QUIET_US 500000LL
+#define STOP_COOLDOWN_US 350000LL
+#define KEY_QUIET_US 150000LL
 #define TRACE_CAPACITY 320U
 #define MOTOR_COUNT 2U
 
@@ -59,7 +61,7 @@ typedef struct {
 typedef struct { long long elapsed_us, dt_us; wheel_trace_t wheel[MOTOR_COUNT]; } trace_t;
 static trace_t trace[TRACE_CAPACITY];
 static unsigned trace_count, overspeed_frames[MOTOR_COUNT];
-static bool motor_ready, running, fault_latched;
+static bool motor_ready, running, fault_latched, ready_reported;
 static unsigned moves_started;
 static uint32_t forward_start_sequence;
 static turn_control_t turn;
@@ -69,6 +71,11 @@ static float turn_cutoff_deg;
 static int64_t turn_report_us;
 static char current_action;
 static param_parser_t param_parser;
+static teleop_control_t teleop;
+static uint32_t boot_id;
+static bool range_report_pending;
+static float range_cutoff_mm;
+static int64_t range_report_us;
 static int64_t last_motion_us, last_motion_key_us=-KEY_QUIET_US;
 static int64_t run_started_us, control_started_us, last_stop_us;
 static struct {
@@ -86,7 +93,8 @@ static struct {
 
 static long long magnitude(long long value) { return value<0 ? -value : value; }
 static bool angle_key(char action) {return action=='j'||action=='l';}
-static bool forward_key(char action) {return action=='w'||action=='f';}
+static bool forward_key(char action) {return action=='w'||action=='f'||action=='r';}
+static bool straight_key(char action) {return forward_key(action)||action=='b';}
 static void pwm_set(motor_t *m, uint32_t duty)
 {
     if (duty>614) duty=614;
@@ -106,6 +114,7 @@ static void motor_stop(void)
     }
     if (running) last_stop_us=esp_timer_get_time();
     running=false;
+    teleop_close(&teleop);
 }
 static bool motor_init_guarded(void)
 {
@@ -321,6 +330,8 @@ static void fault_stop(const char *reason, int wheel)
     ESP_ERROR_CHECK(uart_flush_input(UART_NUM_0));
     ESP_LOGE("dual-test", "STOP motor=%s reason=%s. BOTH stopped. Disconnect 5V and report; no retries.",
              wheel>=0?motors[wheel].name:"BOTH", reason);
+    range_report_pending=false;
+    turn_report_pending=false;
     dump_trace();
 }
 static void forward_stop(range_guard_view_t front, bool rejected)
@@ -345,11 +356,11 @@ static bool heading_start_checked(char action)
 }
 static void motor_start(char action,float amount)
 {
-    if (running || turn_report_pending || distance_move.report_pending || distance_cal.active ||
+    if (running || turn_report_pending || range_report_pending || distance_move.report_pending || distance_cal.active ||
         !motor_ready || fault_latched || !gpio_get_level(TEST_BUTTON)) return;
     current_action=action;
-    if(action=='f') {
-        if(!isfinite(amount)||amount<PARAM_MOVE_MIN_MM||amount>PARAM_MOVE_MAX_MM)return;
+    if(action=='f'||action=='b'||action=='r') {
+        if(!isfinite(amount)||amount<(action=='r'?100:PARAM_MOVE_MIN_MM)||amount>(action=='r'?1000:PARAM_MOVE_MAX_MM))return;
         distance_move.target_mm=amount;
     }
     if(angle_key(action)) {
@@ -367,11 +378,11 @@ static void motor_start(char action,float amount)
         if (front.blocked) {forward_stop(front,true);return;}
         forward_start_sequence=front.unsafe_sequence;
     }
-    if(forward_key(action)&&!heading_start_checked(action))return;
+    if(straight_key(action)&&!heading_start_checked(action))return;
     current_action=action;
     // A is RIGHT, B is LEFT. Positive command_sign means vehicle forward.
-    motors[0].command_sign=(action=='s' || action=='d' || action=='l')?-1:1;
-    motors[1].command_sign=(action=='s' || action=='a' || action=='j')?-1:1;
+    motors[0].command_sign=(action=='s' || action=='b' || action=='d' || action=='l')?-1:1;
+    motors[1].command_sign=(action=='s' || action=='b' || action=='a' || action=='j')?-1:1;
     trace_count=0;
     ESP_ERROR_CHECK(gpio_set_level(MOTOR_STBY, 0));
     for (unsigned i=0; i<MOTOR_COUNT; ++i) {
@@ -385,14 +396,14 @@ static void motor_start(char action,float amount)
         ESP_LOGI("dual-test","VEHICLE_START action=%c ANGLE_TURN v1.1 target_deg=%+.1f pwm=28..40%% max_ms=3000. T stops; rear/sides unmonitored.",action,turn.sign*turn.target_deg);
     else if(action=='w')
         ESP_LOGI("dual-test","VEHICLE_START action=w HEADING_HOLD v1.0 target=current heading base=2200cps correction<=400cps cap=60%% duration=800ms front_guard=%s.",ROBOT_SUPERVISED_TEST?"OFF":"ON");
-    else if(action=='f')
-        ESP_LOGI("dual-test","VEHICLE_START action=f DISTANCE_MOVE v1.1 target_mm=%.1f right_counts_per_mm=19.190 left_counts_per_mm=19.294 max_ms=6000 cap=60%% front_guard=%s. Heading hold active. T stops.",distance_move.target_mm,ROBOT_SUPERVISED_TEST?"OFF":"ON");
+    else if(action=='f'||action=='b'||action=='r')
+        ESP_LOGI("dual-test","VEHICLE_START action=%c DISTANCE_MOVE v1.1 target_mm=%.1f right_counts_per_mm=19.190 left_counts_per_mm=19.294 max_ms=6000 cap=60%% front_guard=%s. Heading hold active. T stops.",action,distance_move.target_mm,ROBOT_SUPERVISED_TEST?"OFF":"ON");
     else
         ESP_LOGI("dual-test", "VEHICLE_START action=%c right_sign=%d left_sign=%d target=2200cps initial=40%% cap=60%% duration=800ms", action, motors[0].command_sign, motors[1].command_sign);
     // Console output can take time. Recheck immediately before enabling bridges;
     // keep any unsafe reading even if subsequent readings have already cleared it.
-    if (forward_key(action)) {
-        if(!ROBOT_SUPERVISED_TEST) {
+    if (straight_key(action)) {
+        if(forward_key(action)&&!ROBOT_SUPERVISED_TEST) {
             range_guard_view_t front=sensors_forward_guard();
             if (front.blocked || front.unsafe_sequence!=forward_start_sequence) {
                 forward_stop(front,true);return;
@@ -415,6 +426,12 @@ static void motor_start(char action,float amount)
     }
     encoder_sample_t sample[MOTOR_COUNT];
     encoders_read(sample);
+    if(action=='r') {
+        range_guard_view_t front=sensors_forward_guard();
+        if(!front.valid||front.age_us<0||front.age_us>FRONT_FRESH_US||front.mm<=amount+20) {
+            motor_stop();ESP_LOGW("vehicle","VEHICLE_BLOCKED action=r source=RANGE_TARGET cause=LOST_RANGE_BEFORE_ENABLE");return;
+        }
+    }
     run_started_us=control_started_us=esp_timer_get_time();
     for (unsigned i=0; i<MOTOR_COUNT; ++i) {
         motors[i].start=motors[i].latest=motors[i].control_start=sample[i];
@@ -489,7 +506,7 @@ static void turn_report(void)
 static bool distance_read(const encoder_sample_t sample[MOTOR_COUNT],float mm[2])
 {
     for(unsigned j=0;j<MOTOR_COUNT;j++) {
-        long long q=motors[j].forward_sign*((long long)sample[j].quadrature-motors[j].start.quadrature);
+        long long q=motors[j].forward_sign*motors[j].command_sign*((long long)sample[j].quadrature-motors[j].start.quadrature);
         long long edges=(long long)sample[j].edges-motors[j].start.edges;
         if(!distance_encoder_valid(q,edges))return false;
         mm[j]=distance_wheel_mm(j,q);
@@ -505,7 +522,7 @@ static void distance_complete(const float mm[2])
     distance_move.report_pending=true;
     distance_move.report_us=last_stop_us+DISTANCE_REPORT_DELAY_US;
     ESP_ERROR_CHECK(uart_flush_input(UART_NUM_0));
-    ESP_LOGI("vehicle","VEHICLE_STOP action=f source=DISTANCE_TARGET target_mm=%.1f cutoff_mean_mm=%.1f; drive disabled, measuring coast for 300ms.",distance_move.target_mm,(mm[0]+mm[1])*0.5f);
+    ESP_LOGI("vehicle","VEHICLE_STOP action=%c source=DISTANCE_TARGET target_mm=%.1f cutoff_mean_mm=%.1f; drive disabled, measuring coast for 300ms.",current_action,distance_move.target_mm,(mm[0]+mm[1])*0.5f);
 }
 static void distance_report(const encoder_sample_t sample[MOTOR_COUNT])
 {
@@ -514,24 +531,38 @@ static void distance_report(const encoder_sample_t sample[MOTOR_COUNT])
     yaw_sample_t yaw=sensors_yaw_read();
     bool yaw_valid=turn_yaw_valid(yaw,esp_timer_get_time())&&yaw.zero_epoch==heading.epoch&&yaw.fault_events==heading.fault_events;
     distance_move.report_pending=false;
-    ESP_LOGI("vehicle","DISTANCE_RESULT action=f target_mm=%.1f cutoff_right_mm=%.1f cutoff_left_mm=%.1f after_stop_right_mm=%.1f after_stop_left_mm=%.1f after_stop_mean_mm=%.1f estimated_error_mm=%+.1f encoder_valid=%d yaw_valid=%d cutoff_yaw_error_deg=%+.2f after_stop_yaw_error_deg=%+.2f elapsed_ms=%.1f; encoder estimate 300ms after drive-off, verify ground distance with ruler.",
-        distance_move.target_mm,distance_move.cutoff_mm[0],distance_move.cutoff_mm[1],mm[0],mm[1],(mm[0]+mm[1])*0.5f,
+    ESP_LOGI("vehicle","DISTANCE_RESULT action=%c target_mm=%.1f cutoff_right_mm=%.1f cutoff_left_mm=%.1f after_stop_right_mm=%.1f after_stop_left_mm=%.1f after_stop_mean_mm=%.1f estimated_error_mm=%+.1f encoder_valid=%d yaw_valid=%d cutoff_yaw_error_deg=%+.2f after_stop_yaw_error_deg=%+.2f elapsed_ms=%.1f; encoder estimate 300ms after drive-off, verify ground distance with ruler.",
+        current_action,distance_move.target_mm,distance_move.cutoff_mm[0],distance_move.cutoff_mm[1],mm[0],mm[1],(mm[0]+mm[1])*0.5f,
         (mm[0]+mm[1])*0.5f-distance_move.target_mm,encoder_valid,yaw_valid,distance_move.cutoff_yaw_deg,
         yaw_valid?yaw.angle_deg-heading.baseline:NAN,(last_stop_us-run_started_us)/1000.0);
-    ESP_LOGI("vehicle","VEHICLE_DONE action=f type=DISTANCE_MOVE; motors off. Wait for READY, then fresh key.");
+    ESP_LOGI("vehicle","VEHICLE_DONE action=%c type=DISTANCE_MOVE; motors off. Wait for READY, then fresh key.",current_action);
 }
 static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
 {
     if (now<run_started_us) return; // This iteration preceded START's fresh time/counts.
     yaw_sample_t forward_yaw={0};
+    if(teleop.active&&!teleop_live(&teleop,now)) {
+        motor_stop();
+        ESP_LOGI("vehicle","TELEOP_END cause=LEASE_OR_MAX_HOLD session=%u; drive off, fresh press required.",teleop.closed);
+        return;
+    }
+    if(current_action=='r') {
+        range_guard_view_t front=sensors_forward_guard();
+        if(!front.valid||front.age_us<0||front.age_us>FRONT_FRESH_US) {fault_stop("RANGE_INVALID_OR_STALE",-1);return;}
+        if(front.mm<=distance_move.target_mm+12) {
+            range_cutoff_mm=front.mm;motor_stop();range_report_pending=true;range_report_us=last_stop_us+300000;
+            ESP_LOGI("vehicle","VEHICLE_STOP action=r source=RANGE_TARGET target_mm=%.1f cutoff_mm=%.1f",distance_move.target_mm,range_cutoff_mm);
+            return;
+        }
+    }
     if(angle_key(current_action)) {
         yaw_sample_t yaw=sensors_yaw_read();
         turn_result_t result=turn_step(&turn,yaw,esp_timer_get_time());
         if(result==TURN_REACHED) {turn_complete();return;}
         if(result!=TURN_RUN) {fault_stop(turn_cause(result),-1);return;}
     }
-    if (forward_key(current_action)) {
-        if(!ROBOT_SUPERVISED_TEST) {
+    if (straight_key(current_action)) {
+        if(forward_key(current_action)&&!ROBOT_SUPERVISED_TEST) {
             range_guard_view_t front=sensors_forward_guard();
             if (front.blocked || front.unsafe_sequence!=forward_start_sequence) {
                 forward_stop(front,false);return;
@@ -553,23 +584,31 @@ static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
     }
     long long dt_us=now-control_started_us;
     if (dt_us>CONTROL_GAP_US) { fault_stop("CONTROL_TIMING_GAP_OVER_60MS", -1); return; }
-    if(current_action=='f') {
+    if(current_action=='f'||current_action=='b'||current_action=='r') {
         // Validate both total counts before using either wheel for the target.
         float mm[2];
         if(!distance_read(sample,mm)) {fault_stop("DISTANCE_ENCODER_COUNTS_INCONSISTENT",-1);return;}
         if(fabsf(mm[0]-mm[1])>DISTANCE_MAX_WHEEL_DIFFERENCE_MM) {fault_stop("DISTANCE_WHEEL_DIFFERENCE_OVER_30MM",-1);return;}
-        if(now-run_started_us>=DISTANCE_MAX_US) {fault_stop("DISTANCE_TIMEOUT_6S",-1);return;}
-        if((mm[0]+mm[1])*0.5f>=distance_move.target_mm) {distance_complete(mm);return;}
+        if(current_action=='r'&&(mm[0]+mm[1])*0.5f>1500) {fault_stop("RANGE_TRAVEL_LIMIT_1500MM",-1);return;}
+        if(now-run_started_us>=(current_action=='r'?15000000LL:DISTANCE_MAX_US)) {fault_stop("DISTANCE_TIMEOUT_6S",-1);return;}
+        if(current_action!='r'&&(mm[0]+mm[1])*0.5f>=distance_move.target_mm) {distance_complete(mm);return;}
     }
-    if (!angle_key(current_action)&&current_action!='f'&&now-run_started_us>=RUN_US) {
+    if (!teleop.active&&!angle_key(current_action)&&current_action!='f'&&current_action!='b'&&current_action!='r'&&now-run_started_us>=RUN_US) {
         motor_stop(); print_results(sample); ESP_ERROR_CHECK(uart_flush_input(UART_NUM_0)); return;
     }
     if (dt_us<CONTROL_US) return;
+    if((teleop.active||current_action=='r')&&trace_count>=TRACE_CAPACITY)trace_count=0;
     if (trace_count>=TRACE_CAPACITY) { fault_stop("TRACE_CAPACITY", -1); return; }
     trace_t frame={.elapsed_us=now-run_started_us, .dt_us=dt_us};
     float target[MOTOR_COUNT]={SPEED_TARGET_CPS,SPEED_TARGET_CPS};
-    if(forward_key(current_action)&&!heading_targets(&heading,forward_yaw,dt_us*0.000001f,target)) {
+    if(straight_key(current_action)&&!heading_targets(&heading,forward_yaw,dt_us*0.000001f,target)) {
         fault_stop(heading_cause(HEADING_SAMPLE),-1);return;
+    }
+    if(current_action=='b'){float temp=target[0];target[0]=target[1];target[1]=temp;}
+    if(current_action=='r') {
+        range_guard_view_t front=sensors_forward_guard();
+        float scale=speed_clamp((front.mm-distance_move.target_mm)/200.0f,0.35f,1.0f);
+        target[0]*=scale;target[1]*=scale;
     }
     for (unsigned j=0; j<MOTOR_COUNT; ++j) {
         motor_t *m=&motors[j];
@@ -589,7 +628,7 @@ static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
             m->pi.filtered_cps=raw;
             float step=SPEED_SLEW_PERCENT_S*dt_us*0.000001f;
             m->pi.percent=speed_clamp(turn.percent,m->pi.percent-step,m->pi.percent+step);
-        } else if (!speed_pi_update_target(&m->pi, raw, target[j],dt_us*0.000001f)) { fault_stop("CONTROL_SAMPLE_INVALID", j); return; }
+        } else if (!speed_pi_update_bounded(&m->pi, raw, target[j],dt_us*0.000001f,current_action=='r'?600.0f:1800.0f)) { fault_stop("CONTROL_SAMPLE_INVALID", j); return; }
         frame.wheel[j]=(wheel_trace_t){.delta=q, .edges=edges, .motion_cps=raw,
             .filtered_cps=m->pi.filtered_cps, .percent=m->pi.percent,.target_cps=target[j]};
     }
@@ -605,16 +644,21 @@ static void user_stop(const char *source)
 {
     param_parser=(param_parser_t){0};
     bool was_running=running;
+    bool already_still=!running&&!turn_report_pending&&!distance_move.report_pending&&!range_report_pending&&
+        esp_timer_get_time()-last_motion_us>=KEY_QUIET_US;
     motor_stop();
     turn_report_pending=false;
     distance_move.report_pending=false;
+    range_report_pending=false;
     distance_cal_cancel(source);
     ESP_ERROR_CHECK(uart_flush_input(UART_NUM_0));
-    // Even an idle STOP imposes cooldown and consumes buffered movement keys.
-    last_stop_us=esp_timer_get_time();
+    // An already confirmed idle STOP still acknowledges T and drains input,
+    // but does not repeat a 350ms cooldown. Motion STOP still measures standstill.
+    last_stop_us=esp_timer_get_time()-(already_still?STOP_COOLDOWN_US:0);
+    ready_reported=false;
     ESP_LOGI("vehicle", "VEHICLE_STOP source=%s was_running=%d; no queued motion.", source, was_running);
 }
-static bool motion_key(char key) { return forward_key(key)||key=='s'||key=='a'||key=='d'||angle_key(key); }
+static bool motion_key(char key) { return forward_key(key)||key=='b'||key=='s'||key=='a'||key=='d'||angle_key(key); }
 static void serial_poll(int64_t now)
 {
     uint8_t incoming[32];
@@ -631,13 +675,32 @@ static void serial_poll(int64_t now)
         return;
     }
     if(packet.waiting)return;
+    if(packet.commands==1&&packet.action=='h') {
+        bool was_active=teleop.active;
+        bool idle=!running&&!turn_report_pending&&!distance_move.report_pending&&!range_report_pending&&
+            !distance_cal.active&&motor_ready&&!fault_latched&&gpio_get_level(TEST_BUTTON)&&
+            now-last_stop_us>=STOP_COOLDOWN_US&&now-last_motion_us>=KEY_QUIET_US;
+        if(!teleop_accept(&teleop,(unsigned)packet.units,now,idle)) {
+            if(running)fault_stop("TELEOP_EXPIRED_OR_WRONG_SESSION",-1);
+            return;
+        }
+        if(!was_active) {
+            static const char actions[]={0,'w','s','a','d'};
+            motor_start(actions[teleop.direction],0);
+            if(!running) {teleop_close(&teleop);return;}
+            teleop.began=teleop.renewed=esp_timer_get_time();
+            ESP_LOGI("vehicle","TELEOP_START session=%u direction=%d lease_ms=250 max_hold_ms=30000",teleop.session,teleop.direction);
+        }
+        ESP_LOGI("vehicle","TELEOP_ACK session=%u direction=%d",teleop.session,teleop.direction);
+        return;
+    }
     uint8_t *bytes=packet.legacy;count=(int)packet.legacy_len;
     char command=0;
     unsigned movement_keys=0;
     float amount=0;
     if(packet.commands==1) {
         command=packet.action;movement_keys=1;
-        amount=command=='f'?(float)packet.units:packet.units/10.0f;
+        amount=(command=='f'||command=='b'||command=='r')?(float)packet.units:packet.units/10.0f;
     }
     // T wins over ALL motion bytes in the same packet, irrespective of order.
     for (int i=0; i<count; ++i) {
@@ -664,7 +727,7 @@ static void serial_poll(int64_t now)
         if(zero)ESP_LOGI("distance-cal","DISTANCE_CAL_REJECTED cause=ZERO_DISABLED_DURING_MEASUREMENT; sample unchanged.");
         return;
     }
-    if (zero && !running && !turn_report_pending && !distance_move.report_pending && !movement_keys) {
+    if (zero && !running && !turn_report_pending && !range_report_pending && !distance_move.report_pending && !movement_keys) {
         sensors_zero_request();
         ESP_LOGI("sensors", "ANGLE_ZERO_REQUEST: requires calibration and fresh unsaturated BMI data.");
     }
@@ -673,18 +736,25 @@ static void serial_poll(int64_t now)
     last_motion_key_us=now;
     // No queued action, live reversal or deadline extension. Held-key repeats
     // remain ignored until a quiet interval, even after the motion has stopped.
-    if (running || turn_report_pending || distance_move.report_pending || !fresh || now-last_stop_us<STOP_COOLDOWN_US ||
+    if (running || turn_report_pending || range_report_pending || distance_move.report_pending || !fresh || now-last_stop_us<STOP_COOLDOWN_US ||
         now-last_motion_us<KEY_QUIET_US || !gpio_get_level(TEST_BUTTON)) return;
     if (movement_keys!=1) {
         ESP_LOGW("vehicle", "Send ONE W/S/A/D/F/J/L key. Pasted multi-action packets ignored."); return;
     }
     if (!motor_ready || fault_latched) { print_status(); return; }
     if(!packet.commands)amount=command=='f'?DISTANCE_TARGET_MM:TURN_TARGET_DEG;
+    if(command=='r') {
+        range_guard_view_t front=sensors_forward_guard();
+        if(!front.valid||front.age_us<0||front.age_us>FRONT_FRESH_US||front.mm<=amount+20) {
+            ESP_LOGW("vehicle","VEHICLE_BLOCKED action=r source=RANGE_TARGET cause=INVALID_OR_ALREADY_TOO_CLOSE");return;
+        }
+    }
     motor_start(command,amount);
 }
 void app_main(void)
 {
-    ESP_LOGI("vehicle", "KEYBOARD_DRIVE v1.8 protocol=PARAM1: @F50..300 newline (mm), @J150..900 / @L150..900 newline (tenths deg). Legacy F/J/L remain 300mm/90deg. T stop, no BOOT arming.");
+    boot_id=esp_random();
+    ESP_LOGI("vehicle", "KEYBOARD_DRIVE v1.9 protocol=PARAM1: @F50..300 newline (mm), @J150..900 / @L150..900 newline (tenths deg). Legacy F/J/L remain 300mm/90deg. T stop, no BOOT arming.");
     ESP_LOGI("vehicle", "A=RIGHT encoder=10/11 IN1=12 IN2=13 PWM=14; B=LEFT encoder=4/5 IN1=16 IN2=17 PWM=18; STBY=15.");
     ESP_LOGI("vehicle", "Keep wiring. VCC and encoder BLACKs=3V3; encoder BLUEs and adapter BLACK=GND; adapter RED=VM only.");
     motor_init_guarded();
@@ -710,7 +780,7 @@ void app_main(void)
     encoder_sample_t previous[MOTOR_COUNT];
     encoders_read(previous);
     last_motion_us=last_stop_us=esp_timer_get_time();
-    bool ready_reported=false,boot_was_pressed=false;
+    bool boot_was_pressed=false;
     int64_t last_sensor_print=0;
     while (true) {
         int64_t now=esp_timer_get_time();
@@ -725,6 +795,12 @@ void app_main(void)
         boot_was_pressed=boot_pressed;
         serial_poll(now);
         if(distance_move.report_pending&&esp_timer_get_time()>=distance_move.report_us)distance_report(sample);
+        if(range_report_pending&&esp_timer_get_time()>=range_report_us) {
+            range_guard_view_t front=sensors_forward_guard();
+            range_report_pending=false;
+            ESP_LOGI("vehicle","RANGE_RESULT action=r target_mm=%.1f cutoff_mm=%.1f after_stop_mm=%u valid=%d elapsed_ms=%.1f",distance_move.target_mm,range_cutoff_mm,front.mm,front.valid&&front.age_us>=0&&front.age_us<=FRONT_FRESH_US,(last_stop_us-run_started_us)/1000.0);
+            ESP_LOGI("vehicle","VEHICLE_DONE action=r type=RANGE_APPROACH");
+        }
         if(distance_cal.active)distance_cal_poll(esp_timer_get_time());
         if (now-last_stop_us<STOP_COOLDOWN_US||param_parser.receiving||param_parser.discarding) ready_reported=false;
         if (running) { ready_reported=false; motor_poll(sample, now); }
@@ -733,11 +809,11 @@ void app_main(void)
             for (unsigned j=0; j<MOTOR_COUNT; ++j)
                 high |= gpio_get_level(motors[j].in1)||gpio_get_level(motors[j].in2)||gpio_get_level(motors[j].pwm);
             if (high) fault_stop("IDLE_PADS_EXPECTED_LOW", -1);
-            else if (!distance_cal.active && !distance_move.report_pending && !turn_report_pending && !param_parser.receiving && !param_parser.discarding && !ready_reported && gpio_get_level(TEST_BUTTON) &&
+            else if (!distance_cal.active && !range_report_pending && !distance_move.report_pending && !turn_report_pending && !param_parser.receiving && !param_parser.discarding && !ready_reported && gpio_get_level(TEST_BUTTON) &&
                      now-last_stop_us>=STOP_COOLDOWN_US && now-last_motion_us>=KEY_QUIET_US &&
                      now-last_motion_key_us>=KEY_QUIET_US) {
                 ready_reported=true;
-                ESP_LOGI("vehicle", "VEHICLE_READY: firmware=1.8 protocol=PARAM1 front_guard=%s tof=%s move_min_mm=50 move_max_mm=300 turn_min_tdeg=150 turn_max_tdeg=900; valid calibrated BMI required. T stops. No BOOT unlock.",ROBOT_SUPERVISED_TEST?"OFF":"ON",ROBOT_TOF_ENABLED?"ON":"OFF");
+                ESP_LOGI("vehicle", "VEHICLE_READY: firmware=1.9 protocol=PARAM2 boot_id=%08lx teleop_next=%u front_guard=%s tof=%s move_min_mm=50 move_max_mm=300 turn_min_tdeg=150 turn_max_tdeg=900; valid calibrated BMI required. T stops. No BOOT unlock.",(unsigned long)boot_id,teleop.closed+1,ROBOT_SUPERVISED_TEST?"OFF":"ON",ROBOT_TOF_ENABLED?"ON":"OFF");
             }
         }
         if (!running && now-last_sensor_print>=500000) {

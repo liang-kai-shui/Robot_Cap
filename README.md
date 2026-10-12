@@ -2,7 +2,7 @@
 
 自然语言任务通过模型生成 Python Policy，经能力注册、AST 校验和独立 Worker，由可信 RobotRuntime 执行。项目包含二维模拟评测与 ESP32-S3 实车后端，分别记录执行反馈和任务结果。
 
-**当前状态（2026-10-12）：** 双电机、编码器、BMI323、有界参数动作、DeepSeek 自然语言控制和会话上下文已实车测试；统一入口的两段反馈任务也已有一次用户实车验证。WebUI 已加入测距、轮速/车速和 3D 姿态。测距采样已启用，前方停车保护仍 OFF；未接入实车定位、自主导航或避障。完整 ESP-IDF 固件随仓库提供。
+**当前状态（2026-10-12）：** 双电机、编码器、BMI323、有界参数动作、DeepSeek 自然语言控制和会话上下文已实车测试；统一入口的两段反馈任务也已有一次用户实车验证。WebUI 已加入测距、轮速/车速和 3D 姿态。测距采样已启用，前方停车保护仍 OFF；未接入实车定位、自主导航或避障。完整 ESP-IDF 固件随仓库提供。**v1.9 新增能力已完成离线验证与编译，实际新动作验证待执行**：持续按住遥控、按距离后退、测距接近、开机上下文、独立错误区及自动/手动执行，详见 [v1.9 更新说明](docs/ROVER_V19.md)。
 
 [文档索引](docs/README.md) · [硬件接口讲解](docs/HARDWARE_INTERFACES_GUIDE.md) · [系统架构](docs/ARCHITECTURE.md) · [项目状态](docs/PROJECT_STATUS.md) · [报告索引](reports/README.md)
 
@@ -28,8 +28,8 @@
 
 | 能力 | 模拟 | 实车 |
 | --- | --- | --- |
-| 移动/转弯 | 模拟 API 范围与可选速度 | 单次前进5–30cm、左右转15–90°，固定速度 |
-| 位姿与测距 | 按实验使用理想或扰动观测 | 无地面位姿；ToF 已在 WebUI 显示，CaP 测距观测接口尚未开放 |
+| 移动/转弯 | 模拟 API 范围与可选速度 | v1.9前进/后退5–30cm、左右转15–90°；另有测距接近和人工按住遥控 |
+| 位姿与测距 | 按实验使用理想或扰动观测 | 无地面位姿；v1.9公开有效测距和传感器姿态观测 |
 | 任务执行 | Benchmark、观测导航和低频规划 | 有界动作、上下文和分段反馈审核 |
 | 评分 | 独立模拟真值与TaskEvaluator | execution_success；无独立地面评分，task_success=null |
 
@@ -52,9 +52,9 @@ python scripts/check_repository.py
 
 ## 实车使用
 
-**网页入口：** Windows 双击 [Start_Robot_UI.vbs](Start_Robot_UI.vbs)，在浏览器选择串口并连接，无需反复打开 PowerShell。控制台提供姿态回传、动作反馈、计时、手动控制、自然语言计划、任务记录和机器人命令终端。旧v1.8/PARAM1兼容控制；新增测距、轮速与3D回传需遥测固件。离线体验可双击 [Preview_Robot_UI.vbs](Preview_Robot_UI.vbs)，详细操作见 [WebUI 使用说明](docs/WEBUI.md)。WebUI 已验证实车静止遥测及浏览器显示，新增遥测固件的运动验证待用户执行。
+**网页入口：** Windows 双击 [Start_Robot_UI.vbs](Start_Robot_UI.vbs)，在浏览器选择串口并连接，无需反复打开 PowerShell。控制台提供姿态回传、动作反馈、计时、手动控制、自然语言计划、任务记录和机器人命令终端。旧v1.8/PARAM1兼容原步进控制；持续控制、按距离后退与测距接近需v1.9/PARAM2固件。离线体验可双击 [Preview_Robot_UI.vbs](Preview_Robot_UI.vbs)，详细操作见 [WebUI 使用说明](docs/WEBUI.md)。WebUI 已验证实车静止遥测及浏览器显示，新增遥测固件的运动验证待用户执行。
 
-硬件：ESP32-S3 N8R8、TB6612、双N20霍尔编码电机、43mm轮胎、BMI323、已接线但目前停用的VL53L1X。具体引脚、电源和非通用线色见 [硬件接口讲解](docs/HARDWARE_INTERFACES_GUIDE.md)。
+硬件：ESP32-S3 N8R8、TB6612、双N20霍尔编码电机、43mm轮胎、BMI323、已启用采样的VL53L1X。具体引脚、电源和非通用线色见 [硬件接口讲解](docs/HARDWARE_INTERFACES_GUIDE.md)。
 
 ```bash
 # 只连接、停止并读状态，没有运动
@@ -81,11 +81,11 @@ python main.py --backend esp32 --port COM5 --interactive --mission --execute
 idf.py -C firmware/esp32s3 build
 ```
 
-完整工程包含主循环、PWM/编码器控制、BMI323 与 VL53L1X 驱动、校准和 PARAM1 解析。关键配置写在 sdkconfig.defaults，构建目录不上传。主动烧录命令、源文件职责和硬件型号限制见 [固件 README](firmware/esp32s3/README.md)。已有 v1.8/PARAM1 小车启用新的电脑端模式不必重新烧录。
+完整工程包含主循环、PWM/编码器控制、BMI323 与 VL53L1X 驱动、校准和 PARAM1 解析。关键配置写在 sdkconfig.defaults，构建目录不上传。主动烧录命令、源文件职责和硬件型号限制见 [固件 README](firmware/esp32s3/README.md)。已有v1.8设备使用原步进功能不必烧录；v1.9新增动作需要更新固件。网页设置提供编译并烧录入口，操作前拔电机独立5V、仅保留USB并断开网页串口。
 
 ## 验证与研究记录
 
-- 当前 Python 离线回归：**418项通过**（含 WebUI），使用假串口和mock模型，不连接实车或付费API。
+- 当前 Python 离线回归：**444项通过**（含 WebUI），使用假串口和mock模型，不连接实车或付费API。
 - 固件归档逐文件核对来源；另有参数帧/转角 C 检查和完整 ESP-IDF 构建。
 - GitHub CI 运行离线检查和固件构建，验证构建能力，不证明实车精度。
 - 2026-10-12 用户两段任务执行完成并停稳，耗时约22.7秒；反馈测量不是独立地面定位。

@@ -25,16 +25,17 @@ typedef struct {
 } param_packet_t;
 
 static inline bool param_decode(const char *text,unsigned length,char *action,int *units) {
-    if(length<2 || (text[0]!='F'&&text[0]!='J'&&text[0]!='L'))return false;
+    if(length<2 || !strchr("FBJLRH",text[0]))return false;
     int n=0;
     for(unsigned i=1;i<length;i++) {
-        if(text[i]<'0'||text[i]>'9'||n>10000)return false;
+        if(text[i]<'0'||text[i]>'9'||n>1000000)return false;
         n=n*10+text[i]-'0';
     }
-    int minimum=text[0]=='F'?PARAM_MOVE_MIN_MM:PARAM_TURN_MIN_TDEG;
-    int maximum=text[0]=='F'?PARAM_MOVE_MAX_MM:PARAM_TURN_MAX_TDEG;
+    int minimum=(text[0]=='F'||text[0]=='B')?PARAM_MOVE_MIN_MM:text[0]=='R'?100:text[0]=='H'?11:PARAM_TURN_MIN_TDEG;
+    int maximum=(text[0]=='F'||text[0]=='B')?PARAM_MOVE_MAX_MM:text[0]=='R'?1000:text[0]=='H'?9999994:PARAM_TURN_MAX_TDEG;
     if(n<minimum||n>maximum)return false;
-    *action=text[0]=='F'?'f':text[0]=='J'?'j':'l'; *units=n;
+    if(text[0]=='H'&&(n%10<1||n%10>4))return false;
+    *action=(char)(text[0]+('a'-'A')); *units=n;
     return true;
 }
 static inline param_packet_t param_feed(param_parser_t *p,const uint8_t *bytes,size_t length,int64_t now) {

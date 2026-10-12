@@ -33,3 +33,14 @@ def move_mm(distance):
 
 def turn_tenths(angle):
     return _units(angle, 10, TURN_MIN_DEG, TURN_MAX_DEG, "relative angle (deg)")
+
+
+def reverse_mm(distance):
+    return move_mm(distance)
+
+
+def approach_mm(distance):
+    value = _units(distance, 1000, .10, 1.0, "front clearance (m)")
+    if value < 0:
+        raise RobotActionError("Front clearance must be positive")
+    return value

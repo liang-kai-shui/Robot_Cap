@@ -1,5 +1,9 @@
 # ESP32 v1.8 / PARAM1串口协议
 
+**最新v1.9/PARAM2扩展**：[能力、低延迟遥控与验证边界](ROVER_V19.md)。旧v1.8记录保留为兼容/历史说明；v1.9新增动作需要烧录新固件。
+
+PARAM2：@B50..300换行按距离后退（mm）；@R100..1000换行前向测距目标（mm，原始值）；@H<session*10+direction>换行续租人工遥控（1前/2后/3左/4右，250ms，最多30s）。T仍最优先，连续遥控不是模型API。READY含boot_id和teleop_next；后退使用action=b DISTANCE_MOVE，测距使用action=r RANGE_TARGET/RANGE_RESULT/RANGE_APPROACH。旧过期session不能重启。
+
 电脑与开发板使用115200 baud、UART0控制台。一次只有一个串口客户端；不与键盘工具或IDF monitor同时连接。
 
 ## 连接确认

@@ -6,6 +6,7 @@ sessionStorage.setItem('rover-client', client);
 let token = '', state = null, streamHealthy = false, receivedAt = performance.now();
 let distance = 0.10, angle = 30, currentView = 'dashboard', paused = false;
 let events = [], eventCursor = 0, clearCursor = 0, toastTimer, stopOnLost = false;
+let historyPage = 0;
 let portCount = 0, portsError = '';
 const terminalHistory = []; let historyIndex = 0;
 
@@ -37,7 +38,7 @@ async function act(path, payload) {
 }
 const running = () => state?.job?.status === 'running';
 const owns = () => !state?.owner || state.owner === client || (!running() && state.lease_age_ms > 4000);
-const driveReady = () => streamHealthy && owns() && state?.device?.connected && state.device.ready && state.device.stopped === true && !state.device.fault && !running();
+const driveReady = () => streamHealthy && owns() && state?.device?.connected && state.device.ready && state.device.stopped === true && !state.device.fault && !running() && !state.holding;
 const fmt = (value, digits = 1) => typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '—';
 const seconds = (value) => value === undefined || value === null ? '—' : `${(value / 1000).toFixed(2)} s`;
 function badge(node, text, color = 'neutral') { node.textContent = text; node.className = `badge ${color}`; }
@@ -63,10 +64,10 @@ function render() {
   $('port-hint').textContent = demo ? '此页只提供 DEMO。连接 COM5 请打开实车控制台。' : device.connected ? `已连接 ${state.port}；切换串口前先断开设备。` : portsError ? `扫描失败：${portsError}。点击刷新重试。` : portCount ? `发现 ${portCount} 个串口，请选择开发板对应的 USB 串口。` : '未发现串口：请接好开发板 USB 数据线，再点击刷新。';
   $('port-select').disabled = device.connected || active;
   $('refresh-ports').disabled = active || device.connected;
-  badge($('firmware-badge'), device.firmware ? `固件 v${device.firmware} / PARAM1` : '等待固件回传', device.firmware ? 'good' : 'neutral');
-  for (const id of ['move-forward', 'move-backward', 'turn-left', 'turn-right']) $(id).disabled = !ready;
+  badge($('firmware-badge'), device.firmware ? `固件 v${device.firmware} / ${device.firmware === '1.9' ? 'PARAM2' : 'PARAM1'}` : '等待固件回传', device.firmware ? 'good' : 'neutral');
+  for (const id of ['move-forward', 'move-backward', 'turn-left', 'turn-right']) $(id).disabled = !(ready || heldButton === id);
   $('keyboard-enabled').disabled = !device.connected || !owns() || !!device.fault || !streamHealthy;
-  $('generate-button').disabled = active || !owns() || !streamHealthy;
+  $('generate-button').disabled = !!state.holding || active || !owns() || !streamHealthy;
   $('build-nav').disabled = active || device.connected;
   document.querySelector('[data-tool="build"]').disabled = active || device.connected;
   if (device.fault) {
@@ -128,6 +129,19 @@ function render() {
   $('key-state').textContent = demo ? '演示模式不使用API密钥' : state.settings.key_configured ? '密钥已配置，保存在当前进程中' : '尚未配置密钥';
   $('footer-state').textContent = active ? `${job.phase}，可随时停止` : !streamHealthy ? '等待本地服务回传' : device.connected ? '设备回传已接入' : '本地服务在线，设备未连接';
   $('server-state').textContent = streamHealthy ? '在线' : '连接中断';
+  $('context-info').textContent = '当前开机上下文 · ' + (state.context_tasks || 0) + ' 条执行任务';
+  $('range-calibrate').disabled = !ready;
+  $('calibration-state').textContent = '校正 ' + (state.range_offset_mm || 0) + ' mm · 原始值保留';
+  $('hold-mode').disabled = active || !!state.holding;
+  $('reverse-label').textContent = $('hold-mode').checked ? '按住' : '0.8秒';
+  badge($('teleop-status'), state.holding ? '持续控制中' : $('hold-mode').checked ? '按住行走 · 松开停止' : '按一次走一步', state.holding ? 'running' : 'neutral');
+  const error = (state.errors || []).at(-1);
+  $('error-panel').hidden = !error;
+  if (error) {
+    $('error-category').textContent = {model_call:'模型调用',validation:'代码 / API 校验',execution:'执行反馈',service:'服务'}[error.category] || error.category;
+    $('error-message').textContent = error.type + '：' + error.message;
+    $('error-source').textContent = error.policy || error.raw_response || '此环节没有返回模型代码。';
+  }
   renderHistory();
 }
 
@@ -151,10 +165,11 @@ function renderRange(telemetry, device, demo) {
   $('tof-dot').style.background = valid ? '#249b9a' : '#b5becb';
   $('range-value').textContent = valid ? fmt(sample.distance_mm / 10) : '—';
   $('range-mm').textContent = valid ? `${fmt(sample.distance_mm, 0)} mm${demo ? ' · 演示数据' : ''}` : sample && !disabled ? `原始读数 ${fmt(sample.distance_mm, 0)} mm（无效，不采用）` : '当前没有有效距离';
+  if(valid) $('range-mm').textContent += ' · 原始 '+fmt(sample.raw_mm,0)+' mm';
   $('range-age').textContent = age === null ? '—' : `${fmt(age / 1000, 1)} s 前`;
   $('range-optical').textContent = sample ? `status ${sample.status ?? '—'}` : '—';
   $('range-bus').textContent = sample ? sample.error === 0 ? '正常' : `error ${sample.error}` : '—';
-  $('range-note').textContent = disabled ? '板上固件关闭了采样，需更新测距固件。演示页面不连接硬件。' : status === '初始化失败' || status === '总线异常' ? '检查 VL53L1X 电源、GND、SDA6 / SCL7；修复后重启开发板。' : status === '读数无效' ? '未获得有效反射，调整镜头朝向或目标距离；不会将无效读数显示为距离。' : '距离是传感器测量值；前方停车保护 OFF，当前不会按距离自动停车。';
+  $('range-note').textContent = disabled ? '板上固件关闭了采样，需更新测距固件。演示页面不连接硬件。' : status === '初始化失败' || status === '总线异常' ? '检查 VL53L1X 电源、GND、SDA6 / SCL7；修复后重启开发板。' : status === '读数无效' ? '未获得有效反射，调整镜头朝向或目标距离；不会将无效读数显示为距离。' : sample?.near_field ? '目标小于约4cm，已进入近场；贴住读数不能用于偏移标定。请用140mm平整目标标定。' : '以镜头平面为测量基准；普通前进保护 OFF，approach 动作单独按测距闭环停车。';
 }
 
 function renderMotionTelemetry(telemetry, device) {
@@ -195,34 +210,51 @@ function renderChart(samples) {
 
 let historySignature = '';
 function renderHistory() {
-  const jobs = (state?.jobs || []).filter(j => ['manual', 'execute', 'plan'].includes(j.kind));
+  let jobs = (state?.jobs || []).filter(j => ['manual', 'execute', 'plan'].includes(j.kind));
   $('history-count').textContent = jobs.length;
-  const signature = JSON.stringify(jobs.map(j => [j.id, j.status]));
+  const filter = $('history-filter').value, search = $('history-search').value.trim().toLowerCase();
+  jobs = jobs.filter(j => (filter === 'all' || filter === 'plan' && j.kind === 'plan' || filter === 'completed' && j.status === 'completed' || filter === 'failed' && ['failed','cancelled'].includes(j.status)) && (j.title+' '+j.policy+' '+j.error).toLowerCase().includes(search)).reverse();
+  const pages = Math.max(1,Math.ceil(jobs.length/6));historyPage = Math.min(historyPage,pages-1);
+  $('history-page').textContent = (historyPage+1)+' / '+pages;
+  $('history-prev').disabled = historyPage===0; $('history-next').disabled = historyPage>=pages-1;
+  const visible=jobs.slice(historyPage*6,historyPage*6+6),signature=JSON.stringify([historyPage,filter,search,visible]);
   if (signature === historySignature) return; historySignature = signature;
   const list = $('history-list'); list.replaceChildren();
-  if (!jobs.length) { list.append(element('div', 'history-empty', '还没有任务。完成一次控制或生成计划后，记录会出现在这里。')); return; }
-  for (const job of [...jobs].reverse()) {
-    const row = element('div', 'history-entry');
-    row.append(element('span', 'history-date', new Date(job.started_at).toLocaleTimeString('zh-CN', {hour12: false})));
-    const title = element('div', 'history-title', job.title);
-    title.append(element('small', '', job.kind === 'plan' ? '仅生成预览，没有运动' : job.result?.execution_success ? '接口执行完成，地面结果未独立验证' : job.error || job.phase));
-    row.append(title);
-    const status = element('span', 'badge');
-    badge(status, job.status === 'completed' ? '完成' : job.status === 'cancelled' ? '中止' : '失败', job.status === 'completed' ? 'good' : 'bad');
-    row.append(status, element('span', 'history-duration', seconds(job.elapsed_ms))); list.append(row);
+  if (!visible.length) { list.append(element('div', 'history-empty', '没有匹配任务。生成的计划和执行结果会显示在这里。')); return; }
+  for (const job of visible) {
+    const card=element('article','history-card'),head=element('div','history-card-head'),status=element('span','badge');
+    badge(status,job.status==='completed' ? job.kind==='plan' ? '已校验 · 未执行' : '已执行' : job.status==='cancelled' ? '中止' : '失败',job.status==='completed'?'good':'bad');
+    head.append(status,element('time','muted',new Date(job.started_at).toLocaleTimeString('zh-CN',{hour12:false})));
+    card.append(head,element('h3','',job.title));
+    const steps=element('div','history-steps');
+    for (const line of (job.policy||'').split('\n').filter(Boolean)) {
+      const match=line.match(/robot\.(\w+)\(([^)]*)\)/);if (!match) continue;
+      const v=Number(match[2]),name=match[1];
+      const label=name==='move'?'↑ '+(v*100).toFixed(0)+'cm':name==='reverse'?'↓ '+(v*100).toFixed(0)+'cm':name==='turn'?(v>0?'↶ ':'↷ ')+Math.abs(v)+'°':name==='approach'?'距前方 '+(v*100)+'cm':name==='stop'?'■ 停止':name;
+      steps.append(element('span','action-chip',label));
+    }
+    card.append(steps);
+    if(job.error) card.append(element('p','history-error',job.error));
+    const details=element('details','history-code'),summary=element('summary','','查看生成代码与耗时');
+    details.append(summary,element('pre','',job.policy||'没有生成可校验代码。'),element('small','muted','模型 '+seconds(job.timings_ms?.model_request)+' · 执行 '+seconds(job.timings_ms?.policy_execution)+' · 总计 '+seconds(job.elapsed_ms)));
+    card.append(details);list.append(card);
   }
 }
 
 function addEvents(batch) {
-  for (const item of batch) if (item.id > eventCursor) { events.push(item); eventCursor = item.id; }
-  events = events.slice(-1600); renderLogs();
+  let changed=false;
+  for (const item of batch) if (item.id > eventCursor) { events.push(item); eventCursor = item.id; changed=true; }
+  events = events.slice(-1600); if(changed) renderLogs();
 }
+let logSignature='', renderedLogId=0;
 function renderLogs() {
   if (paused) return;
   const filter = $('log-filter').value, search = $('log-search').value.toLowerCase();
   const output = $('console-output');
+  const signature=JSON.stringify([filter,search,clearCursor]);
+  if(signature!==logSignature) { output.replaceChildren();renderedLogId=clearCursor;logSignature=signature; }
   const nearBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 50;
-  const shown = events.filter(e => e.id > clearCursor && (filter === 'all' || e.channel === filter) && e.text.toLowerCase().includes(search)).slice(-350);
+  const shown = events.filter(e => e.id > renderedLogId && (filter === 'all' || e.channel === filter) && e.text.toLowerCase().includes(search)).slice(-350);
   const fragment = document.createDocumentFragment();
   for (const item of shown) {
     const row = element('div', `log-line ${item.level}`);
@@ -230,7 +262,8 @@ function renderLogs() {
       element('span', 'log-channel', {serial: '串口', task: '任务', policy: '策略', feedback: '反馈', terminal: '终端', build: '构建', system: '系统'}[item.channel] || item.channel),
       element('span', 'log-text', item.text)); fragment.append(row);
   }
-  output.replaceChildren(fragment);
+  output.append(fragment); renderedLogId=eventCursor;
+  while(output.childElementCount>350) output.firstElementChild.remove();
   if (nearBottom) output.scrollTop = output.scrollHeight;
 }
 
@@ -247,7 +280,7 @@ async function refreshPorts() {
 }
 $('port-select').addEventListener('change', render);
 function openSettings() {
-  if (state) { $('setting-model').value = state.settings.model; $('setting-url').value = state.settings.base_url; }
+  if (state) { $('setting-reasoning').value=state.settings.reasoning_effort || 'none'; $('setting-review').value=state.settings.review_mode || 'local'; $('setting-model').value = state.settings.model; $('setting-url').value = state.settings.base_url; }
   $('setting-key').value = ''; $('settings-dialog').showModal();
 }
 async function openDocument(name = 'webui') {
@@ -262,6 +295,7 @@ async function downloadLogs() {
   } catch (error) { toast(error.message); }
 }
 async function stop(keepalive = false) {
+  releaseHold();
   try { await request('/api/stop', {}, keepalive); if (!keepalive) toast('已请求停止；运动会话中止后需要重新连接。'); }
   catch (error) { if (!keepalive) toast(error.message); }
 }
@@ -269,16 +303,16 @@ async function generate() {
   if (!state?.settings.key_configured) { openSettings(); toast('先配置模型服务，再生成计划。'); return; }
   const instruction = $('instruction').value.trim();
   if (!instruction) { $('instruction').focus(); toast('先输入一个任务，或点选示例。'); return; }
-  await act('/api/generate', {instruction});
+  await act('/api/generate', {instruction, auto_execute:$('auto-execute').checked});
 }
 
 $('refresh-ports').addEventListener('click', refreshPorts);
 $('connect-button').addEventListener('click', () => state?.device.connected && !state.device.fault ? act('/api/disconnect', {}) : act('/api/connect', {port: $('port-select').value}));
 $('stop-top').addEventListener('click', () => stop()); $('stop-pad').addEventListener('click', () => stop());
-$('move-forward').addEventListener('click', () => act('/api/manual', {action: 'move', value: distance}));
-$('move-backward').addEventListener('click', () => act('/api/manual', {action: 'reverse', value: .8}));
-$('turn-left').addEventListener('click', () => act('/api/manual', {action: 'turn', value: angle}));
-$('turn-right').addEventListener('click', () => act('/api/manual', {action: 'turn', value: -angle}));
+$('move-forward').addEventListener('click', () => { if (!$('hold-mode').checked) act('/api/manual', {action: 'move', value: distance}); });
+$('move-backward').addEventListener('click', () => { if (!$('hold-mode').checked) act('/api/manual', {action: 'reverse', value: .8}); });
+$('turn-left').addEventListener('click', () => { if (!$('hold-mode').checked) act('/api/manual', {action: 'turn', value: angle}); });
+$('turn-right').addEventListener('click', () => { if (!$('hold-mode').checked) act('/api/manual', {action: 'turn', value: -angle}); });
 for (const [id, setter] of [['distance-options', v => { distance = v; }], ['angle-options', v => { angle = v; }]]) {
   $(id).addEventListener('click', e => { const button = e.target.closest('button[data-value]'); if (!button) return; $(id).querySelectorAll('button').forEach(b => b.classList.toggle('selected', b === button)); setter(Number(button.dataset.value)); });
 }
@@ -306,7 +340,7 @@ document.querySelectorAll('[data-tool]').forEach(button => button.addEventListen
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => $(button.dataset.close).close()));
 document.querySelectorAll('[data-document]').forEach(button => button.addEventListener('click', () => openDocument(button.dataset.document)));
 $('settings-form').addEventListener('submit', async e => {
-  e.preventDefault(); const payload = {model: $('setting-model').value, base_url: $('setting-url').value};
+  e.preventDefault(); const payload = {model: $('setting-model').value, base_url: $('setting-url').value, reasoning_effort:$('setting-reasoning').value, review_mode:$('setting-review').value};
   if ($('setting-key').value.trim()) payload.api_key = $('setting-key').value.trim();
   const result = await act('/api/settings', payload); $('setting-key').value = '';
   if (result) { $('settings-dialog').close(); toast('模型配置已保存，仅本次进程使用。'); }
@@ -324,26 +358,99 @@ $('terminal-command').addEventListener('keydown', e => {
 $('keyboard-enabled').addEventListener('change', () => { if (!$('keyboard-enabled').checked && running() && state.job.kind === 'manual') stop(); });
 document.addEventListener('keydown', e => {
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.key === 'Escape' && running()) { e.preventDefault(); stop(); return; }
-  if (!$('keyboard-enabled').checked || e.target.closest('input,textarea,select,[contenteditable="true"]') || $('settings-dialog').open || $('document-dialog').open) return;
+  if (e.key === 'Escape' && (running() || heldButton)) { e.preventDefault(); stop(); return; }
+  if (!$('keyboard-enabled').checked || e.target.closest('textarea,select,[contenteditable="true"],input:not([type="checkbox"]):not([type="radio"])') || $('settings-dialog').open || $('document-dialog').open) return;
   const key = e.key.toLowerCase();
   if (key === 't') { e.preventDefault(); stop(); }
+  else if (['w','a','s','d'].includes(key) && $('hold-mode').checked && driveReady()) { e.preventDefault(); beginHold({w:'forward',s:'backward',a:'left',d:'right'}[key], {w:'move-forward',s:'move-backward',a:'turn-left',d:'turn-right'}[key],key); }
   else if (key === 's' && driveReady()) { e.preventDefault(); act('/api/manual', {action: 'reverse', value: .8}); }
   else if (driveReady() && ['w', 'a', 'd'].includes(key)) { e.preventDefault(); act('/api/manual', {action: key === 'w' ? 'move' : 'turn', value: key === 'w' ? distance : key === 'a' ? angle : -angle}); }
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden && running()) stop(true); });
-window.addEventListener('pagehide', () => { if (running()) stop(true); });
-window.addEventListener('blur', () => { if (running() && $('keyboard-enabled').checked && state.job.kind === 'manual') stop(true); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && (running() || heldButton)) stop(true); });
+window.addEventListener('pagehide', () => { if (running() || heldButton) stop(true); });
+window.addEventListener('blur', () => { releaseHold(); if (running() && $('keyboard-enabled').checked && state.job.kind === 'manual') stop(true); });
 
 async function boot() {
   try {
     const data = await request('/api/bootstrap'); token = data.token; state = data.state; streamHealthy = true;
-    receivedAt = performance.now(); render(); await refreshPorts();
+    receivedAt = performance.now(); render(); openTeleop(); await refreshPorts();
     const source = new EventSource('/api/events');
     source.onmessage = event => { const data = JSON.parse(event.data); state = data.state; receivedAt = performance.now(); streamHealthy = true; stopOnLost = false; addEvents(data.events); render(); };
-    source.onerror = () => { streamHealthy = false; if (running() && !stopOnLost) { stopOnLost = true; stop(true); } render(); };
+    source.onerror = () => { releaseHold(); streamHealthy = false; if (running() && !stopOnLost) { stopOnLost = true; stop(true); } render(); };
     setInterval(() => { if (!document.hidden) request('/api/heartbeat', {}).catch(() => {}); }, 900);
-    setInterval(() => { $('clock').textContent = new Date().toLocaleTimeString('zh-CN', {hour12: false}); render(); }, 500);
+    setInterval(() => { $('clock').textContent = new Date().toLocaleTimeString('zh-CN', {hour12: false}); render(); }, 200);
   } catch (error) { $('notice').hidden = false; $('notice').textContent = `本地服务未就绪：${error.message}。请双击启动文件后刷新页面。`; }
 }
 boot();
+
+// Hold channel: one in-flight heartbeat, no motion queue, expiring server challenge.
+let teleopSocket=null, challenge=null, wsSeq=0, inFlight=false, sentAt=0, ackAt=0;
+let heldButton=null, heldKey=null, heldDirection=null, holdBegan=0, startWanted=false, startedHold=false;
+function sendControl(action,extra={}) {
+  if (!teleopSocket || teleopSocket.readyState!==WebSocket.OPEN || !challenge) return false;
+  if (teleopSocket.bufferedAmount>1024) { teleopSocket.close();return false; }
+  if (inFlight && action!=='release') return false;
+  inFlight=true; sentAt=performance.now();
+  teleopSocket.send(JSON.stringify({action,seq:++wsSeq,challenge,...extra}));
+  return true;
+}
+function openTeleop() {
+  teleopSocket=new WebSocket('ws://'+location.host+'/api/teleop');
+  teleopSocket.onopen=()=>teleopSocket.send(JSON.stringify({token,client}));
+  teleopSocket.onmessage=e=>{
+    const msg=JSON.parse(e.data);
+    if(msg.error) { toast(msg.error); releaseHold(); teleopSocket.close(); return; }
+    if (msg.seq<wsSeq) return;
+    const now=performance.now();
+    if(inFlight) $('control-latency').textContent='网页↔服务 '+Math.round(now-sentAt)+' ms';
+    challenge=msg.challenge;inFlight=false;ackAt=now;
+    if(startWanted && heldButton && now-holdBegan<180) {
+      startWanted=false;startedHold=sendControl('start',{direction:heldDirection});
+    }
+  };
+  teleopSocket.onclose=()=>{ releaseHold(); challenge=null; $('control-latency').textContent='遥控通道断开 · 松开后刷新'; };
+  teleopSocket.onerror=()=>releaseHold();
+}
+function beginHold(direction,id,key=null) {
+  if(!driveReady() || heldButton) return;
+  if(state.device.firmware!=='1.9') { toast('持续控制需要烧录v1.9固件；可取消持续模式使用步进。');return; }
+  if(!challenge || performance.now()-ackAt>180) { toast('遥控通道尚未就绪，请稍后再按。');return; }
+  heldButton=id;heldKey=key;heldDirection=direction;holdBegan=performance.now();
+  $(id).classList.add('held'); startWanted=true;
+  if(!inFlight) { startWanted=false;startedHold=sendControl('start',{direction}); }
+}
+function releaseHold() {
+  startWanted=false;
+  if(!heldButton) return;
+  $(heldButton).classList.remove('held');
+  heldButton=heldKey=heldDirection=null;
+  if(startedHold) sendControl('release');
+  startedHold=false;
+}
+setInterval(()=>{
+  if(!challenge || document.hidden) return;
+  if(heldButton && (performance.now()-holdBegan>=30000 || performance.now()-ackAt>180)) { releaseHold();return; }
+  if(!inFlight) sendControl(startedHold?'pulse':'ping');
+},65);
+for(const [id,direction] of [['move-forward','forward'],['move-backward','backward'],['turn-left','left'],['turn-right','right']]) {
+  const button=$(id);
+  button.addEventListener('pointerdown',e=>{
+    if(!$('hold-mode').checked || e.button!==0) return;
+    e.preventDefault();button.setPointerCapture(e.pointerId);beginHold(direction,id);
+  });
+  for(const type of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(type,releaseHold);
+}
+document.addEventListener('keyup',e=>{ if(e.key.toLowerCase()===heldKey) {e.preventDefault();releaseHold();} });
+$('hold-mode').addEventListener('change',releaseHold);
+$('keyboard-enabled').addEventListener('change',()=>{if(!$('keyboard-enabled').checked)releaseHold();});
+$('range-calibrate').addEventListener('click',()=>act('/api/range-calibrate',{known_mm:Number($('calibration-mm').value)}));
+for(const id of ['history-search','history-filter']) $(id).addEventListener('input',()=>{historyPage=0;renderHistory();});
+$('history-prev').addEventListener('click',()=>{historyPage--;renderHistory();});
+$('history-next').addEventListener('click',()=>{historyPage++;renderHistory();});
+
+$('firmware-flash').addEventListener('click',async()=>{
+  if(!$('motor-power-off').checked) { toast('先拔电机5V，只保留USB，再勾选确认。');return; }
+  if(state?.device?.connected) { toast('先关闭设置并断开设备连接，再烧录。');return; }
+  const result=await act('/api/flash',{port:$('port-select').value,motor_power_disconnected:true});
+  if(result) {$('settings-dialog').close();$('motor-power-off').checked=false;}
+});

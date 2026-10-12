@@ -47,8 +47,8 @@ def test_supported_literal_plan(policy):
     'robot.turn(1e309)\nrobot.stop()', 'robot.turn(90*1)\nrobot.stop()',
     'robot.turn(--90)\nrobot.stop()',
     'robot.move(0.3, speed=0.1)\nrobot.stop()',
-    'robot.get_distance()\nrobot.stop()', 'robot.get_pose()\nrobot.stop()',
-    'robot.get_state()\nrobot.stop()',
+    'robot.get_distance(1)\nrobot.stop()', 'robot.get_pose()\nrobot.stop()',
+    'robot.get_state(x=1)\nrobot.stop()',
     'robot.move(0.3)\nrobot.turn(90)\nrobot.turn(-90)\nrobot.move(.1)\nrobot.stop()',
     'robot.move(0.1)\nrobot.turn(90)\nrobot.turn(5)\nrobot.stop()',
     'robot.move(0.1)\nrobot.turn(90)\nrobot.turn(90)',
@@ -69,7 +69,7 @@ def test_prompt_uses_hardware_contract_without_dummy_world():
     policy, response = generate_physical_policy(model, '前进30厘米，右转90度，停止', hardware_registry())
     assert 'robot.turn(-90)' in policy and response.model == 'deepseek-flash'
     task, api, context, system = model.requests[0]
-    assert 'get_pose' not in api and 'get_distance' not in api
+    assert 'get_pose' not in api and 'get_distance' in api
     data = json.loads(context)
     assert data['front_guard'] == 'OFF' and not data['pose_available']
     assert 'pose' not in data and 'world' not in data and not data['serial_connected']

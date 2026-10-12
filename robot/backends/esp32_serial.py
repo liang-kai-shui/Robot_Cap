@@ -13,7 +13,7 @@ import time
 
 from robot.backends.physical import PhysicalBackend
 from robot.capabilities import CapabilityRegistry, CapabilitySpec, ParameterSpec
-from robot.hardware_limits import MAX_TASK_ACTIONS, move_mm, turn_tenths
+from robot.hardware_limits import MAX_TASK_ACTIONS, move_mm, turn_tenths, reverse_mm, approach_mm
 from runtime.errors import (ActionLimitExceeded, RobotActionError,
                             RobotActionTimeoutError, RobotBackendError,
                             RobotCommunicationError, RobotEmergencyStopError)
@@ -78,6 +78,12 @@ class ESP32SerialBackend(PhysicalBackend):
         self._action_count = 0
         self._last_action = self._last_result = None
         self._logs = deque(maxlen=4096)
+        self._boot_id = None
+        self._range = self._attitude = None
+        self._range_offset = 0
+        self._teleop = None
+        self._teleop_next = 1
+        self._teleop_ack_at = 0
 
     @property
     def logs(self):
@@ -181,6 +187,18 @@ class ESP32SerialBackend(PhysicalBackend):
         fields = dict(re.findall(r"([A-Za-z_][A-Za-z_0-9]*)=([^\s;]+)", line))
         with self._condition:
             self._record("rx", line=raw_line)
+            if "TOF ready=" in line:
+                self._range = {**fields, "_at": time.monotonic()}
+            if "ATTITUDE roll=" in line:
+                self._attitude = {**fields, "_at": time.monotonic()}
+            if "TELEOP_ACK" in line:
+                if self._teleop and fields.get("session") == str(self._teleop['session']):
+                    self._teleop_ack_at = time.monotonic()
+                    self._stopped = False
+            if "TELEOP_END" in line and self._teleop:
+                self._teleop['ending'] = True
+                self._ready = False
+                self._stopped = None
             # Reset invalidates ordering and calibration. Never reconnect/retry.
             if self._established and ("KEYBOARD_DRIVE" in line or line.startswith(("ESP-ROM:", "rst:"))):
                 self._trip(RobotCommunicationError("ESP32 reset; reconnect explicitly"))
@@ -201,7 +219,7 @@ class ESP32SerialBackend(PhysicalBackend):
                     self._await_stop = False
                 motion = self._active
                 if motion and self._failure is None and not self._aborted:
-                    target = "DISTANCE_TARGET" if motion.key == "f" else "ANGLE_TARGET"
+                    target = "RANGE_TARGET" if motion.key == "r" else "DISTANCE_TARGET" if motion.key in ("f", "b") else "ANGLE_TARGET"
                     if not motion.started or fields.get("action") != motion.key or fields.get("source") != target:
                         self._trip(RobotEmergencyStopError(f"Action interrupted: {line}"))
                     else:
@@ -209,7 +227,14 @@ class ESP32SerialBackend(PhysicalBackend):
                         motion.cutoff_at = time.perf_counter()
             if "VEHICLE_READY:" in line:
                 self._firmware, self._guard = fields.get("firmware"), fields.get("front_guard")
-                if self._firmware != "1.8" or fields.get("protocol") != "PARAM1" or self._guard != "OFF":
+                self._boot_id = fields.get('boot_id', self._boot_id)
+                try:
+                    next_session=int(fields.get('teleop_next',self._teleop_next))
+                    if not 1<=next_session<=999999: raise ValueError('session out of range')
+                    self._teleop_next=next_session
+                except (TypeError,ValueError):
+                    self._trip(RobotBackendError('Invalid TELEOP session in READY'))
+                if (self._firmware, fields.get("protocol")) not in (("1.8","PARAM1"),("1.9","PARAM2")) or self._guard != "OFF":
                     self._trip(RobotBackendError("Requires firmware=1.8 protocol=PARAM1 front_guard=OFF; flash updated firmware first; no movement sent"))
                 elif not self._await_stop:
                     motion = self._active
@@ -222,13 +247,16 @@ class ESP32SerialBackend(PhysicalBackend):
                         if motion and motion.done:
                             motion.ready = True
                             motion.ready_at = time.perf_counter()
+                        if self._teleop and self._teleop.get('ending'):
+                            self._teleop = None
+                            if self._action_lock.locked(): self._action_lock.release()
             motion = self._active
             if motion and self._failure is None and not self._aborted:
                 if "VEHICLE_START" in line:
                     if motion.started or fields.get("action") != motion.key:
                         self._trip(RobotBackendError("Unexpected/duplicate VEHICLE_START"))
                     else:
-                        target_field = "target_mm" if motion.key == "f" else "target_deg"
+                        target_field = "target_mm" if motion.key in ("f","b","r") else "target_deg"
                         try:
                             value = _number(fields, target_field) if motion.key != 's' else float(fields.get('duration', '').removesuffix('ms'))
                             if not math.isfinite(value) or abs(value-motion.target) > 0.05:
@@ -255,7 +283,7 @@ class ESP32SerialBackend(PhysicalBackend):
                             motion.cutoff_at = time.perf_counter()
                     except RobotBackendError as exc:
                         self._trip(exc)
-                if "DISTANCE_RESULT" in line or "TURN_RESULT" in line:
+                if "DISTANCE_RESULT" in line or "TURN_RESULT" in line or "RANGE_RESULT" in line:
                     if not motion.started or not motion.target_stop or motion.result is not None:
                         self._trip(RobotBackendError("Result without ordered START and target STOP"))
                     else:
@@ -281,7 +309,7 @@ class ESP32SerialBackend(PhysicalBackend):
                     else:
                         motion.done = True
                         motion.done_at = time.perf_counter()
-            elif self._active is None and "VEHICLE_START" in line:
+            elif self._active is None and self._teleop is None and "VEHICLE_START" in line:
                 self._trip(RobotBackendError("Unrequested motion on serial port"))
             self._condition.notify_all()
 
@@ -289,7 +317,14 @@ class ESP32SerialBackend(PhysicalBackend):
     def _motion_result(motion, fields, line):
         if fields.get("action") != motion.key:
             raise RobotBackendError("Mismatched result action")
-        if motion.key == "f":
+        if motion.key == 'r':
+            if 'RANGE_RESULT' not in line or fields.get('valid') != '1':
+                raise RobotBackendError('Invalid range approach completion')
+            result = {name:_number(fields,name) for name in ('target_mm','cutoff_mm','after_stop_mm','elapsed_ms')}
+            if abs(result['target_mm']-motion.target)>.05 or not 0<result['elapsed_ms']<=15000 or not motion.target-50 <= result['after_stop_mm'] <= motion.target+25:
+                raise RobotBackendError('Range approach outside target tolerance/deadline')
+            result.update(valid=True,measurement='front_sensor_clearance_not_ground_pose')
+        elif motion.key in ('f', 'b'):
             if "DISTANCE_RESULT" not in line or fields.get("encoder_valid") != "1" or fields.get("yaw_valid") != "1":
                 raise RobotBackendError("Invalid encoder/yaw distance result")
             names = ("target_mm", "cutoff_right_mm", "cutoff_left_mm", "after_stop_right_mm",
@@ -354,10 +389,10 @@ class ESP32SerialBackend(PhysicalBackend):
                 if self._action_count >= self.max_actions:
                     raise ActionLimitExceeded("Hardware session action budget exhausted")
                 self._action_count += 1
-                self._last_action = "REVERSE" if key == 's' else "MOVE" if key == "f" else "TURN"
+                self._last_action = "REVERSE" if key in ('s','b') else "APPROACH" if key == "r" else "MOVE" if key == "f" else "TURN"
                 self._ready = False
                 self._stopped = None
-                self._active = _Motion(key, "TIMED_REVERSE" if key == 's' else "DISTANCE_MOVE" if key == "f" else "ANGLE_TURN", target, time.perf_counter())
+                self._active = _Motion(key, "TIMED_REVERSE" if key == 's' else "RANGE_APPROACH" if key == "r" else "DISTANCE_MOVE" if key in ("f","b") else "ANGLE_TURN", target, time.perf_counter())
                 self._write(wire)
             self._wait(lambda: self._active.ready, end, cancel_event)
             with self._condition:
@@ -396,6 +431,75 @@ class ESP32SerialBackend(PhysicalBackend):
         if isinstance(duration, bool) or duration != .8:
             raise RobotActionError('Manual reverse duration is fixed at 0.8 seconds')
         return self._move_action('s', 800, 's', 5.0, cancel_event, deadline)
+
+    def _require_param2(self):
+        if self._firmware != '1.9':
+            raise RobotActionError('此功能需要 v1.9 PARAM2 固件；请先烧录，不发送运动')
+
+    def reverse_distance(self, distance, *, cancel_event=None, deadline=None):
+        self._require_param2()
+        mm = reverse_mm(distance)
+        return self._move_action('b', mm, f'@B{mm}\n', 9, cancel_event, deadline)
+
+    def approach(self, distance, *, cancel_event=None, deadline=None):
+        self._require_param2()
+        target = approach_mm(distance)
+        reading = self.get_distance()
+        raw_target = target-self._range_offset
+        if not 100 <= raw_target <= 1000 or reading['distance_mm'] <= target+20:
+            raise RobotActionError('目标距离已达到、过近或校正后的目标超出固件范围；不会后退或自动重试')
+        result = self._move_action('r', raw_target, f'@R{raw_target}\n', 18, cancel_event, deadline)
+        result.update(requested_clearance_mm=target, range_offset_mm=self._range_offset,
+                      corrected_after_stop_mm=result['after_stop_mm']+self._range_offset)
+        return result
+
+    def teleop_start(self, direction):
+        self._require_param2()
+        if direction not in ('forward','backward','left','right'):
+            raise RobotActionError('Invalid teleop direction')
+        if not self._action_lock.acquire(blocking=False):
+            raise RobotActionError('Motion cannot queue')
+        try:
+            with self._condition:
+                if not self._ready or self._failure or self._aborted or self._stopped is not True:
+                    raise RobotEmergencyStopError('持续控制必须从健康停稳 READY 开始')
+                session = self._teleop_next
+                self._teleop_next += 1
+                digit = ('forward','backward','left','right').index(direction)+1
+                self._teleop = {'session':session,'digit':digit,'ending':False}
+                self._ready=False; self._stopped=None
+                self._write(f'@H{session*10+digit}\n')
+                return {'session':session, 'lease_ms':250}
+        except BaseException:
+            self._teleop=None;self._action_lock.release();raise
+
+    def teleop_pulse(self):
+        with self._condition:
+            if not self._teleop or self._teleop['ending'] or self._failure or self._aborted:
+                raise RobotEmergencyStopError('持续控制已结束，需要重新按下')
+            self._write(f"@H{self._teleop['session']*10+self._teleop['digit']}\n")
+            return {'firmware_ack_age_ms':(time.monotonic()-self._teleop_ack_at)*1000 if self._teleop_ack_at else None}
+
+    def teleop_release(self):
+        with self._condition:
+            if self._teleop:
+                self._teleop['ending']=True
+                self._request_stop()  # Immediate write; READY arrives independently.
+
+    def configure_range_offset(self, offset):
+        if isinstance(offset,bool) or not isinstance(offset,int) or not -100<=offset<=100:
+            raise RobotActionError('Range offset must be integer millimetres from -100 to 100')
+        with self._condition:
+            if self._active or self._teleop:
+                raise RobotActionError('Cannot calibrate during motion')
+            self._range_offset=offset
+
+    def get_attitude(self, **_kwargs):
+        with self._condition:
+            sample=self._attitude
+            if not sample or time.monotonic()-sample['_at']>.5 or sample.get('tilt_valid')!='1' or sample.get('yaw_valid')!='1':
+                raise RobotActionError('BMI323 attitude is invalid or stale')
+            return {key:_number(sample,key) for key in ('roll','pitch','yaw')}
 
     def begin_task(self):
         """Trusted console boundary: renew only the budget of a healthy idle car.
@@ -468,8 +572,8 @@ class ESP32SerialBackend(PhysicalBackend):
         with self._condition:
             return {"connected": self._established and self._port is not None and self._port.is_open and not self._closing.is_set(),
                     "ready": self._ready, "stopped": self._stopped,
-                    "firmware": self._firmware, "front_guard": self._guard,
-                    "pose_available": False, "range_available": False,
+                    "firmware": self._firmware, "front_guard": self._guard, "boot_id":self._boot_id, "teleop": bool(self._teleop),
+                    "pose_available": False, "range_available": bool(self._range),
                     "collision": None, "last_action": self._last_action,
                     "action_count": self._action_count, "last_result": self._last_result,
                     "fault": str(self._failure) if self._failure else ("SESSION_STOPPED" if self._aborted else None)}
@@ -481,7 +585,17 @@ class ESP32SerialBackend(PhysicalBackend):
         raise RobotActionError("Ground pose is unavailable; no localization is installed")
 
     def get_distance(self, **_kwargs):
-        raise RobotActionError("ToF is shown in WebUI telemetry, but is not exposed as a CaP observation by this motion backend")
+        with self._condition:
+            sample=self._range
+            if not self._established or not sample or time.monotonic()-sample['_at']>.4 or any(sample.get(k)!=v for k,v in {'ready':'1','valid':'1','status':'0','error':'0'}.items()) or not 0<=_number(sample,'age_ms')<=200 or (time.monotonic()-sample['_at'])*1000+_number(sample,'age_ms')>400:
+                raise RobotActionError('Front range is unavailable, invalid or stale')
+            raw=_number(sample,'distance_mm')
+            if raw<=0 or raw+self._range_offset<=0:
+                raise RobotActionError('Front range must be positive')
+            return {'distance_mm':raw+self._range_offset,'raw_mm':raw,'offset_mm':self._range_offset,
+                    'distance_m':(raw+self._range_offset)/1000,'valid':True,'near_field':raw<40,
+                    'age_ms':(time.monotonic()-sample['_at'])*1000+_number(sample,'age_ms')}
+
 
     def close(self):
         """Best-effort T on exit; disconnect does not prove the motors stopped."""
@@ -543,6 +657,19 @@ def build_esp32_registry(backend):
                         return_fields={name: None for name in ("connected", "ready", "stopped", "front_guard", "pose_available", "range_available", "last_action", "action_count", "fault")},
                         description="serial session and feedback status; stopped may be unknown; no ground pose or collision sensing; ToF telemetry is displayed separately in WebUI"), backend.get_state, None),
     )
+    def validate_reverse(values,limits):
+        reverse_mm(values['distance']);check_budget(limits);return values
+    def validate_approach(values,limits):
+        approach_mm(values['distance']);check_budget(limits);return values
+    if backend.snapshot().get('firmware') in (None,'1.9') or backend.__class__.__name__=='DemoBackend':
+        entries += (
+            (CapabilitySpec('motion.reverse','esp32-v1.9',(('reverse',),),(ParameterSpec('distance'),),blocking=True,timeout_seconds=9,
+                description='reverse 0.05..0.30 metres in 0.001 m steps; measured encoder distance, heading hold; rear unmonitored'),backend.reverse_distance,validate_reverse),
+            (CapabilitySpec('motion.approach','esp32-v1.9',(('approach',),),(ParameterSpec('distance'),),blocking=True,timeout_seconds=18,
+                description='drive forward until FRONT clearance distance=0.10..1.00 metres, millimetre steps; requires fresh valid ToF, max travel 1.5m / 15s; stops on sensor loss; never reverses'),backend.approach,validate_approach),
+            (CapabilitySpec('sensors.get_distance','esp32-v1.9',(('get_distance',),),observation=True,return_fields={'distance_m':None,'distance_mm':None,'raw_mm':None,'valid':None,'age_ms':None},description='fresh front ToF reading in metres/millimetres; raises if invalid/stale'),backend.get_distance,None),
+            (CapabilitySpec('sensors.get_attitude','esp32-v1.9',(('get_attitude',),),observation=True,return_fields={'roll':None,'pitch':None,'yaw':None},description='sensor-axis roll/pitch and relative yaw in degrees; not absolute heading or ground pose'),backend.get_attitude,None),
+        )
     for spec, handler, validator in entries:
         registry.register(spec, handler, validator, backend.emergency_stop)
     return registry

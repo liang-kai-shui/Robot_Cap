@@ -11,11 +11,13 @@ from runtime.errors import PolicyGenerationError, PolicyGenerationTimeoutError
 class OpenAICompatibleProvider(LLMProvider):
     def __init__(self, base_url: str | None = None, api_key: str | None = None, model: str | None = None,
                  stream: bool = False, include_stream_usage: bool = True,
-                 request_timeout_seconds: float | None = None, reasoning_effort: str | None = None):
+                 request_timeout_seconds: float | None = None, reasoning_effort: str | None = None,
+                 stable_api_prefix: bool = False):
         self.base_url = (base_url or os.getenv("LLM_BASE_URL") or "").rstrip("/")
         self.api_key = api_key or os.getenv("LLM_API_KEY") or ""
         self.model = model or os.getenv("LLM_MODEL") or ""
         self.stream = stream
+        self.stable_api_prefix = stable_api_prefix
         self.include_stream_usage = include_stream_usage
         self.request_timeout_seconds = float(request_timeout_seconds if request_timeout_seconds is not None
                                              else os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "30"))
@@ -34,6 +36,9 @@ class OpenAICompatibleProvider(LLMProvider):
             {"role": "system", "content": system_prompt or SYSTEM_PROMPT},
             {"role": "user", "content": f"Task: {task}\nRobot API:\n{robot_api}\nWorld state:\n{world_state}"},
         ]}
+        if self.stable_api_prefix:
+            payload['messages'][0]['content'] += '\nRobot API:\n'+robot_api
+            payload['messages'][1]['content'] = f'World state:\n{world_state}\nTask: {task}'
         if self.reasoning_effort is not None:
             payload["reasoning_effort"] = self.reasoning_effort
         if self.stream and self.include_stream_usage:
