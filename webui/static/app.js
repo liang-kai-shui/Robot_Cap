@@ -11,14 +11,30 @@ let rangeOffsetDirty = false;
 let portCount = 0, portsError = '';
 const terminalHistory = []; let historyIndex = 0;
 
+// Reassigning textContent, even to the same string, destroys browser selections.
+function setText(node, value) {
+  const text = String(value ?? '');
+  if (node.textContent === text) return;
+  if (node.childNodes.length === 1 && node.firstChild.nodeType === 3) node.firstChild.data = text;
+  else node.textContent = text;
+}
+function hasSelectedText(node) {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed) return false;
+  for (let i = 0; i < selection.rangeCount; i++) {
+    if (selection.getRangeAt(i).intersectsNode(node)) return true;
+  }
+  return false;
+}
+
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
+  if (text !== undefined) setText(node, text);
   return node;
 }
 function toast(message) {
-  $('toast').textContent = message;
+  setText($('toast'), message);
   $('toast').hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { $('toast').hidden = true; }, 5000);
@@ -42,7 +58,7 @@ const owns = () => !state?.owner || state.owner === client || (!running() && sta
 const driveReady = () => streamHealthy && owns() && state?.device?.connected && state.device.ready && state.device.stopped === true && !state.device.fault && !running() && !state.holding;
 const fmt = (value, digits = 1) => typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '—';
 const seconds = (value) => value === undefined || value === null ? '—' : `${(value / 1000).toFixed(2)} s`;
-function badge(node, text, color = 'neutral') { node.textContent = text; node.className = `badge ${color}`; }
+function badge(node, text, color = 'neutral') { setText(node, text); node.className = `badge ${color}`; }
 function dot(node, color) { node.className = `status-dot ${color || ''}`; }
 
 function render() {
@@ -52,39 +68,39 @@ function render() {
   const idle = device.connected && device.stopped === true;
   badge($('mode-badge'), demo ? '离线演示' : '实车模式', demo ? 'demo' : 'neutral');
   $('demo-notice').hidden = !demo;
-  $('page-subtitle').textContent = demo ? '在演示设备上体验控制、计划执行与回传。' : '连接小车，在这里查看状态、控制运动与执行任务。';
+  setText($('page-subtitle'), demo ? '在演示设备上体验控制、计划执行与回传。' : '连接小车，在这里查看状态、控制运动与执行任务。');
   let status = !streamHealthy ? '回传连接中断' : device.fault ? '需要重新连接' : active ? job.phase : device.connected ? (idle ? '已停稳，待命' : '等待停稳反馈') : '未连接设备';
-  $('connection-state').textContent = status;
-  $('sidebar-status').textContent = device.connected ? (device.fault ? '会话已中止' : demo ? '演示已连接' : '已连接') : '等待连接';
-  $('connection-detail').textContent = state.port ? `${state.port} / 115200` : 'UART0 / 115200';
+  setText($('connection-state'), status);
+  setText($('sidebar-status'), device.connected ? (device.fault ? '会话已中止' : demo ? '演示已连接' : '已连接') : '等待连接');
+  setText($('connection-detail'), state.port ? `${state.port} / 115200` : 'UART0 / 115200');
   dot($('connection-dot'), device.fault || !streamHealthy ? 'error' : device.connected ? 'connected' : '');
   dot($('sidebar-dot'), device.fault ? 'error' : device.connected ? 'connected' : '');
-  $('connect-button').querySelector('span').textContent = device.fault ? '重新连接' : device.connected ? '断开设备' : '连接设备';
+  setText($('connect-button').querySelector('span'), device.fault ? '重新连接' : device.connected ? '断开设备' : '连接设备');
   $('connect-button').disabled = active || !streamHealthy || (!device.connected && !$('port-select').value);
-  $('device-connect-title').textContent = demo ? '演示设备（不连接小车）' : '连接小车';
-  $('port-hint').textContent = demo ? '此页只提供 DEMO。连接 COM5 请打开实车控制台。' : device.connected ? `已连接 ${state.port}；切换串口前先断开设备。` : portsError ? `扫描失败：${portsError}。点击刷新重试。` : portCount ? `发现 ${portCount} 个串口，请选择开发板对应的 USB 串口。` : '未发现串口：请接好开发板 USB 数据线，再点击刷新。';
+  setText($('device-connect-title'), demo ? '演示设备（不连接小车）' : '连接小车');
+  setText($('port-hint'), demo ? '此页只提供 DEMO。连接 COM5 请打开实车控制台。' : device.connected ? `已连接 ${state.port}；切换串口前先断开设备。` : portsError ? `扫描失败：${portsError}。点击刷新重试。` : portCount ? `发现 ${portCount} 个串口，请选择开发板对应的 USB 串口。` : '未发现串口：请接好开发板 USB 数据线，再点击刷新。');
   $('port-select').disabled = device.connected || active;
   $('refresh-ports').disabled = active || device.connected;
   badge($('firmware-badge'), device.firmware ? `固件 v${device.firmware} / ${device.firmware === '1.9' ? 'PARAM2' : 'PARAM1'}` : '等待固件回传', device.firmware ? 'good' : 'neutral');
   const pwmZero = device.pwm_manual_available && $('hold-mode').checked && Number($('manual-pwm').value) === 0;
   for (const id of ['move-forward', 'move-backward', 'turn-left', 'turn-right']) $(id).disabled = pwmZero || !(ready || heldButton === id);
   $('manual-pwm').disabled = !device.pwm_manual_available || !$('hold-mode').checked || active || !owns() || !streamHealthy || !!device.fault;
-  $('manual-pwm-hint').textContent = !device.connected ? '连接后检查固件是否支持 PWM' : !device.pwm_manual_available ? '需要烧录 PWM 新固件；当前持续模式沿用原速度' : !$('hold-mode').checked ? '仅用于持续按住模式；步进与自然语言速度不变' : '实际占空比 · 0 停止 · 手动不做航向保持';
+  setText($('manual-pwm-hint'), !device.connected ? '连接后检查固件是否支持 PWM' : !device.pwm_manual_available ? '需要烧录 PWM 新固件；当前持续模式沿用原速度' : !$('hold-mode').checked ? '仅用于持续按住模式；步进与自然语言速度不变' : '实际占空比 · 0 停止 · 手动不做航向保持');
   const applied = device.manual_pwm_actual;
-  $('manual-pwm-actual').textContent = applied ? `右轮 ${fmt(applied.A, 0)}% · 左轮 ${fmt(applied.B, 0)}%（固件回传）` : '右轮 — · 左轮 —（等待输出回传）';
+  setText($('manual-pwm-actual'), applied ? `右轮 ${fmt(applied.A, 0)}% · 左轮 ${fmt(applied.B, 0)}%（固件回传）` : '右轮 — · 左轮 —（等待输出回传）');
   $('keyboard-enabled').disabled = !device.connected || !owns() || !!device.fault || !streamHealthy;
   $('generate-button').disabled = !!state.holding || active || !owns() || !streamHealthy;
   $('build-nav').disabled = active || device.connected;
   document.querySelector('[data-tool="build"]').disabled = active || device.connected;
   if (device.fault) {
     $('notice').hidden = false;
-    $('notice').textContent = `当前会话已中止。点击“重新连接”后继续。${device.fault}`;
+    setText($('notice'), `当前会话已中止。点击“重新连接”后继续。${device.fault}`);
   } else if (!streamHealthy) {
-    $('notice').hidden = false; $('notice').textContent = '回传连接已中断，运动控制已禁用。若服务已重启，请刷新页面。';
+    $('notice').hidden = false; setText($('notice'), '回传连接已中断，运动控制已禁用。若服务已重启，请刷新页面。');
   } else if (job?.error) {
-    $('notice').hidden = false; $('notice').textContent = job.error;
+    $('notice').hidden = false; setText($('notice'), job.error);
   } else if (!owns()) {
-    $('notice').hidden = false; $('notice').textContent = '另一页面正在控制设备。本页仍可查看回传和发送停止。';
+    $('notice').hidden = false; setText($('notice'), '另一页面正在控制设备。本页仍可查看回传和发送停止。');
   } else $('notice').hidden = true;
 
   const telemetry = state.telemetry, yaw = telemetry.yaw, bmi = telemetry.bmi;
@@ -93,68 +109,74 @@ function render() {
   const age = yaw ? yaw.age_ms + performance.now() - receivedAt : null;
   const yawValid = yaw?.valid === 1;
   const fresh = age !== null && age < 1500 && yawValid && streamHealthy;
-  $('yaw-value').textContent = yawValid ? fmt(yaw.angle_deg) : '—';
-  $('yaw-fresh').textContent = fresh ? '最近回传' : yaw && !yawValid ? '航向失效 · 请静止归零' : yaw ? '回传过期' : '等待回传';
+  setText($('yaw-value'), yawValid ? fmt(yaw.angle_deg) : '—');
+  setText($('yaw-fresh'), fresh ? '最近回传' : yaw && !yawValid ? '航向失效 · 请静止归零' : yaw ? '回传过期' : '等待回传');
   $('yaw-fresh').className = `fresh-label ${fresh ? 'fresh' : ''}`;
-  $('sample-age').textContent = age === null ? '等待数据' : `${Math.floor(age / 1000)}s 前更新`;
-  $('roll-value').textContent = bmi?.tilt_valid === 1 ? `${fmt(bmi.roll)}°` : '—';
-  $('pitch-value').textContent = bmi?.tilt_valid === 1 ? `${fmt(bmi.pitch)}°` : '—';
+  setText($('sample-age'), age === null ? '等待数据' : `${Math.floor(age / 1000)}s 前更新`);
+  setText($('roll-value'), bmi?.tilt_valid === 1 ? `${fmt(bmi.roll)}°` : '—');
+  setText($('pitch-value'), bmi?.tilt_valid === 1 ? `${fmt(bmi.pitch)}°` : '—');
   const bmiOk = bmi?.calibrated === 1 && bmi?.error === 0 && bmi.fresh;
-  $('imu-status').textContent = !bmi ? '等待回传' : bmi.calibrated !== 1 ? '校准中' : bmiOk ? '已校准' : '检查日志';
+  setText($('imu-status'), !bmi ? '等待回传' : bmi.calibrated !== 1 ? '校准中' : bmiOk ? '已校准' : '检查日志');
   $('imu-dot').style.background = bmiOk ? '#249b9a' : '#b5becb';
   const result = device.last_result;
   const move = result?.target_mm !== undefined ? result : telemetry.last_move;
   function measurement(id, value, unit, digits) {
-    $(id).replaceChildren(document.createTextNode(fmt(value, digits)), element('small', '', unit));
+    const node = $(id), text = fmt(value, digits);
+    if (node.childNodes.length !== 2 || node.firstChild.nodeType !== 3 || node.lastChild.tagName !== 'SMALL') {
+      node.replaceChildren(document.createTextNode(text), element('small', '', unit));
+    } else {
+      if (node.firstChild.data !== text) node.firstChild.data = text;
+      setText(node.lastChild, unit);
+    }
   }
   measurement('right-distance', move?.after_stop_right_mm, 'mm', 1);
   measurement('left-distance', move?.after_stop_left_mm, 'mm', 1);
   measurement('action-duration', result?.elapsed_ms !== undefined ? result.elapsed_ms / 1000 : undefined, 's', 2);
   renderChart(telemetry.samples);
 
-  $('model-name').textContent = demo ? '离线演示策略' : state.settings.model;
+  setText($('model-name'), demo ? '离线演示策略' : state.settings.model);
   const source = job?.diagnostics?.policy_source || state.plan?.diagnostics?.policy_source;
   badge($('policy-source'), source === 'verified_reuse' ? '已验证策略复用' : source === 'model' ? '模型生成' : '等待计划', source === 'verified_reuse' ? 'good' : 'neutral');
   const library=state.policy_library || {};
-  $('reuse-summary').textContent = `${state.settings.policy_reuse === false ? '复用已关闭' : '已验证策略库'} · ${library.verified_recipes || 0} 条 · 本会话命中 ${library.hits || 0} 次`;
+  setText($('reuse-summary'), `${state.settings.policy_reuse === false ? '复用已关闭' : '已验证策略库'} · ${library.verified_recipes || 0} 条 · 本会话命中 ${library.hits || 0} 次`);
   $('policy-library-clear').disabled=active || !!state.holding || !owns();
   const plan = state.plan;
   $('plan-container').hidden = !plan;
   if (plan) {
-    $('policy-code').textContent = plan.policy;
-    $('plan-summary').textContent = `${plan.segments.length} 段 / ${plan.policy.split('\n').length - 1} 个运动`;
-    $('execute-button').textContent = `执行 ${plan.segments.length} 段计划`;
+    setText($('policy-code'), plan.policy);
+    setText($('plan-summary'), `${plan.segments.length} 段 / ${plan.policy.split('\n').length - 1} 个运动`);
+    setText($('execute-button'), `执行 ${plan.segments.length} 段计划`);
     $('execute-button').disabled = !ready;
   }
   const elapsed = job ? job.elapsed_ms + (active ? performance.now() - receivedAt : 0) : 0;
-  $('job-title').textContent = job?.title || '等待你的下一步';
-  $('job-phase').textContent = job?.phase || '连接小车或先生成一个计划。';
+  setText($('job-title'), job?.title || '等待你的下一步');
+  setText($('job-phase'), job?.phase || '连接小车或先生成一个计划。');
   badge($('job-status'), active ? '执行中' : job?.status === 'failed' ? '失败' : job?.status === 'cancelled' ? '已中止' : job?.status === 'completed' ? '已完成' : '待命', active ? 'running' : job?.status === 'completed' ? 'good' : job?.error ? 'bad' : 'neutral');
-  $('job-elapsed').textContent = (elapsed / 1000).toFixed(1);
+  setText($('job-elapsed'), (elapsed / 1000).toFixed(1));
   $('job-progress-bar').style.width = `${Math.min(100, elapsed / 1800)}%`;
   $('job-progress-bar').parentElement.title = '任务时间预算，最长180秒';
   const timings = job?.timings_ms || {};
-  $('model-time').textContent = seconds(timings.model_request);
-  $('execution-time').textContent = seconds(timings.policy_execution);
-  $('review-time').textContent = seconds(timings.feedback_review);
-  $('key-state').textContent = demo ? '演示模式不使用API密钥' : state.settings.key_configured ? '密钥已配置，保存在当前进程中' : '尚未配置密钥';
-  $('footer-state').textContent = active ? `${job.phase}，可随时停止` : !streamHealthy ? '等待本地服务回传' : device.connected ? '设备回传已接入' : '本地服务在线，设备未连接';
-  $('server-state').textContent = streamHealthy ? '在线' : '连接中断';
-  $('context-info').textContent = '当前开机上下文 · ' + (state.context_tasks || 0) + ' 条执行任务';
+  setText($('model-time'), seconds(timings.model_request));
+  setText($('execution-time'), seconds(timings.policy_execution));
+  setText($('review-time'), seconds(timings.feedback_review));
+  setText($('key-state'), demo ? '演示模式不使用API密钥' : state.settings.key_configured ? '密钥已配置，保存在当前进程中' : '尚未配置密钥');
+  setText($('footer-state'), active ? `${job.phase}，可随时停止` : !streamHealthy ? '等待本地服务回传' : device.connected ? '设备回传已接入' : '本地服务在线，设备未连接');
+  setText($('server-state'), streamHealthy ? '在线' : '连接中断');
+  setText($('context-info'), '当前开机上下文 · ' + (state.context_tasks || 0) + ' 条执行任务');
   $('yaw-zero').disabled = !ready || !bmi?.fresh || bmi.calibrated !== 1 || bmi.error !== 0;
   $('range-calibrate').disabled = !idle || active || !owns() || !streamHealthy || !!device.fault;
   $('range-offset-save').disabled = active || !!state.holding || !owns() || (device.connected && !idle);
   if(!rangeOffsetDirty && document.activeElement !== $('range-offset-mm')) $('range-offset-mm').value = state.range_offset_mm || 0;
-  $('calibration-state').textContent = '校正 ' + (state.range_offset_mm || 0) + ' mm · 原始值保留';
+  setText($('calibration-state'), '校正 ' + (state.range_offset_mm || 0) + ' mm · 原始值保留');
   $('hold-mode').disabled = active || !!state.holding;
-  $('reverse-label').textContent = $('hold-mode').checked ? '按住' : '0.8秒';
+  setText($('reverse-label'), $('hold-mode').checked ? '按住' : '0.8秒');
   badge($('teleop-status'), state.holding ? '持续控制中' : $('hold-mode').checked ? '按住行走 · 松开停止' : '按一次走一步', state.holding ? 'running' : 'neutral');
   const error = (state.errors || []).at(-1);
   $('error-panel').hidden = !error;
   if (error) {
-    $('error-category').textContent = {model_call:'模型调用',validation:'代码 / API 校验',execution:'执行反馈',service:'服务'}[error.category] || error.category;
-    $('error-message').textContent = error.type + '：' + error.message;
-    $('error-source').textContent = error.policy || error.raw_response || '此环节没有返回模型代码。';
+    setText($('error-category'), {model_call:'模型调用',validation:'代码 / API 校验',execution:'执行反馈',service:'服务'}[error.category] || error.category);
+    setText($('error-message'), error.type + '：' + error.message);
+    setText($('error-source'), error.policy || error.raw_response || '此环节没有返回模型代码。');
   }
   renderHistory();
 }
@@ -175,15 +197,14 @@ function renderRange(telemetry, device, demo) {
   else if (sample && !valid) { status = '读数无效'; color = 'bad'; }
   else if (valid) { status = '正常'; color = 'good'; }
   badge($('range-status'), status, color);
-  $('tof-status').textContent = status;
+  setText($('tof-status'), status);
   $('tof-dot').style.background = valid ? '#249b9a' : '#b5becb';
-  $('range-value').textContent = valid ? fmt(sample.distance_mm / 10) : '—';
-  $('range-mm').textContent = valid ? `${fmt(sample.distance_mm, 0)} mm${demo ? ' · 演示数据' : ''}` : sample && !disabled ? `原始读数 ${fmt(sample.raw_mm, 0)} mm（无效，不采用）` : '当前没有有效距离';
-  if(valid) $('range-mm').textContent += ' · 原始 '+fmt(sample.raw_mm,0)+' mm';
-  $('range-age').textContent = age === null ? '—' : `${fmt(age / 1000, 1)} s 前`;
-  $('range-optical').textContent = sample ? `status ${sample.status ?? '—'}` : '—';
-  $('range-bus').textContent = sample ? sample.error === 0 ? '正常' : `error ${sample.error}` : '—';
-  $('range-note').textContent = disabled ? '板上固件关闭了采样，需更新测距固件。演示页面不连接硬件。' : status === '初始化失败' || status === '总线异常' ? '检查 VL53L1X 电源、GND、SDA6 / SCL7；修复后重启开发板。' : status === '读数无效' ? '未获得有效反射，调整镜头朝向或目标距离；不会将无效读数显示为距离。' : sample?.near_field ? '目标小于约4cm，已进入近场；贴住读数不能用于偏移标定。请用140mm平整目标标定。' : '以镜头平面为测量基准；普通前进保护 OFF，approach 动作单独按测距闭环停车。';
+  setText($('range-value'), valid ? fmt(sample.distance_mm / 10) : '—');
+  setText($('range-mm'), valid ? `${fmt(sample.distance_mm, 0)} mm${demo ? ' · 演示数据' : ''} · 原始 ${fmt(sample.raw_mm,0)} mm` : sample && !disabled ? `原始读数 ${fmt(sample.raw_mm, 0)} mm（无效，不采用）` : '当前没有有效距离');
+  setText($('range-age'), age === null ? '—' : `${fmt(age / 1000, 1)} s 前`);
+  setText($('range-optical'), sample ? `status ${sample.status ?? '—'}` : '—');
+  setText($('range-bus'), sample ? sample.error === 0 ? '正常' : `error ${sample.error}` : '—');
+  setText($('range-note'), disabled ? '板上固件关闭了采样，需更新测距固件。演示页面不连接硬件。' : status === '初始化失败' || status === '总线异常' ? '检查 VL53L1X 电源、GND、SDA6 / SCL7；修复后重启开发板。' : status === '读数无效' ? '未获得有效反射，调整镜头朝向或目标距离；不会将无效读数显示为距离。' : sample?.near_field ? '目标小于约4cm，已进入近场；贴住读数不能用于偏移标定。请用140mm平整目标标定。' : '以镜头平面为测量基准；普通前进保护 OFF，approach 动作单独按测距闭环停车。');
 }
 
 function renderMotionTelemetry(telemetry, device) {
@@ -192,20 +213,20 @@ function renderMotionTelemetry(telemetry, device) {
   for (const [motor, side] of [['B', 'left'], ['A', 'right']]) {
     const wheel = wheels[motor];
     const valid = device.connected && streamHealthy && wheel?.fresh && wheel.age_ms + addedAge < 1500;
-    $(`${side}-wheel-speed`).textContent = valid ? fmt(wheel.speed_mm_s / 10) : '—';
-    $(`${side}-wheel-rpm`).textContent = valid ? fmt(wheel.rpm) : '—';
-    $(`${side}-wheel-cps`).textContent = valid ? fmt(wheel.cps, 0) : '—';
-    $(`${side}-wheel-direction`).textContent = valid ? Math.abs(wheel.speed_mm_s) < .5 ? '静止' : wheel.speed_mm_s > 0 ? '前向' : '后向' : '等待数据';
+    setText($(`${side}-wheel-speed`), valid ? fmt(wheel.speed_mm_s / 10) : '—');
+    setText($(`${side}-wheel-rpm`), valid ? fmt(wheel.rpm) : '—');
+    setText($(`${side}-wheel-cps`), valid ? fmt(wheel.cps, 0) : '—');
+    setText($(`${side}-wheel-direction`), valid ? Math.abs(wheel.speed_mm_s) < .5 ? '静止' : wheel.speed_mm_s > 0 ? '前向' : '后向' : '等待数据');
     if (valid) speeds.push(wheel.speed_mm_s);
   }
-  $('vehicle-speed').textContent = speeds.length === 2 ? fmt((speeds[0] + speeds[1]) / 20) : '—';
+  setText($('vehicle-speed'), speeds.length === 2 ? fmt((speeds[0] + speeds[1]) / 20) : '—');
   badge($('wheel-status'), speeds.length === 2 ? '实时反馈' : '等待有效回传', speeds.length === 2 ? 'good' : 'neutral');
   const attitude = telemetry.attitude;
   const attitudeFresh = device.connected && streamHealthy && attitude?.fresh && attitude.age_ms + addedAge < 1500 && attitude.calibrated === 1;
   const tiltValid = attitudeFresh && attitude.tilt_valid === 1 && Number.isFinite(attitude.roll) && Number.isFinite(attitude.pitch);
   const yawValid = attitudeFresh && attitude.yaw_valid === 1 && Number.isFinite(attitude.yaw);
   badge($('attitude-status'), tiltValid ? yawValid ? '实时姿态' : '倾斜实时 · 航向失效' : attitude ? '冻结 · 数据无效或过期' : '等待回传', tiltValid && yawValid ? 'good' : 'neutral');
-  for (const name of ['roll', 'pitch', 'yaw']) $('attitude-' + name).textContent = (name === 'yaw' ? yawValid : tiltValid) ? `${fmt(attitude[name])}°` : '—';
+  for (const name of ['roll', 'pitch', 'yaw']) setText($('attitude-' + name), (name === 'yaw' ? yawValid : tiltValid) ? `${fmt(attitude[name])}°` : '—');
 
   window.RoverVisuals?.update({attitude, wheels, receivedAt, enabled: device.connected && streamHealthy});
 }
@@ -222,17 +243,17 @@ function renderChart(samples) {
   const line = positions.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   $('chart-line').setAttribute('d', line);
   $('chart-area').setAttribute('d', `${line} L690,88 L30,88 Z`);
-  $('chart-top').textContent = high.toFixed(0); $('chart-bottom').textContent = low.toFixed(0);
+  setText($('chart-top'), high.toFixed(0)); setText($('chart-bottom'), low.toFixed(0));
 }
 
 let historySignature = '';
 function renderHistory() {
   let jobs = (state?.jobs || []).filter(j => ['manual', 'execute', 'plan'].includes(j.kind));
-  $('history-count').textContent = jobs.length;
+  setText($('history-count'), jobs.length);
   const filter = $('history-filter').value, search = $('history-search').value.trim().toLowerCase();
   jobs = jobs.filter(j => (filter === 'all' || filter === 'plan' && j.kind === 'plan' || filter === 'completed' && j.status === 'completed' || filter === 'failed' && ['failed','cancelled'].includes(j.status)) && (j.title+' '+j.policy+' '+j.error).toLowerCase().includes(search)).reverse();
   const pages = Math.max(1,Math.ceil(jobs.length/6));historyPage = Math.min(historyPage,pages-1);
-  $('history-page').textContent = (historyPage+1)+' / '+pages;
+  setText($('history-page'), (historyPage+1)+' / '+pages);
   $('history-prev').disabled = historyPage===0; $('history-next').disabled = historyPage>=pages-1;
   const visible=jobs.slice(historyPage*6,historyPage*6+6),signature=JSON.stringify([historyPage,filter,search,visible]);
   if (signature === historySignature) return; historySignature = signature;
@@ -271,7 +292,8 @@ function renderLogs() {
   const output = $('console-output');
   const signature=JSON.stringify([filter,search,clearCursor]);
   if(signature!==logSignature) { output.replaceChildren();renderedLogId=clearCursor;logSignature=signature; }
-  const nearBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 50;
+  const selecting = hasSelectedText(output);
+  const nearBottom = !selecting && output.scrollHeight - output.scrollTop - output.clientHeight < 50;
   const shown = events.filter(e => e.id > renderedLogId && (filter === 'all' || e.channel === filter) && e.text.toLowerCase().includes(search)).slice(-350);
   const fragment = document.createDocumentFragment();
   for (const item of shown) {
@@ -281,7 +303,10 @@ function renderLogs() {
       element('span', 'log-text', item.text)); fragment.append(row);
   }
   output.append(fragment); renderedLogId=eventCursor;
-  while(output.childElementCount>350) output.firstElementChild.remove();
+  for (const row of [...output.children]) {
+    if (output.childElementCount <= 350) break;
+    if (!hasSelectedText(row)) row.remove();
+  }
   if (nearBottom) output.scrollTop = output.scrollHeight;
 }
 
@@ -302,7 +327,7 @@ function openSettings() {
   $('setting-key').value = ''; $('settings-dialog').showModal();
 }
 async function openDocument(name = 'webui') {
-  try { const doc = await request(`/api/document?name=${encodeURIComponent(name)}`); $('document-title').textContent = doc.name; $('document-content').textContent = doc.text; if (!$('document-dialog').open) $('document-dialog').showModal(); }
+  try { const doc = await request(`/api/document?name=${encodeURIComponent(name)}`); setText($('document-title'), doc.name); setText($('document-content'), doc.text); if (!$('document-dialog').open) $('document-dialog').showModal(); }
   catch (error) { toast(error.message); }
 }
 async function downloadLogs() {
@@ -342,7 +367,7 @@ document.querySelectorAll('[data-view]').forEach(button => button.addEventListen
   currentView = button.dataset.view;
   document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b === button));
   $('dashboard-view').hidden = currentView !== 'dashboard'; $('history-view').hidden = currentView !== 'history';
-  $('view-name').textContent = currentView === 'dashboard' ? '控制工作台' : '任务记录';
+  setText($('view-name'), currentView === 'dashboard' ? '控制工作台' : '任务记录');
 }));
 $('nav-terminal').addEventListener('click', () => { $('console-panel').scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}); $('terminal-command').focus(); });
 $('settings-open').addEventListener('click', openSettings);
@@ -365,7 +390,7 @@ $('settings-form').addEventListener('submit', async e => {
 });
 $('shutdown-button').addEventListener('click', async () => { if (confirm('结束本地服务？正在运行的任务会中止。')) { await act('/api/shutdown', {}); $('settings-dialog').close(); } });
 $('log-filter').addEventListener('change', renderLogs); $('log-search').addEventListener('input', renderLogs);
-$('log-pause').addEventListener('click', () => { paused = !paused; $('log-pause').textContent = paused ? '继续' : '暂停'; if (!paused) renderLogs(); });
+$('log-pause').addEventListener('click', () => { paused = !paused; setText($('log-pause'), paused ? '继续' : '暂停'); if (!paused) renderLogs(); });
 $('log-clear').addEventListener('click', () => { clearCursor = eventCursor; $('console-output').replaceChildren(); });
 $('log-download').addEventListener('click', downloadLogs); $('history-download').addEventListener('click', downloadLogs);
 $('terminal-form').addEventListener('submit', async e => { e.preventDefault(); const command = $('terminal-command').value.trim(); if (!command) return; terminalHistory.push(command); historyIndex = terminalHistory.length; $('terminal-command').value = ''; await act('/api/terminal', {command}); });
@@ -396,8 +421,8 @@ async function boot() {
     source.onmessage = event => { const data = JSON.parse(event.data); state = data.state; receivedAt = performance.now(); streamHealthy = true; stopOnLost = false; addEvents(data.events); render(); };
     source.onerror = () => { releaseHold(); streamHealthy = false; if (running() && !stopOnLost) { stopOnLost = true; stop(true); } render(); };
     setInterval(() => { if (!document.hidden) request('/api/heartbeat', {}).catch(() => {}); }, 900);
-    setInterval(() => { $('clock').textContent = new Date().toLocaleTimeString('zh-CN', {hour12: false}); render(); }, 200);
-  } catch (error) { $('notice').hidden = false; $('notice').textContent = `本地服务未就绪：${error.message}。请双击启动文件后刷新页面。`; }
+    setInterval(() => { setText($('clock'), new Date().toLocaleTimeString('zh-CN', {hour12: false})); render(); }, 200);
+  } catch (error) { $('notice').hidden = false; setText($('notice'), `本地服务未就绪：${error.message}。请双击启动文件后刷新页面。`); }
 }
 boot();
 
@@ -421,13 +446,13 @@ function openTeleop() {
     if(msg.error) { toast(msg.error); releaseHold(); teleopSocket.close(); return; }
     if (msg.seq<wsSeq) return;
     const now=performance.now();
-    if(inFlight) $('control-latency').textContent='网页↔服务 '+Math.round(now-sentAt)+' ms';
+    if(inFlight) setText($('control-latency'), '网页↔服务 '+Math.round(now-sentAt)+' ms');
     challenge=msg.challenge;inFlight=false;ackAt=now;
     if(startWanted && heldButton && now-holdBegan<180) {
       startWanted=false;startedHold=sendControl('start',{direction:heldDirection,...pwmPayload()});
     }
   };
-  teleopSocket.onclose=()=>{ releaseHold(); challenge=null; $('control-latency').textContent='遥控通道断开 · 松开后刷新'; };
+  teleopSocket.onclose=()=>{ releaseHold(); challenge=null; setText($('control-latency'), '遥控通道断开 · 松开后刷新'); };
   teleopSocket.onerror=()=>releaseHold();
 }
 function beginHold(direction,id,key=null) {
@@ -464,7 +489,7 @@ document.addEventListener('keyup',e=>{ if(e.key.toLowerCase()===heldKey) {e.prev
 $('hold-mode').addEventListener('change',releaseHold);
 $('hold-mode').addEventListener('change',render);
 $('manual-pwm').addEventListener('input',()=>{
-  $('manual-pwm-value').textContent=$('manual-pwm').value+'%';
+  setText($('manual-pwm-value'), $('manual-pwm').value+'%');
   if(Number($('manual-pwm').value)===0) releaseHold();
   render();
 });

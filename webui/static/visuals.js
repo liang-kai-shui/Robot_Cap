@@ -73,7 +73,8 @@ function update(data) {
     if(attitudeParts(attitude).yaw) lastYaw=attitude.yaw;
     const rotation = modelQuaternion({...attitude,yaw:lastYaw}, frameSelect.value);
     target.set(rotation.x,rotation.y,rotation.z,rotation.w);
-    status.textContent = (frameSelect.value === 'header' ? '排针视角 · Z轴 +90°' : frameSelect.value === 'header-negative' ? '排针视角 · Z轴 −90°' : '芯片原始轴 · X红 Y绿 Z蓝') + (attitudeParts(attitude).yaw ? '' : ' · 航向保持不更新');
+    const label = (frameSelect.value === 'header' ? '排针视角 · Z轴 +90°' : frameSelect.value === 'header-negative' ? '排针视角 · Z轴 −90°' : '芯片原始轴 · X红 Y绿 Z蓝') + (attitudeParts(attitude).yaw ? '' : ' · 航向保持不更新');
+    if (status.textContent !== label) status.textContent = label;
     if (!initialized || reduced.matches) { orientation.copy(target); initialized = true; }
   }
   for (const [motor, countsPerMm] of [['A', 19.190], ['B', 19.294]]) {
