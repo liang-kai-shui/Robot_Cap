@@ -396,7 +396,9 @@ static void motor_start(char action,float amount)
         ESP_LOGI("dual-test","VEHICLE_START action=%c ANGLE_TURN v1.1 target_deg=%+.1f pwm=28..40%% max_ms=3000. T stops; rear/sides unmonitored.",action,turn.sign*turn.target_deg);
     else if(action=='w')
         ESP_LOGI("dual-test","VEHICLE_START action=w HEADING_HOLD v1.0 target=current heading base=2200cps correction<=400cps cap=60%% duration=800ms front_guard=%s.",ROBOT_SUPERVISED_TEST?"OFF":"ON");
-    else if(action=='f'||action=='b'||action=='r')
+    else if(action=='r')
+        ESP_LOGI("dual-test","VEHICLE_START action=r RANGE_APPROACH target_mm=%.1f max_ms=15000 max_travel_mm=1500; fresh ToF and heading hold required.",distance_move.target_mm);
+    else if(action=='f'||action=='b')
         ESP_LOGI("dual-test","VEHICLE_START action=%c DISTANCE_MOVE v1.1 target_mm=%.1f right_counts_per_mm=19.190 left_counts_per_mm=19.294 max_ms=6000 cap=60%% front_guard=%s. Heading hold active. T stops.",action,distance_move.target_mm,ROBOT_SUPERVISED_TEST?"OFF":"ON");
     else
         ESP_LOGI("dual-test", "VEHICLE_START action=%c right_sign=%d left_sign=%d target=2200cps initial=40%% cap=60%% duration=800ms", action, motors[0].command_sign, motors[1].command_sign);
@@ -754,7 +756,7 @@ static void serial_poll(int64_t now)
 void app_main(void)
 {
     boot_id=esp_random();
-    ESP_LOGI("vehicle", "KEYBOARD_DRIVE v1.9 protocol=PARAM1: @F50..300 newline (mm), @J150..900 / @L150..900 newline (tenths deg). Legacy F/J/L remain 300mm/90deg. T stop, no BOOT arming.");
+    ESP_LOGI("vehicle", "KEYBOARD_DRIVE v1.9 protocol=PARAM2: @F/@B50..300 (mm), @J/@L150..900 (tenths deg), @R100..1000 front mm, @H session*10+direction lease. Newline terminates frames. T stop, no BOOT arming.");
     ESP_LOGI("vehicle", "A=RIGHT encoder=10/11 IN1=12 IN2=13 PWM=14; B=LEFT encoder=4/5 IN1=16 IN2=17 PWM=18; STBY=15.");
     ESP_LOGI("vehicle", "Keep wiring. VCC and encoder BLACKs=3V3; encoder BLUEs and adapter BLACK=GND; adapter RED=VM only.");
     motor_init_guarded();
