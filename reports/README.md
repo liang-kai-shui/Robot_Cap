@@ -4,6 +4,7 @@
 
 | 日期/阶段 | 报告 | 数据与重点 |
 | --- | --- | --- |
+| 2026-10-13 调研 | [相似项目与优化路线](related_projects_and_roadmap_2026-10-13.md) | 15个项目/组件、一手来源、当前缺口、分阶段建议；非新增实现或实车成绩 |
 | 2026-10-12 实车 | [ESP32实车集成与两段反馈流程](physical_integration_2026-10-12.md) | 用户提供的终端记录；编码器/相对陀螺仪估计，无独立地面真值 |
 | 2026-10-07 规划提示词 | [提示词对照](planner_prompt_ablation_2026-10-07.md) | `planner_prompt_ablation_2026-10-07_summary.json`、`…_trials.csv` |
 | 2026-10-07 模型对照 | [Qwen3.7 Flash与DeepSeek Flash](qwen37_deepseek_full_2026-10-07.md) | `qwen37_deepseek_full_2026-10-07_summary.json`、`…_episodes.csv` |
