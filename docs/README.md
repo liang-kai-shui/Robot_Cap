@@ -15,10 +15,12 @@
 | 文档 | 内容 |
 | --- | --- |
 | [WebUI 使用说明](WEBUI.md) | 双击启动、设备回传、按钮控制、自然语言、终端及构建 |
+| [手动 PWM](MANUAL_PWM.md) | 实际0–100%占空比、pwm-stream-v2、续租和闭环检查边界 |
+| [姿态与测距校正](POSE_RANGE_CALIBRATION.md) | 排针视角、偏移、航向有效性与恢复 |
 | [WebUI 设计方案](WEBUI_DESIGN.md) | 界面布局、视觉规范、设计参考和验证范围 |
 | [实车使用说明](ESP32_HARDWARE.md) | 环境、自然语言/连续/分段控制、上下文、停止和计时 |
 | [完整固件说明](../firmware/esp32s3/README.md) | ESP-IDF配置、编译、主动烧录、源文件职责 |
-| [串口协议](SERIAL_PROTOCOL.md) | PARAM1格式、目标匹配、结果和停稳确认 |
+| [串口协议](SERIAL_PROTOCOL.md) | PARAM1/PARAM2格式、能力扩展、目标匹配、结果和停稳确认 |
 | [复现说明](REPRODUCING.md) | Python测试、固件C检查、完整编译与历史版本 |
 | [模拟实验详细指南](SIMULATION_GUIDE.md) | 原有Benchmark、P1/P2导航、P3规划、P4扰动、指标 |
 | [原始V0需求](V0_REQUIREMENTS.md) | 最初的软件原型要求；历史文档，不代表当前只支持模拟 |
@@ -28,3 +30,5 @@
 [报告索引](../reports/README.md)集中说明各批次日期、协议和数据文件。实车记录和模拟成绩分开存放和解释。
 
 原始运行记录、开发机路径和API密钥不作为复现资料提交；共享报告提供必要设置与结果摘要。
+
+维护目录、版本和实车记录见 [贡献与记录规范](../CONTRIBUTING.md)，近期用户可见变化见 [变更记录](../CHANGELOG.md)。
