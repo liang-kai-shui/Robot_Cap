@@ -19,7 +19,7 @@ from urllib.parse import urlparse
 from agent.physical_context import build_physical_history
 from agent.physical_mission import split_mission, review_segment
 from agent.physical_context import _summary
-from agent.physical_policy import generate_physical_policy, validate_physical_policy, capture_physical_feedback
+from agent.physical_policy import generate_physical_policy, validate_physical_policy, capture_physical_feedback, validate_physical_preflight
 from physical_control import _physical_limits
 from providers.openai_compatible import OpenAICompatibleProvider
 from robot.backends.esp32_serial import ESP32SerialBackend, build_esp32_registry
@@ -382,6 +382,7 @@ class ControlDesk:
             self._phase(job, '正在生成并校验完整计划')
             timings = {}; diagnostics=job['diagnostics']
             feedback=capture_physical_feedback(backend)
+            profile=registry.execution_profile()
             try:
                 policy, response = self._wait_model(job, lambda: generate_physical_policy(provider, instruction,
                 registry, feedback=feedback, history=history, timings=timings, max_motion_calls=9, diagnostics=diagnostics,policy_library=self.policy_library if reuse else None), hardware=connected)
@@ -395,7 +396,8 @@ class ControlDesk:
             self._check(job, hardware=connected)
             plan = {'id': uuid.uuid4().hex, 'instruction': instruction, 'policy': policy, 'segments': policies,
                     'model': response.model, 'diagnostics':deepcopy(diagnostics), 'generation_job_id':job['id'],
-                    'timings_ms': dict(timings), 'epoch': stamp[0], 'revision': stamp[1]}
+                    'timings_ms': dict(timings), 'epoch': stamp[0], 'revision': stamp[1],
+                    'execution_profile': profile}
             with self.lock:
                 self._check(job, hardware=False)
                 if stamp != (self.epoch, self.revision):
@@ -405,6 +407,8 @@ class ControlDesk:
             self.emit('policy', 'success', policy)
             if auto_execute:
                 self._check(job)
+                if profile != registry.execution_profile():
+                    raise ValueError('固件或校准配置已变化，请重新生成计划')
                 with self.lock: self.plan=None
                 job['kind']='execute'
                 job['diagnostics']['stage']='execution'
@@ -480,6 +484,8 @@ class ControlDesk:
             plan = deepcopy(self.plan)
             if not plan or plan['id'] != plan_id or (plan['epoch'], plan['revision']) != (self.epoch, self.revision):
                 raise ValueError('计划已失效或已执行，请重新生成')
+            if plan.get('execution_profile') != build_esp32_registry(self.backend).execution_profile():
+                raise ValueError('固件或校准配置已变化，请重新生成计划')
             if self._active():
                 raise ValueError('已有任务在运行')
             provider = self._provider() if self.settings['review_mode']=='model' and len(plan['segments'])>1 else None
@@ -509,6 +515,7 @@ class ControlDesk:
             for index, policy in enumerate(policies):
                 self._check(job)
                 validate_physical_policy(policy, registry)
+                validate_physical_preflight(policy, capture_physical_feedback(backend))
                 motions += sum(isinstance(node,ast.Expr) and isinstance(node.value,ast.Call) and
                     isinstance(node.value.func,ast.Attribute) and node.value.func.attr in ('move','reverse','turn','approach')
                     for node in ast.parse(policy).body)
@@ -785,6 +792,10 @@ class ControlDesk:
             'last_action': None, 'last_result': None, 'action_count': 0}
         if data['holding']: data['holding']={k:v for k,v in data['holding'].items() if not k.startswith('_')}
         data['port'] = backend.port_name if backend else None
+        feedback=capture_physical_feedback(backend) if backend else None
+        from robot.physical_status import action_availability, diagnose
+        data['action_availability'] = feedback['action_availability'] if feedback else action_availability(data['device'], {})
+        data['diagnosis'] = diagnose(data['device'])
         for name in ('bmi', 'yaw', 'range', 'attitude'):
             sample = data['telemetry'][name]
             if sample:

@@ -12,7 +12,7 @@ python -m pytest -q
 python scripts/check_repository.py
 ```
 
-测试使用mock模型、模拟后端和假串口；不会调用付费模型、连接COM5、烧录开发板或让轮子转动。2026-10-12 本次完整离线回归通过504项测试，包括已验证策略复用、航向恢复、CLI/WebUI共用Episode和模型审核用量；文件归档与文档检查另由检查脚本完成。模拟任务与评分协议未因实车策略库而改变。
+测试使用mock模型、模拟后端和假串口；不会调用付费模型、连接COM5、烧录开发板或让轮子转动。2026-10-13 本次完整离线回归通过515项测试，包括已验证策略复用、航向恢复、CLI/WebUI共用Episode和模型审核用量；文件归档与文档检查另由检查脚本完成。模拟任务与评分协议未因实车策略库而改变。
 
 默认模拟入口：
 
@@ -51,7 +51,7 @@ docker run --rm -v "$PWD:/project" -w /project espressif/idf:v5.1.2 idf.py -C fi
 
 官方镜像用途见[Espressif Docker说明](https://github.com/espressif/esp-idf/blob/v5.1.2/docs/en/api-guides/tools/idf-docker-image.rst)。完整固件的关键默认配置见[sdkconfig.defaults](../firmware/esp32s3/sdkconfig.defaults)，实际构建信息见[固件说明](../firmware/esp32s3/README.md)。本次整理只构建，不烧录。
 
-2026-10-12 最新本地结果：Python 504项通过（严格警告模式），固件C检查PASS，`pwm-stream-v2`完整工程构建并烧录成功；应用大小`0x4e7c0`、1MB分区剩余69%。烧录后确认READY、双轮静止和传感器回传，不作为高PWM运动验证。固件目录保留字节级归档属性，避免Windows/Linux换行转换破坏源码哈希。
+2026-10-13 最新本地结果：Python 515项通过（严格警告模式），此前固件C检查PASS，`pwm-stream-v2`完整工程构建并烧录成功；本轮只更新电脑侧，不再次烧录；应用大小`0x4e7c0`、1MB分区剩余69%。烧录后确认READY、双轮静止和传感器回传，不作为高PWM运动验证。固件目录保留字节级归档属性，避免Windows/Linux换行转换破坏源码哈希。
 
 ## GitHub自动检查
 

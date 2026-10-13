@@ -19,7 +19,7 @@ from agent.physical_context import _summary
 from agent.physical_policy import validate_physical_policy, _literal_number
 from robot.hardware_limits import move_mm, reverse_mm, turn_tenths
 
-CONTRACT='physical-explicit-literals-v1'
+CONTRACT='physical-explicit-literals-v2'
 MAX_ENTRIES=128
 
 def explicit_recipe(instruction):
@@ -66,7 +66,8 @@ def policy_recipe(policy,registry,max_motion_calls=9):
 def compatibility(registry,scope):
     return {'contract':CONTRACT,'scope':scope,
             'api':[asdict(spec) for spec in sorted(registry.list_visible(),key=lambda s:s.canonical_id)],
-            'move_mm':[50,300],'turn_tenths':[150,900],'front_guard':'OFF'}
+            'move_mm':[50,300],'turn_tenths':[150,900],'front_guard':'OFF',
+            'execution_profile': registry.execution_profile()}
 
 def _digest(value):
     return hashlib.sha256(json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -144,6 +145,10 @@ class PhysicalPolicyLibrary:
             if tuple(measured+[('stop',)])!=recipe: return None
         except Exception: return None
         contract=compatibility(registry,self.scope)
+        profile=contract['execution_profile']
+        if profile and any(state.get('execution_profile') != profile
+                           for state in (episode.initial_state, episode.final_state)):
+            return None  # Never learn a run across a configuration change.
         key=_digest({'recipe':recipe,'compatibility':contract})
         with self.lock:
             entries=self._read();old=entries.pop(key,{})

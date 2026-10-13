@@ -74,7 +74,7 @@ class DemoBackend:
 
     def snapshot(self):
         with self.lock:
-            return {'connected': self.connected, 'ready': self.ready, 'stopped': self.stopped,
+            state = {'connected': self.connected, 'ready': self.ready, 'stopped': self.stopped,
                     'firmware': '1.9' if self.connected else None, 'front_guard': 'OFF' if self.connected else None,
                     'firmware_build':'pwm-stream-v1','pwm_manual_available':True,
                     'manual_pwm_percent':self.teleop_pwm if self.teleop_direction else None,
@@ -82,6 +82,10 @@ class DemoBackend:
                     'pose_available': False, 'range_available': True, 'boot_id':'DEMOBOOT', 'teleop':bool(self.teleop_direction), 'collision': None,
                     'last_action': self.last_action, 'last_result': self.last_result,
                     'action_count': self.action_count, 'fault': self.fault}
+            from robot.physical_status import execution_profile
+            state['execution_profile'] = execution_profile(state, self.range_offset)
+            state['execution_profile']['environment'] = 'demo'
+            return state
 
     def begin_task(self):
         with self.lock:

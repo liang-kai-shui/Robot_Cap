@@ -201,6 +201,8 @@ class ESP32SerialBackend(PhysicalBackend):
             if "TELEOP_ACK" in line:
                 if self._teleop and not self._teleop['ending'] and fields.get("session") == str(self._teleop['session']):
                     self._teleop_ack_at = time.monotonic()
+                    if self._teleop.get('first_ack_ms') is None:
+                        self._teleop['first_ack_ms'] = (self._teleop_ack_at-self._teleop['sent_at'])*1000
                     self._stopped = False
                     if self._teleop.get('direct_pwm'):
                         self._teleop['actual_pwm']={side:_number(fields,'applied_'+side.lower()) for side in ('A','B')} if 'applied_a' in fields and 'applied_b' in fields else None
@@ -496,7 +498,9 @@ class ESP32SerialBackend(PhysicalBackend):
                 self._teleop_next += 1
                 digit = ('forward','backward','left','right').index(direction)+1
                 self._teleop = {'session':session,'digit':digit,'ending':False,
-                                'direct_pwm':pwm_percent is not None,'pwm_percent':pwm_percent,'actual_pwm':None}
+                                'direct_pwm':pwm_percent is not None,'pwm_percent':pwm_percent,'actual_pwm':None,
+                                'sent_at':time.monotonic(),'first_ack_ms':None}
+                self._teleop_ack_at = 0
                 self._ready=False; self._stopped=None
                 self._write(self._teleop_wire())
                 return {'session':session, 'lease_ms':250}
@@ -563,7 +567,7 @@ class ESP32SerialBackend(PhysicalBackend):
     def get_attitude(self, **_kwargs):
         with self._condition:
             sample=self._attitude
-            if not sample or time.monotonic()-sample['_at']>.5 or sample.get('tilt_valid')!='1' or sample.get('yaw_valid')!='1':
+            if not self.snapshot()['connected'] or not sample or time.monotonic()-sample['_at']>.5 or sample.get('tilt_valid')!='1' or sample.get('yaw_valid')!='1':
                 raise RobotActionError('BMI323 attitude is invalid or stale')
             return {key:_number(sample,key) for key in ('roll','pitch','yaw')}
 
@@ -636,7 +640,7 @@ class ESP32SerialBackend(PhysicalBackend):
 
     def snapshot(self):
         with self._condition:
-            return {"connected": self._established and self._port is not None and self._port.is_open and not self._closing.is_set(),
+            state = {"connected": self._established and self._port is not None and self._port.is_open and not self._closing.is_set(),
                     "ready": self._ready, "stopped": self._stopped,
                     "firmware": self._firmware, "front_guard": self._guard, "boot_id":self._boot_id, "teleop": bool(self._teleop),
                     "firmware_build":self._build,"pwm_manual_available":self._pwm_manual_available,
@@ -646,6 +650,12 @@ class ESP32SerialBackend(PhysicalBackend):
                     "collision": None, "last_action": self._last_action,
                     "action_count": self._action_count, "last_result": self._last_result,
                     "fault": str(self._failure) if self._failure else ("SESSION_STOPPED" if self._aborted else None)}
+            from robot.physical_status import execution_profile
+            state['execution_profile'] = execution_profile(state, self._range_offset)
+            state['teleop_timing'] = {'first_firmware_ack_ms':self._teleop.get('first_ack_ms'),
+                'firmware_ack_age_ms':(time.monotonic()-self._teleop_ack_at)*1000 if self._teleop_ack_at else None,
+                'basis':'host_monotonic_matching_session_ack_not_wheel_motion'} if self._teleop else None
+            return state
 
     def get_state(self, *, cancel_event=None, deadline=None):
         return self.snapshot()
@@ -694,6 +704,8 @@ class ESP32SerialBackend(PhysicalBackend):
 def build_esp32_registry(backend):
     """Publish the tested hardware subset to validator, proxy and runtime."""
     registry = CapabilityRegistry()
+
+    registry.set_execution_profile(lambda: backend.snapshot().get('execution_profile', {}))
 
     def check_budget(limits):
         if backend.snapshot()["action_count"] >= limits.max_actions:

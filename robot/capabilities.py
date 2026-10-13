@@ -66,6 +66,15 @@ class CapabilityRegistry:
     def __init__(self):
         self._items: dict[str, RegisteredCapability] = {}
         self._paths: dict[tuple[str, ...], str] = {}
+        self._profile_provider = None
+
+    def set_execution_profile(self, provider: Callable[[], dict]) -> None:
+        """Bind trusted configuration metadata, never exposed as a worker API."""
+        self._profile_provider = provider
+
+    def execution_profile(self) -> dict:
+        from copy import deepcopy
+        return deepcopy(self._profile_provider()) if self._profile_provider else {}
 
     def register(self, spec: CapabilitySpec, handler: CapabilityHandler,
                  validator: ArgumentValidator | None = None,

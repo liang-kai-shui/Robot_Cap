@@ -71,6 +71,7 @@ def serve(handler):
             if opcode == 9:
                 write_frame(handler.wfile, data, 10); continue
             if opcode == 10: continue
+            processing_at = time.perf_counter()
             message = json.loads(data.decode('utf-8'))
             if not isinstance(message, dict): raise ValueError('JSON object required')
             if owner is None:
@@ -102,6 +103,7 @@ def serve(handler):
             challenge = secrets.token_urlsafe(12)
             issued = time.monotonic()
             write_frame(handler.wfile, {'seq': seq, 'challenge': challenge, 'holding': holding,
+                                        'server_processing_ms': (time.perf_counter()-processing_at)*1000,
                                         'lease_ms': 250, 'firmware': (desk.backend.snapshot() if desk.backend else {}).get('firmware')})
     except Exception as exc:
         # A socket failure must never escape without independently requesting STOP.

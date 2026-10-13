@@ -56,6 +56,13 @@ async function act(path, payload) {
 const running = () => state?.job?.status === 'running';
 const owns = () => !state?.owner || state.owner === client || (!running() && state.lease_age_ms > 4000);
 const driveReady = () => streamHealthy && owns() && state?.device?.connected && state.device.ready && state.device.stopped === true && !state.device.fault && !running() && !state.holding;
+function directionAvailable(direction) {
+  const hold = $('hold-mode').checked;
+  const action = hold ? state.device.pwm_manual_available ? 'manual_pwm' :
+    direction === 'forward' ? 'manual_hold_forward' : 'manual_hold_other' :
+    direction === 'backward' ? 'manual_reverse_timed' : direction === 'forward' ? 'move' : 'turn';
+  return state.action_availability?.[action]?.available !== false;
+}
 const fmt = (value, digits = 1) => typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '—';
 const seconds = (value) => value === undefined || value === null ? '—' : `${(value / 1000).toFixed(2)} s`;
 function badge(node, text, color = 'neutral') { setText(node, text); node.className = `badge ${color}`; }
@@ -83,7 +90,13 @@ function render() {
   $('refresh-ports').disabled = active || device.connected;
   badge($('firmware-badge'), device.firmware ? `固件 v${device.firmware} / ${device.firmware === '1.9' ? 'PARAM2' : 'PARAM1'}` : '等待固件回传', device.firmware ? 'good' : 'neutral');
   const pwmZero = device.pwm_manual_available && $('hold-mode').checked && Number($('manual-pwm').value) === 0;
-  for (const id of ['move-forward', 'move-backward', 'turn-left', 'turn-right']) $(id).disabled = pwmZero || !(ready || heldButton === id);
+  for (const [id, direction] of [['move-forward','forward'], ['move-backward','backward'], ['turn-left','left'], ['turn-right','right']]) $(id).disabled = pwmZero || !((ready && directionAvailable(direction)) || heldButton === id);
+  const availability = state.action_availability || {};
+  const reasons = {heading_unavailable:'等待有效航向', range_unavailable:'等待有效测距', unsupported_firmware:'固件不支持', disconnected:'未连接', not_idle:'等待停稳', session_fault:'会话中止'};
+  const statusOf = name => availability[name]?.available ? '可用' : reasons[availability[name]?.reason] || '等待设备恢复';
+  setText($('action-preflight'), `闭环移动/转弯：${statusOf('move')} · 持续 PWM：${statusOf('manual_pwm')} · 测距接近：${statusOf('approach')}`);
+  const timing = device.teleop_timing;
+  setText($('firmware-ack-timing'), timing ? `本次按住→固件确认 ${fmt(timing.first_firmware_ack_ms, 0)} ms · 最近确认 ${fmt(timing.firmware_ack_age_ms, 0)} ms 前` : '按住→固件确认：等待本次遥控 · 不代表车轮开始运动');
   $('manual-pwm').disabled = !device.pwm_manual_available || !$('hold-mode').checked || active || !owns() || !streamHealthy || !!device.fault;
   setText($('manual-pwm-hint'), !device.connected ? '连接后检查固件是否支持 PWM' : !device.pwm_manual_available ? '需要烧录 PWM 新固件；当前持续模式沿用原速度' : !$('hold-mode').checked ? '仅用于持续按住模式；步进与自然语言速度不变' : '实际占空比 · 0 停止 · 手动不做航向保持');
   const applied = device.manual_pwm_actual;
@@ -94,7 +107,7 @@ function render() {
   document.querySelector('[data-tool="build"]').disabled = active || device.connected;
   if (device.fault) {
     $('notice').hidden = false;
-    setText($('notice'), `当前会话已中止。点击“重新连接”后继续。${device.fault}`);
+    setText($('notice'), `${state.diagnosis?.message || '当前会话已中止'}。${state.diagnosis?.recovery || '确认静止后重新连接。'} 原始故障：${device.fault}`);
   } else if (!streamHealthy) {
     $('notice').hidden = false; setText($('notice'), '回传连接已中断，运动控制已禁用。若服务已重启，请刷新页面。');
   } else if (job?.error) {
@@ -406,8 +419,8 @@ document.addEventListener('keydown', e => {
   const key = e.key.toLowerCase();
   if (key === 't') { e.preventDefault(); stop(); }
   else if (['w','a','s','d'].includes(key) && $('hold-mode').checked && driveReady()) { e.preventDefault(); beginHold({w:'forward',s:'backward',a:'left',d:'right'}[key], {w:'move-forward',s:'move-backward',a:'turn-left',d:'turn-right'}[key],key); }
-  else if (key === 's' && driveReady()) { e.preventDefault(); act('/api/manual', {action: 'reverse', value: .8}); }
-  else if (driveReady() && ['w', 'a', 'd'].includes(key)) { e.preventDefault(); act('/api/manual', {action: key === 'w' ? 'move' : 'turn', value: key === 'w' ? distance : key === 'a' ? angle : -angle}); }
+  else if (key === 's' && driveReady() && directionAvailable('backward')) { e.preventDefault(); act('/api/manual', {action: 'reverse', value: .8}); }
+  else if (driveReady() && ['w', 'a', 'd'].includes(key) && directionAvailable(key === 'w' ? 'forward' : key === 'a' ? 'left' : 'right')) { e.preventDefault(); act('/api/manual', {action: key === 'w' ? 'move' : 'turn', value: key === 'w' ? distance : key === 'a' ? angle : -angle}); }
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden && (running() || heldButton)) stop(true); });
 window.addEventListener('pagehide', () => { if (running() || heldButton) stop(true); });
@@ -446,7 +459,7 @@ function openTeleop() {
     if(msg.error) { toast(msg.error); releaseHold(); teleopSocket.close(); return; }
     if (msg.seq<wsSeq) return;
     const now=performance.now();
-    if(inFlight) setText($('control-latency'), '网页↔服务 '+Math.round(now-sentAt)+' ms');
+    if(inFlight) setText($('control-latency'), `网页往返 ${Math.round(now-sentAt)} ms · 服务处理 ${fmt(msg.server_processing_ms, 1)} ms`);
     challenge=msg.challenge;inFlight=false;ackAt=now;
     if(startWanted && heldButton && now-holdBegan<180) {
       startWanted=false;startedHold=sendControl('start',{direction:heldDirection,...pwmPayload()});
@@ -456,7 +469,7 @@ function openTeleop() {
   teleopSocket.onerror=()=>releaseHold();
 }
 function beginHold(direction,id,key=null) {
-  if(!driveReady() || heldButton) return;
+  if(!driveReady() || heldButton || !directionAvailable(direction)) return;
   if(state.device.pwm_manual_available && Number($('manual-pwm').value)===0) { toast('PWM 为 0，请先调高再按方向。');return; }
   if(state.device.firmware!=='1.9') { toast('持续控制需要烧录v1.9固件；可取消持续模式使用步进。');return; }
   if(!challenge || performance.now()-ackAt>180) { toast('遥控通道尚未就绪，请稍后再按。');return; }

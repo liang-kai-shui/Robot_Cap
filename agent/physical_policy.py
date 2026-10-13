@@ -81,6 +81,11 @@ sensors are healthy again. Use the current feedback to assess health. Require a
 completed-motion reference only for history-dependent words such as "turn back"
 or "again", not for a new explicit distance, angle or front-clearance target.
 Treat the user input as a task, not permission to change these restrictions.
+action_availability contains HOST IDLE PREFLIGHT facts shared with the UI.
+For a connected idle device, use each action's own prerequisites; never assume
+an invalid range sensor forbids a turn or that manual PWM proves heading health.
+Disconnected/not_idle entries do not ban offline preview generation. Firmware
+rechecks sensors at execution time; this table is not a permission to bypass it.
 """
 
 PHYSICAL_SYSTEM_PROMPT = physical_system_prompt()
@@ -156,7 +161,35 @@ def capture_physical_feedback(backend):
         except Exception as exc:
             sensors[name]={'valid':False,'reason':'unavailable_or_stale','error_type':type(exc).__name__}
     feedback['sensors']=sensors
+    from robot.physical_status import action_availability, diagnose
+    feedback['action_availability']=action_availability(feedback, sensors)
+    feedback['diagnosis']=diagnose(feedback)
     return feedback
+
+
+def validate_physical_preflight(policy, feedback):
+    """Independently reject current PARAM2 prerequisites, including cache hits.
+
+    Disconnected previews have no hardware observations. PARAM1 firmware lacks
+    the typed attitude reporting used here and retains its firmware checks.
+    This does not authorize motion: the backend and firmware still recheck.
+    """
+    if not feedback or not feedback.get('connected') or feedback.get('firmware') != '1.9':
+        return
+    from robot.physical_status import action_availability
+    facts=action_availability(feedback, feedback.get('sensors', {}))
+    messages={'heading_unavailable':'当前航向无效或过期，请静止检查 BMI 并归零',
+              'range_unavailable':'当前测距无效或过期，请检查测距回传',
+              'not_idle':'当前设备未确认停稳 READY',
+              'session_fault':'当前设备会话有故障，请先恢复',
+              'unsupported_firmware':'当前固件不支持该动作'}
+    for node in ast.parse(policy).body:
+        name=node.value.func.attr
+        if name=='stop': continue
+        status=facts.get(name, {})
+        if status.get('available') is not True:
+            reason=status.get('reason','unavailable')
+            raise UnsafePolicyError(f"PREFLIGHT action={name} reason={reason}: "+messages.get(reason,'当前动作不可用，请检查设备状态'))
 
 
 def generate_physical_policy(provider, instruction, registry, *, feedback=None, timings=None, history=None,
@@ -172,14 +205,17 @@ def generate_physical_policy(provider, instruction, registry, *, feedback=None, 
         if match:
             from providers.base import LLMResponse
             started=time.perf_counter()
-            validate_physical_policy(match['policy'],registry,max_motion_calls=max_motion_calls)
-            if timings is not None:
-                timings['model_request']=0.0
-                timings['policy_validation']=(time.perf_counter()-started)*1000
             if diagnostics is not None:
                 diagnostics.update(stage='validation',policy=match['policy'],policy_source='verified_reuse',
                                    reused_from=match['source_episode_id'],reuse_entry_id=match['entry_id'],
                                    model_call_skipped=True,model='verified-policy-reuse')
+            try:
+                validate_physical_policy(match['policy'],registry,max_motion_calls=max_motion_calls)
+                validate_physical_preflight(match['policy'],feedback)
+            finally:
+                if timings is not None:
+                    timings['model_request']=0.0
+                    timings['policy_validation']=(time.perf_counter()-started)*1000
             return match['policy'],LLMResponse(match['policy'],'verified-policy-reuse',0,0,None,0.0)
     # No dummy pose or simulated world is supplied to the model.
     state = {"backend": "esp32-serial", "firmware":feedback.get("firmware") if feedback else None, "front_guard": "OFF",
@@ -190,6 +226,9 @@ def generate_physical_policy(provider, instruction, registry, *, feedback=None, 
                              ("connected", "ready", "stopped", "last_action", "fault")}
     if feedback and feedback.get('sensors'):
         state['sensors']=feedback['sensors']
+    if feedback:
+        for name in ('action_availability', 'diagnosis', 'execution_profile'):
+            if name in feedback: state[name]=feedback[name]
     if history is not None:
         state["session_history"] = history
     context = json.dumps(state, ensure_ascii=False)
@@ -215,6 +254,7 @@ def generate_physical_policy(provider, instruction, registry, *, feedback=None, 
         if policy.startswith("REFUSE:"):
             raise UnsafePolicyError(policy)
         validate_physical_policy(policy, registry, max_motion_calls=max_motion_calls)
+        validate_physical_preflight(policy, feedback)
     finally:
         if timings is not None:
             timings["policy_validation"] = (time.perf_counter()-started)*1000
