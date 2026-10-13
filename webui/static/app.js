@@ -72,6 +72,7 @@ function render() {
   if (!state) return;
   const device = state.device, job = state.job;
   const active = running(), ready = driveReady(), demo = state.mode === 'demo';
+  if (streamHealthy && device.connected && !device.fault && teleopSocket?.readyState === WebSocket.CLOSED) openTeleop();
   const idle = device.connected && device.stopped === true;
   badge($('mode-badge'), demo ? '离线演示' : '实车模式', demo ? 'demo' : 'neutral');
   $('demo-notice').hidden = !demo;
@@ -88,7 +89,8 @@ function render() {
   setText($('port-hint'), demo ? '此页只提供 DEMO。连接 COM5 请打开实车控制台。' : device.connected ? `已连接 ${state.port}；切换串口前先断开设备。` : portsError ? `扫描失败：${portsError}。点击刷新重试。` : portCount ? `发现 ${portCount} 个串口，请选择开发板对应的 USB 串口。` : '未发现串口：请接好开发板 USB 数据线，再点击刷新。');
   $('port-select').disabled = device.connected || active;
   $('refresh-ports').disabled = active || device.connected;
-  badge($('firmware-badge'), device.firmware ? `固件 v${device.firmware} / ${device.firmware === '1.9' ? 'PARAM2' : 'PARAM1'}` : '等待固件回传', device.firmware ? 'good' : 'neutral');
+  const pwmRevision = device.firmware_build?.match(/^pwm-stream-v(\d+)$/)?.[1];
+  badge($('firmware-badge'), device.firmware ? `固件 v${device.firmware} / ${device.firmware === '1.9' ? 'PARAM2' : 'PARAM1'}${pwmRevision ? ' · PWM v'+pwmRevision : ''}` : '等待固件回传', device.firmware ? 'good' : 'neutral');
   const pwmZero = device.pwm_manual_available && $('hold-mode').checked && Number($('manual-pwm').value) === 0;
   for (const [id, direction] of [['move-forward','forward'], ['move-backward','backward'], ['turn-left','left'], ['turn-right','right']]) $(id).disabled = pwmZero || !((ready && directionAvailable(direction)) || heldButton === id);
   const availability = state.action_availability || {};
@@ -110,6 +112,9 @@ function render() {
     setText($('notice'), `${state.diagnosis?.message || '当前会话已中止'}。${state.diagnosis?.recovery || '确认静止后重新连接。'} 原始故障：${device.fault}`);
   } else if (!streamHealthy) {
     $('notice').hidden = false; setText($('notice'), '回传连接已中断，运动控制已禁用。若服务已重启，请刷新页面。');
+  } else if (device.control_stop?.code === 'LOW_PWM_NO_ENCODER_EDGES') {
+    $('notice').hidden = false;
+    setText($('notice'), '当前 PWM 下未检测到编码器运动，两轮已停止。可能无法起转，也可能是供电或编码器问题；检查后调整 PWM，再重新按下。不会自动提高 PWM，无需因本次低 PWM 停止而复位。');
   } else if (job?.error) {
     $('notice').hidden = false; setText($('notice'), job.error);
   } else if (!owns()) {
@@ -363,7 +368,7 @@ async function generate() {
 }
 
 $('refresh-ports').addEventListener('click', refreshPorts);
-$('connect-button').addEventListener('click', () => state?.device.connected && !state.device.fault ? act('/api/disconnect', {}) : act('/api/connect', {port: $('port-select').value}));
+$('connect-button').addEventListener('click', () => { releaseHold(); return state?.device.connected && !state.device.fault ? act('/api/disconnect', {}) : act('/api/connect', {port: $('port-select').value}); });
 $('stop-top').addEventListener('click', () => stop()); $('stop-pad').addEventListener('click', () => stop());
 $('move-forward').addEventListener('click', () => { if (!$('hold-mode').checked) act('/api/manual', {action: 'move', value: distance}); });
 $('move-backward').addEventListener('click', () => { if (!$('hold-mode').checked) act('/api/manual', {action: 'reverse', value: .8}); });
@@ -452,21 +457,30 @@ function sendControl(action,extra={}) {
   return true;
 }
 function openTeleop() {
-  teleopSocket=new WebSocket('ws://'+location.host+'/api/teleop');
-  teleopSocket.onopen=()=>teleopSocket.send(JSON.stringify({token,client}));
-  teleopSocket.onmessage=e=>{
+  if (teleopSocket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(teleopSocket.readyState)) return;
+  // A fresh channel starts idle with a fresh sequence; never replay a held key.
+  releaseHold();challenge=null;wsSeq=0;inFlight=false;ackAt=0;
+  const socket=new WebSocket('ws://'+location.host+'/api/teleop');
+  teleopSocket=socket;
+  socket.onopen=()=>socket.send(JSON.stringify({token,client}));
+  socket.onmessage=e=>{
+    if (teleopSocket !== socket) return;
     const msg=JSON.parse(e.data);
     if(msg.error) { toast(msg.error); releaseHold(); teleopSocket.close(); return; }
     if (msg.seq<wsSeq) return;
     const now=performance.now();
     if(inFlight) setText($('control-latency'), `网页往返 ${Math.round(now-sentAt)} ms · 服务处理 ${fmt(msg.server_processing_ms, 1)} ms`);
     challenge=msg.challenge;inFlight=false;ackAt=now;
+    if (msg.control_stop) {
+      startedHold=false;releaseHold();
+      toast(msg.control_stop.code === 'LOW_PWM_NO_ENCODER_EDGES' ? '当前 PWM 未检测到运动，已停止。检查供电和编码器后调整 PWM，重新按下。' : '本次按住已停止，请松开后重新按下。');
+    }
     if(startWanted && heldButton && now-holdBegan<180) {
       startWanted=false;startedHold=sendControl('start',{direction:heldDirection,...pwmPayload()});
     }
   };
-  teleopSocket.onclose=()=>{ releaseHold(); challenge=null; setText($('control-latency'), '遥控通道断开 · 松开后刷新'); };
-  teleopSocket.onerror=()=>releaseHold();
+  socket.onclose=()=>{ if(teleopSocket !== socket) return; releaseHold(); challenge=null;inFlight=false; setText($('control-latency'), '遥控通道断开 · 设备恢复后重建'); };
+  socket.onerror=()=>{ if(teleopSocket === socket) releaseHold(); };
 }
 function beginHold(direction,id,key=null) {
   if(!driveReady() || heldButton || !directionAvailable(direction)) return;

@@ -30,7 +30,7 @@
 #define RUN_US 800000LL
 #define CONTROL_US 20000LL
 #define CONTROL_GAP_US 60000LL
-#define NO_FEEDBACK_US 150000LL
+#define NO_FEEDBACK_US TELEOP_NO_FEEDBACK_US
 #define STOP_COOLDOWN_US 350000LL
 #define KEY_QUIET_US 150000LL
 #define TRACE_CAPACITY 320U
@@ -335,6 +335,15 @@ static void fault_stop(const char *reason, int wheel)
     turn_report_pending=false;
     dump_trace();
 }
+static void low_pwm_stop(unsigned wheel)
+{
+    unsigned session=teleop.session; int percent=teleop.pwm_percent;
+    motor_stop(); // Shared STBY off before reporting; no automatic boost or retry.
+    ready_reported=false;
+    ESP_ERROR_CHECK(uart_flush_input(UART_NUM_0));
+    ESP_LOGW("vehicle","TELEOP_END cause=LOW_PWM_NO_ENCODER_EDGES session=%u motor=%s pwm_percent=%d fault=0; drive off, check supply/load/encoder and use a fresh press.",
+             session,motors[wheel].name,percent);
+}
 static void forward_stop(range_guard_view_t front, bool rejected)
 {
     motor_stop();
@@ -583,7 +592,6 @@ static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
         motor_t *m=&motors[j];
         if (sample[j].edges!=m->latest.edges) m->last_edge_us=now;
         m->latest=sample[j];
-        if (now-m->last_edge_us>=NO_FEEDBACK_US) { fault_stop("NO_NEW_ENCODER_EDGES", j); return; }
         if (gpio_get_level(m->in1)!=(m->forward_sign*m->command_sign>0) || gpio_get_level(m->in2)!=(m->forward_sign*m->command_sign<0)) {
             fault_stop("DIRECTION_PAD_MISMATCH", j); return;
         }
@@ -642,6 +650,11 @@ static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
         frame.wheel[j]=(wheel_trace_t){.delta=q, .edges=edges, .motion_cps=raw,
             .filtered_cps=m->pi.filtered_cps, .percent=m->pi.percent,.target_cps=target[j]};
     }
+    for(unsigned j=0;j<MOTOR_COUNT;++j) {
+        teleop_feedback_t feedback=teleop_feedback(manual_pwm(),teleop.pwm_percent,now-motors[j].last_edge_us);
+        if(feedback==TELEOP_FEEDBACK_LOW_STOP) {low_pwm_stop(j);return;}
+        if(feedback==TELEOP_FEEDBACK_FAULT) {fault_stop("NO_NEW_ENCODER_EDGES",j);return;}
+    }
     // Apply neither new command if either encoder failed validation.
     for (unsigned j=0; j<MOTOR_COUNT; ++j) {
         pwm_set(&motors[j], (uint32_t)(motors[j].pi.percent*1024.0f/100.0f+0.5f));
@@ -666,7 +679,7 @@ static void user_stop(const char *source)
     // but does not repeat a 350ms cooldown. Motion STOP still measures standstill.
     last_stop_us=esp_timer_get_time()-(already_still?STOP_COOLDOWN_US:0);
     ready_reported=false;
-    ESP_LOGI("vehicle", "VEHICLE_STOP source=%s was_running=%d; no queued motion.", source, was_running);
+    ESP_LOGI("vehicle", "VEHICLE_STOP source=%s was_running=%d fault=%d; no queued motion.", source, was_running, fault_latched);
 }
 static bool motion_key(char key) { return forward_key(key)||key=='b'||key=='s'||key=='a'||key=='d'||angle_key(key); }
 static void serial_poll(int64_t now)
@@ -826,7 +839,7 @@ void app_main(void)
                      now-last_stop_us>=STOP_COOLDOWN_US && now-last_motion_us>=KEY_QUIET_US &&
                      now-last_motion_key_us>=KEY_QUIET_US) {
                 ready_reported=true;
-                ESP_LOGI("vehicle", "VEHICLE_READY: firmware=1.9 protocol=PARAM2 build=pwm-stream-v2 teleop_pwm=1 boot_id=%08lx teleop_next=%u front_guard=%s tof=%s move_min_mm=50 move_max_mm=300 turn_min_tdeg=150 turn_max_tdeg=900; valid calibrated BMI required. T stops. No BOOT unlock.",(unsigned long)boot_id,teleop.closed+1,ROBOT_SUPERVISED_TEST?"OFF":"ON",ROBOT_TOF_ENABLED?"ON":"OFF");
+                ESP_LOGI("vehicle", "VEHICLE_READY: firmware=1.9 protocol=PARAM2 build=pwm-stream-v3 teleop_pwm=1 boot_id=%08lx teleop_next=%u front_guard=%s tof=%s move_min_mm=50 move_max_mm=300 turn_min_tdeg=150 turn_max_tdeg=900; valid calibrated BMI required. T stops. No BOOT unlock.",(unsigned long)boot_id,teleop.closed+1,ROBOT_SUPERVISED_TEST?"OFF":"ON",ROBOT_TOF_ENABLED?"ON":"OFF");
             }
         }
         if (!running && now-last_sensor_print>=500000) {

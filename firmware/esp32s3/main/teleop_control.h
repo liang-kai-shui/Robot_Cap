@@ -2,6 +2,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 #define TELEOP_LEASE_US 250000LL
+#define TELEOP_NO_FEEDBACK_US 150000LL
+// A recovery category, not a measured motor starting threshold. Never boost PWM.
+#define TELEOP_LOW_PWM_BOUNDARY 40
+typedef enum { TELEOP_FEEDBACK_OK, TELEOP_FEEDBACK_LOW_STOP, TELEOP_FEEDBACK_FAULT } teleop_feedback_t;
+static inline teleop_feedback_t teleop_feedback(bool direct_pwm,int percent,int64_t silence_us) {
+    if(silence_us<TELEOP_NO_FEEDBACK_US)return TELEOP_FEEDBACK_OK;
+    if(direct_pwm&&percent>0&&percent<TELEOP_LOW_PWM_BOUNDARY)return TELEOP_FEEDBACK_LOW_STOP;
+    return TELEOP_FEEDBACK_FAULT;
+}
 #define TELEOP_MAX_HOLD_US 30000000LL
 typedef struct { unsigned closed, session; int direction, pwm_percent; int64_t began, renewed; bool active, direct_pwm; } teleop_control_t;
 static inline bool teleop_live(teleop_control_t *p,int64_t now) {

@@ -13,6 +13,9 @@ def execution_profile(state, range_offset_mm):
 
 def diagnose(state):
     fault = str(state.get('fault') or '')
+    if state.get('firmware_fault_latched'):
+        return {'code':'firmware_latched','message':'固件故障已锁定，需要复位',
+                'recovery':'拔下电机独立5V、保留USB，按开发板 EN/RST 后再连接；重新打开串口不会清除固件故障。'}
     if any(marker in fault for marker in ('ClearCommError', 'Serial port is closed', 'ESP32 reset')):
         return {'code': 'serial_lost', 'message': '串口连接失效或开发板已复位',
                 'recovery': '检查 USB 数据线和串口占用，确认小车静止后重新选择串口连接。'}

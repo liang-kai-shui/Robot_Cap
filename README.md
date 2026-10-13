@@ -1,16 +1,16 @@
 # Robot CaP：模拟研究与 ESP32-S3 实车
 
-手动面板支持 [0–100% 实际 PWM 滑块](docs/MANUAL_PWM.md)，默认 40%，0 停止。当前已烧录 `v1.9 / PARAM2 / pwm-stream-v2`；40% 遥控已有用户验证，高 PWM 修复后的运动验证仍待执行。
+手动面板支持 [0–100% 实际 PWM 滑块](docs/MANUAL_PWM.md)，默认 40%，0 停止。当前已烧录 `v1.9 / PARAM2 / pwm-stream-v3`；40% 遥控已有用户验证，高 PWM 修复后的运动验证仍待执行。低 PWM 停止与重连修复见 [恢复说明](docs/PWM_RECOVERY.md)。
 
 自然语言任务通过模型生成 Python Policy，经能力注册、AST 校验和独立 Worker，由可信 RobotRuntime 执行。项目包含二维模拟评测与 ESP32-S3 实车后端，分别记录执行反馈和任务结果。
 
-**当前状态（2026-10-12）：** 双电机、编码器、BMI323、有界参数动作、DeepSeek 自然语言控制和会话上下文已有用户实车记录；统一入口的两段反馈任务也有一次用户验证。WebUI 提供测距、轮速/车速、3D 姿态、手动控制、模型诊断和策略复用。ToF 采样 ON，普通前方停车保护 OFF；未接入实车定位、自主导航或避障。完整 ESP-IDF 工程随仓库提供。各新增动作的验证范围分别见 [项目状态](docs/PROJECT_STATUS.md)，软件测试和静止回传不等于实车运动验证。
+**当前状态（2026-10-13）：** 双电机、编码器、BMI323、有界参数动作、DeepSeek 自然语言控制和会话上下文已有用户实车记录；统一入口的两段反馈任务也有一次用户验证。WebUI 提供测距、轮速/车速、3D 姿态、手动控制、模型诊断和策略复用。ToF 采样 ON，普通前方停车保护 OFF；未接入实车定位、自主导航或避障。完整 ESP-IDF 工程随仓库提供。各新增动作的验证范围分别见 [项目状态](docs/PROJECT_STATUS.md)，软件测试和静止回传不等于实车运动验证。
 
 [文档索引](docs/README.md) · [硬件接口讲解](docs/HARDWARE_INTERFACES_GUIDE.md) · [系统架构](docs/ARCHITECTURE.md) · [项目状态](docs/PROJECT_STATUS.md) · [报告索引](reports/README.md) · [变更记录](CHANGELOG.md) · [贡献与记录规范](CONTRIBUTING.md)
 
 ## 阅读与使用入口
 
-**研究与后续方向：** [相似项目调研与优化路线](reports/related_projects_and_roadmap_2026-10-13.md)，比较15个项目或组件，讨论近期稳定性、延迟、技能复用与未来定位/ROS选择；仅研究建议，未实现新功能。
+**研究与后续方向：** [相似项目调研与优化路线](reports/related_projects_and_roadmap_2026-10-13.md)，比较15个项目或组件，讨论近期稳定性、延迟、技能复用与未来定位/ROS选择；近期落地见 [第一轮优化](docs/ROADMAP_OPTIMIZATION.md)，其余扩展仍是研究建议。
 
 | 目的 | 从这里开始 |
 | --- | --- |

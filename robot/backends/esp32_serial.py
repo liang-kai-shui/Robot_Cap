@@ -16,7 +16,7 @@ from robot.capabilities import CapabilityRegistry, CapabilitySpec, ParameterSpec
 from robot.hardware_limits import MAX_TASK_ACTIONS, move_mm, turn_tenths, reverse_mm, approach_mm
 from runtime.errors import (ActionLimitExceeded, RobotActionError,
                             RobotActionTimeoutError, RobotBackendError,
-                            RobotCommunicationError, RobotEmergencyStopError)
+                            RobotCommunicationError, RobotEmergencyStopError, RobotFirmwareFaultError)
 
 
 @dataclass
@@ -86,6 +86,8 @@ class ESP32SerialBackend(PhysicalBackend):
         self._teleop = None
         self._teleop_next = 1
         self._teleop_ack_at = 0
+        self._control_stop = None
+        self._firmware_fault_latched = False
         self._zero_pending = self._zero_ack = self._zero_rejected = False
 
     @property
@@ -157,6 +159,12 @@ class ESP32SerialBackend(PhysicalBackend):
             with self._condition:
                 self._established = True
             return self
+        except RobotActionTimeoutError as exc:
+            acknowledged=self._stop_acks > 0
+            self.close()
+            if acknowledged:
+                raise RobotActionTimeoutError('STOP 已确认，但固件未返回停稳 READY。可能存在锁定故障；检查原始日志，拔下电机独立5V后按 EN/RST，再重新连接。未发送运动。') from exc
+            raise RobotActionTimeoutError('串口已打开，但没有收到 STOP 确认。请检查串口选择、USB数据线、其他程序占用及固件；未发送运动。') from exc
         except BaseException:
             self.close()
             raise
@@ -190,6 +198,10 @@ class ESP32SerialBackend(PhysicalBackend):
         fields = dict(re.findall(r"([A-Za-z_][A-Za-z_0-9]*)=([^\s;]+)", line))
         with self._condition:
             self._record("rx", line=raw_line)
+            if ('dual-test:' in line and 'STOP motor=' in line and 'reason=' in line) or (
+                    ('VEHICLE_STOP' in line or 'VEHICLE_STATUS' in line) and fields.get('fault') == '1'):
+                self._firmware_fault_latched = True
+                self._trip(RobotFirmwareFaultError('固件故障已锁定，重新打开串口不能清除。请拔下电机独立5V、保留USB，按 EN/RST 后再连接。原始反馈：'+line))
             if "TOF ready=" in line:
                 self._range = {**fields, "_at": time.monotonic()}
             if "ATTITUDE roll=" in line:
@@ -206,7 +218,9 @@ class ESP32SerialBackend(PhysicalBackend):
                     self._stopped = False
                     if self._teleop.get('direct_pwm'):
                         self._teleop['actual_pwm']={side:_number(fields,'applied_'+side.lower()) for side in ('A','B')} if 'applied_a' in fields and 'applied_b' in fields else None
-            if "TELEOP_END" in line and self._teleop:
+            if "TELEOP_END" in line and self._teleop and fields.get('session') == str(self._teleop['session']):
+                self._control_stop={'code':fields.get('cause','HOLD_ENDED'),
+                    'session':self._teleop['session'], 'pwm_percent':self._teleop.get('pwm_percent')}
                 self._teleop['ending'] = True
                 self._ready = False
                 self._stopped = None
@@ -501,6 +515,7 @@ class ESP32SerialBackend(PhysicalBackend):
                                 'direct_pwm':pwm_percent is not None,'pwm_percent':pwm_percent,'actual_pwm':None,
                                 'sent_at':time.monotonic(),'first_ack_ms':None}
                 self._teleop_ack_at = 0
+                self._control_stop = None
                 self._ready=False; self._stopped=None
                 self._write(self._teleop_wire())
                 return {'session':session, 'lease_ms':250}
@@ -509,8 +524,10 @@ class ESP32SerialBackend(PhysicalBackend):
 
     def teleop_pulse(self, *, pwm_percent=None):
         with self._condition:
-            if not self._teleop or self._teleop['ending'] or self._failure or self._aborted:
+            if self._failure or self._aborted:
                 raise RobotEmergencyStopError('持续控制已结束，需要重新按下')
+            if not self._teleop or self._teleop['ending']:
+                return {'holding':False, 'control_stop':self._control_stop or {'code':'HOLD_ENDED'}}
             if pwm_percent is not None:
                 self._pwm_percent(pwm_percent)
                 if not self._teleop['direct_pwm']:
@@ -644,6 +661,7 @@ class ESP32SerialBackend(PhysicalBackend):
                     "ready": self._ready, "stopped": self._stopped,
                     "firmware": self._firmware, "front_guard": self._guard, "boot_id":self._boot_id, "teleop": bool(self._teleop),
                     "firmware_build":self._build,"pwm_manual_available":self._pwm_manual_available,
+                    "firmware_fault_latched":self._firmware_fault_latched,"control_stop":self._control_stop,
                     "manual_pwm_percent":self._teleop.get('pwm_percent') if self._teleop else None,
                     "manual_pwm_actual":self._teleop.get('actual_pwm') if self._teleop else None,
                     "pose_available": False, "range_available": bool(self._range),

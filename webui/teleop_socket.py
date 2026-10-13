@@ -72,6 +72,7 @@ def serve(handler):
                 write_frame(handler.wfile, data, 10); continue
             if opcode == 10: continue
             processing_at = time.perf_counter()
+            control_stop = None
             message = json.loads(data.decode('utf-8'))
             if not isinstance(message, dict): raise ValueError('JSON object required')
             if owner is None:
@@ -97,13 +98,17 @@ def serve(handler):
                         desk.teleop_start(owner, message.get('direction'),pwm_percent=message.get('pwm_percent')); holding = True
                         handler.connection.settimeout(.2)
                     elif action == 'pulse' and holding:
-                        desk.teleop_pulse(owner,pwm_percent=message.get('pwm_percent'))
+                        result=desk.teleop_pulse(owner,pwm_percent=message.get('pwm_percent'))
+                        if result.get('holding') is False:
+                            holding=False;control_stop=result.get('control_stop')
+                            handler.connection.settimeout(3)
                     elif action != 'ping':
                         raise ValueError('Invalid hold state')
             challenge = secrets.token_urlsafe(12)
             issued = time.monotonic()
             write_frame(handler.wfile, {'seq': seq, 'challenge': challenge, 'holding': holding,
                                         'server_processing_ms': (time.perf_counter()-processing_at)*1000,
+                                        'control_stop': control_stop,
                                         'lease_ms': 250, 'firmware': (desk.backend.snapshot() if desk.backend else {}).get('firmware')})
     except Exception as exc:
         # A socket failure must never escape without independently requesting STOP.

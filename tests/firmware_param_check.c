@@ -122,5 +122,14 @@ int main(void) {
         assert(turn_begin_target(&turn,sign,NAN,yaw,1020000)==TURN_TARGET_INVALID);
     }
     puts("PASS fragmented parameter frames, STOP priority, mixed commands, bounds, timeout, variable turn targets");
+    assert(teleop_feedback(true,20,149999)==TELEOP_FEEDBACK_OK);
+    assert(teleop_feedback(true,20,150000)==TELEOP_FEEDBACK_LOW_STOP);
+    assert(teleop_feedback(true,1,150000)==TELEOP_FEEDBACK_LOW_STOP);
+    assert(teleop_feedback(true,39,150000)==TELEOP_FEEDBACK_LOW_STOP);
+    assert(teleop_feedback(true,40,150000)==TELEOP_FEEDBACK_FAULT);
+    assert(teleop_feedback(true,80,150000)==TELEOP_FEEDBACK_FAULT);
+    assert(teleop_feedback(false,20,150000)==TELEOP_FEEDBACK_FAULT);
+    assert(teleop_feedback(true,0,150000)==TELEOP_FEEDBACK_FAULT);
+    puts("PASS: low PWM stops without latch; closed-loop and >=40% no-feedback faults remain");
     return 0;
 }

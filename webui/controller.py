@@ -254,6 +254,8 @@ class ControlDesk:
         with self.lock:
             if self.backend and self.backend.snapshot()['connected'] and not self.backend.snapshot()['fault']:
                 raise ValueError('设备已连接，切换串口前先断开')
+            if self.holding and self.backend and self.backend.snapshot().get('fault'):
+                self.teleop_release(self.owner,reason='故障后重新连接，丢弃旧按住')
         def run(job):
             self._phase(job, '连接并等待停稳确认')
             if self.backend:
@@ -609,6 +611,10 @@ class ControlDesk:
             if time.monotonic()-self.holding['_pulse_at']>.2 or time.monotonic()-self.holding['_began']>=30:
                 self.teleop_release(owner,reason='按住超时');raise ValueError('持续控制已超时')
             result=self.backend.teleop_pulse(**({'pwm_percent':pwm_percent} if pwm_percent is not None else {}))
+            if result.get('holding') is False:
+                self.holding=None
+                self.emit('task','warning','本次按住已停止；未检测到编码器运动，请检查供电、负载和接线，调整PWM后重新按下。不会自动提高PWM。')
+                return result
             if pwm_percent is not None:self.holding['pwm_percent']=pwm_percent
             self.holding['_pulse_at']=time.monotonic()
             self.last_heartbeat=time.monotonic()
