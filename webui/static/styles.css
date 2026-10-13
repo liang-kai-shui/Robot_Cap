@@ -1959,3 +1959,17 @@ main {
 .control-diagnostics {padding:10px 12px;margin:12px 0;background:#f3f6fa;border:1px solid #e3e9f1;border-radius:12px;color:#536177;font-size:12px;line-height:1.7;}
 .control-diagnostics p {margin:0 0 4px;}
 .control-diagnostics small {display:block;font-size:11px;color:#68758b;}
+
+.joystick-section {margin:18px 0;padding:16px;border:1px solid #dce5f1;border-radius:16px;background:linear-gradient(145deg,#f5f8ff,#eef5f7);}
+.joystick-heading,.joystick-readout {display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#61758f;}
+.joystick-heading strong {color:#2f4665;font-size:13px}.joystick-heading span{font-size:11px}
+.joystick-pad {position:relative;width:210px;height:210px;margin:16px auto;border-radius:50%;border:1px solid #c8d7e9;background:radial-gradient(circle at 45% 40%,#fff 0,#f2f6fd 48%,#e0eafa 100%);box-shadow:inset 0 2px 12px #607a9c15,0 7px 18px #59739912;touch-action:none;user-select:none;cursor:grab;}
+.joystick-pad.disabled {opacity:.5;cursor:not-allowed}.joystick-pad.held {border-color:#7597ef;box-shadow:0 0 0 4px #376ef511,inset 0 2px 12px #607a9c15;cursor:grabbing}
+.joy-axis {position:absolute;background:#cedbec;pointer-events:none}.joy-axis-x{height:1px;left:22px;right:22px;top:50%}.joy-axis-y{width:1px;top:22px;bottom:22px;left:50%}
+.joy-ring{position:absolute;inset:35px;border:1px dashed #c6d6e9;border-radius:50%;pointer-events:none}
+.joy-label{position:absolute;font-size:10px;color:#7b91ad;pointer-events:none}.joy-north{top:10px;left:calc(50% - 10px)}.joy-south{bottom:10px;left:calc(50% - 10px)}.joy-west{left:9px;top:calc(50% - 7px)}.joy-east{right:9px;top:calc(50% - 7px)}
+.joystick-thumb{position:absolute;left:calc(50% - 27px);top:calc(50% - 27px);width:54px;height:54px;display:grid;place-items:center;border-radius:50%;color:white;background:linear-gradient(145deg,#638bff,#345bca);border:3px solid #e4ecff;box-shadow:0 6px 16px #315bb83d;pointer-events:none;will-change:transform}
+.joystick-thumb .icon{width:23px;height:23px}.joystick-readout b{font-variant-numeric:tabular-nums;color:#395fb5}.joystick-section .control-note{margin-bottom:0}
+
+.manual-control-modes {margin-top:16px}
+.joystick-stop {width:100%;justify-content:center;margin-top:12px;color:#b0474e;border-color:#edd4d8;background:#fff6f6}

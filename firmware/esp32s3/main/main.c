@@ -23,6 +23,8 @@
 #include "test_mode.h"
 #include "command_parser.h"
 #include "teleop_control.h"
+#include "encoder_snapshot.h"
+#include "vector_control.h"
 #include "esp_random.h"
 
 #define MOTOR_STBY GPIO_NUM_15
@@ -36,7 +38,6 @@
 #define TRACE_CAPACITY 320U
 #define MOTOR_COUNT 2U
 
-typedef struct { int quadrature, edges; } encoder_sample_t;
 typedef struct {
     const char *name, *side;
     int command_sign;
@@ -72,6 +73,8 @@ static int64_t turn_report_us;
 static char current_action;
 static param_parser_t param_parser;
 static teleop_control_t teleop;
+static vector_control_t vector;
+static bool last_stop_manual;
 static uint32_t boot_id;
 static bool range_report_pending;
 static float range_cutoff_mm;
@@ -102,8 +105,12 @@ static void pwm_set(motor_t *m, uint32_t duty)
     ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, m->channel, duty));
     ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, m->channel));
 }
+static int64_t stop_cooldown_us(void) { return last_stop_manual?MANUAL_COOLDOWN_US:STOP_COOLDOWN_US; }
+static int64_t motion_quiet_us(void) { return last_stop_manual?MANUAL_QUIET_US:KEY_QUIET_US; }
 static void motor_stop(void)
 {
+    if(running)last_stop_manual=manual_pwm();
+    vector.pending=false;
     // Shared STBY cuts both bridges before any other operation or UART output.
     if (motor_ready) {
         ESP_ERROR_CHECK(gpio_set_level(MOTOR_STBY, 0));
@@ -202,24 +209,38 @@ static void encoder_init(motor_t *m)
     }
     start_counter(m->edge_unit);
 }
-static void encoders_read(encoder_sample_t sample[MOTOR_COUNT])
+static int encoder_counter_read(void *ctx, bool edge_counter, int *value)
 {
+    motor_t *m=ctx;
+    return pcnt_unit_get_count(edge_counter?m->edge_unit:m->q_unit,value);
+}
+static bool encoders_read(encoder_sample_t sample[MOTOR_COUNT])
+{
+    encoder_sample_t fresh[MOTOR_COUNT];
     for (unsigned i=0; i<MOTOR_COUNT; ++i) {
-        ESP_ERROR_CHECK(pcnt_unit_get_count(motors[i].q_unit, &sample[i].quadrature));
-        ESP_ERROR_CHECK(pcnt_unit_get_count(motors[i].edge_unit, &sample[i].edges));
+        int error=ESP_OK;
+        bool coherent=encoder_snapshot_read(encoder_counter_read,&motors[i],&fresh[i],&error);
+        ESP_ERROR_CHECK(error);
+        if(!coherent)return false;
     }
+    for(unsigned i=0;i<MOTOR_COUNT;++i)sample[i]=fresh[i];
+    return true;
 }
 static void telemetry_worker(void *ctx)
 {
     (void)ctx;
     encoder_sample_t previous[MOTOR_COUNT];
-    encoders_read(previous);
+    bool previous_valid=encoders_read(previous);
     int64_t previous_us=esp_timer_get_time();
     while(true) {
         vTaskDelay(pdMS_TO_TICKS(250));
         encoder_sample_t sample[MOTOR_COUNT];
-        encoders_read(sample);
+        if(!encoders_read(sample))continue;
         int64_t now=esp_timer_get_time(),dt=now-previous_us;
+        if(!previous_valid) {
+            for(unsigned j=0;j<MOTOR_COUNT;++j)previous[j]=sample[j];
+            previous_us=now;previous_valid=true;continue;
+        }
         for(unsigned j=0;j<MOTOR_COUNT;++j) {
             long long delta=((long long)sample[j].quadrature-previous[j].quadrature)*motors[j].forward_sign;
             long long edges=(long long)sample[j].edges-previous[j].edges;
@@ -259,7 +280,9 @@ static void distance_cal_begin(int64_t now)
         ESP_LOGI("distance-cal","DISTANCE_CAL_REJECTED cause=%s; no measurement started.",turn_cause(status));return;
     }
     motor_stop();
-    encoders_read(distance_cal.start);
+    if(!encoders_read(distance_cal.start)) {
+        ESP_LOGW("distance-cal","DISTANCE_CAL_REJECTED cause=ENCODER_SNAPSHOT_UNSTABLE");return;
+    }
     distance_cal.start_yaw=yaw.angle_deg;distance_cal.peak_yaw=0;distance_cal.yaw_fault=false;
     distance_cal.epoch=yaw.zero_epoch;distance_cal.fault_events=yaw.fault_events;
     distance_cal.started_us=distance_cal.printed_us=esp_timer_get_time();
@@ -275,7 +298,8 @@ static void distance_cal_poll(int64_t now)
         distance_cal.yaw_fault=true; // Retain failures through recovery; do not accept that stroke.
     else distance_cal.peak_yaw=fmaxf(distance_cal.peak_yaw,fabsf(yaw.angle_deg-distance_cal.start_yaw));
     if(now-distance_cal.printed_us>=500000) {
-        encoder_sample_t sample[MOTOR_COUNT];encoders_read(sample);
+        encoder_sample_t sample[MOTOR_COUNT];
+        if(!encoders_read(sample)){distance_cal_cancel("ENCODER_SNAPSHOT_UNSTABLE");return;}
         ESP_LOGI("distance-cal","DISTANCE_CAL_SAMPLE trial=%u right_forward_counts=%lld left_forward_counts=%lld yaw_change_deg=%+.1f yaw_peak_deg=%.1f yaw_fault=%d; E finishes, T cancels.",
             distance_cal.trial,-((long long)sample[0].quadrature-distance_cal.start[0].quadrature),
             (long long)sample[1].quadrature-distance_cal.start[1].quadrature,
@@ -292,7 +316,8 @@ static void distance_cal_finish(int64_t now)
     }
     distance_cal_poll(esp_timer_get_time());
     if(!distance_cal.active)return;
-    encoder_sample_t sample[MOTOR_COUNT];encoders_read(sample);
+    encoder_sample_t sample[MOTOR_COUNT];
+    if(!encoders_read(sample)){distance_cal_cancel("ENCODER_SNAPSHOT_UNSTABLE");return;}
     long long q[2],edges[2];bool counts_ok=true;
     for(unsigned j=0;j<MOTOR_COUNT;j++) {
         q[j]=motors[j].forward_sign*((long long)sample[j].quadrature-distance_cal.start[j].quadrature);
@@ -337,7 +362,7 @@ static void fault_stop(const char *reason, int wheel)
 }
 static void low_pwm_stop(unsigned wheel)
 {
-    unsigned session=teleop.session; int percent=teleop.pwm_percent;
+    unsigned session=teleop.session; int percent=teleop.vector_mode?abs(vector.desired[wheel]):teleop.pwm_percent;
     motor_stop(); // Shared STBY off before reporting; no automatic boost or retry.
     ready_reported=false;
     ESP_ERROR_CHECK(uart_flush_input(UART_NUM_0));
@@ -363,6 +388,48 @@ static bool heading_start_checked(char action)
     ESP_ERROR_CHECK(uart_flush_input(UART_NUM_0));
     ESP_LOGI("vehicle","VEHICLE_BLOCKED action=%c source=HEADING_HOLD cause=%s; motor not enabled.",action,heading_cause(result));
     return false;
+}
+static void vector_pause(int64_t now)
+{
+    ESP_ERROR_CHECK(gpio_set_level(MOTOR_STBY,0));
+    for(unsigned j=0;j<MOTOR_COUNT;++j) {
+        pwm_set(&motors[j],0);motors[j].pi.percent=0;motors[j].command_sign=0;
+        ESP_ERROR_CHECK(gpio_set_level(motors[j].in1,0));
+        ESP_ERROR_CHECK(gpio_set_level(motors[j].in2,0));
+    }
+    vector.pending=true;vector.paused_us=now;
+}
+static void vector_refresh(int64_t now)
+{
+    if(!vector.desired[0]&&!vector.desired[1]) {
+        unsigned session=teleop.session;
+        motor_stop();ready_reported=false;ESP_ERROR_CHECK(uart_flush_input(UART_NUM_0));
+        ESP_LOGI("vehicle","TELEOP_END cause=JOYSTICK_NEUTRAL session=%u fault=0; fresh input required.",session);
+        return;
+    }
+    if(vector.pending)return; // Latest desired values replace old ones while bridges are off.
+    bool reenable=false;
+    for(unsigned j=0;j<MOTOR_COUNT;++j)reenable|=!motors[j].command_sign&&vector.desired[j];
+    if(vector_reversal(&vector)||reenable) {vector_pause(now);return;}
+    for(unsigned j=0;j<MOTOR_COUNT;++j)if(!vector.desired[j]) {
+        pwm_set(&motors[j],0);motors[j].pi.percent=0;motors[j].command_sign=0;
+        ESP_ERROR_CHECK(gpio_set_level(motors[j].in1,0));
+        ESP_ERROR_CHECK(gpio_set_level(motors[j].in2,0));
+    }
+}
+static void vector_resume_drive(const encoder_sample_t sample[MOTOR_COUNT],int64_t now)
+{
+    for(unsigned j=0;j<MOTOR_COUNT;++j) {
+        motor_t *m=&motors[j];m->command_sign=vector_sign(vector.desired[j]);
+        if(m->command_sign)vector.last_sign[j]=m->command_sign;
+        m->latest=m->control_start=sample[j];m->last_edge_us=now;
+        speed_pi_reset(&m->pi);overspeed_frames[j]=0;
+        ESP_ERROR_CHECK(gpio_set_level(m->in1,m->forward_sign*m->command_sign>0));
+        ESP_ERROR_CHECK(gpio_set_level(m->in2,m->forward_sign*m->command_sign<0));
+        pwm_set(m,0);
+    }
+    vector.pending=false;control_started_us=now;
+    ESP_ERROR_CHECK(gpio_set_level(MOTOR_STBY,1));
 }
 static void motor_start(char action,float amount)
 {
@@ -393,6 +460,10 @@ static void motor_start(char action,float amount)
     // A is RIGHT, B is LEFT. Positive command_sign means vehicle forward.
     motors[0].command_sign=(action=='s' || action=='b' || action=='d' || action=='l')?-1:1;
     motors[1].command_sign=(action=='s' || action=='b' || action=='a' || action=='j')?-1:1;
+    if(teleop.vector_mode)for(unsigned j=0;j<MOTOR_COUNT;++j) {
+        motors[j].command_sign=vector_sign(vector.desired[j]);
+        vector.last_sign[j]=motors[j].command_sign;
+    }
     trace_count=0;
     ESP_ERROR_CHECK(gpio_set_level(MOTOR_STBY, 0));
     for (unsigned i=0; i<MOTOR_COUNT; ++i) {
@@ -400,8 +471,8 @@ static void motor_start(char action,float amount)
         overspeed_frames[i]=0;
         ESP_ERROR_CHECK(gpio_set_level(motors[i].in1, motors[i].forward_sign*motors[i].command_sign>0));
         ESP_ERROR_CHECK(gpio_set_level(motors[i].in2, motors[i].forward_sign*motors[i].command_sign<0));
-        if(manual_pwm())motors[i].pi.percent=(float)teleop.pwm_percent;
-        pwm_set(&motors[i], manual_pwm()?(uint32_t)(teleop.pwm_percent*1023U/100U):410);
+        if(manual_pwm()&&!teleop.vector_mode)motors[i].pi.percent=(float)teleop.pwm_percent;
+        pwm_set(&motors[i],teleop.vector_mode?0:manual_pwm()?(uint32_t)(teleop.pwm_percent*1023U/100U):410);
     }
     if(manual_pwm())
         ESP_LOGI("vehicle","VEHICLE_START action=%c MANUAL_PWM percent=%d heading_hold=OFF; lease and encoder checks active.",action,teleop.pwm_percent);
@@ -440,7 +511,10 @@ static void motor_start(char action,float amount)
         }
     }
     encoder_sample_t sample[MOTOR_COUNT];
-    encoders_read(sample);
+    if(!encoders_read(sample)) {
+        motor_stop();ready_reported=false;last_stop_us=esp_timer_get_time();
+        ESP_LOGW("vehicle","VEHICLE_BLOCKED action=%c cause=ENCODER_SNAPSHOT_UNSTABLE; motor not enabled.",action);return;
+    }
     if(action=='r') {
         range_guard_view_t front=sensors_forward_guard();
         if(!front.valid||front.age_us<0||front.age_us>FRONT_FRESH_US||front.mm<=amount+20) {
@@ -561,6 +635,10 @@ static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
         ESP_LOGI("vehicle","TELEOP_END cause=LEASE_OR_MAX_HOLD session=%u; drive off, fresh press required.",teleop.closed);
         return;
     }
+    if(teleop.vector_mode&&vector.pending) {
+        if(vector_resume(&vector,now,last_motion_us))vector_resume_drive(sample,now);
+        return; // Lease/BOOT/STOP remain active while bridges are disabled.
+    }
     if(current_action=='r') {
         range_guard_view_t front=sensors_forward_guard();
         if(!front.valid||front.age_us<0||front.age_us>FRONT_FRESH_US) {fault_stop("RANGE_INVALID_OR_STALE",-1);return;}
@@ -626,12 +704,29 @@ static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
     }
     for (unsigned j=0; j<MOTOR_COUNT; ++j) {
         motor_t *m=&motors[j];
+        if(teleop.vector_mode&&!m->command_sign) {
+            m->pi.percent=0;frame.wheel[j]=(wheel_trace_t){0};continue;
+        }
         long long q=(long long)sample[j].quadrature-m->control_start.quadrature;
         long long edges=(long long)sample[j].edges-m->control_start.edges;
         long long forward_q=m->forward_sign*m->command_sign*q;
         if (forward_q<-4) { fault_stop("ENCODER_OPPOSES_COMMAND", j); return; }
         if (edges<0 || magnitude(forward_q-edges)>8+edges/100) {
-            fault_stop("QUADRATURE_VS_C1_C2_EDGE_SUM_MISMATCH", j); return;
+            bool direct=manual_pwm();int percent=teleop.pwm_percent;
+            bool recoverable=teleop_encoder_recoverable(direct,forward_q,edges);
+            if(recoverable) {
+                unsigned session=teleop.session;
+                motor_stop();ready_reported=false;
+                ESP_ERROR_CHECK(uart_flush_input(UART_NUM_0));
+                ESP_LOGW("vehicle","TELEOP_END cause=MANUAL_ENCODER_VARIATION session=%u motor=%s pwm_percent=%d fault=0; drive off, inspect wheels/wiring, fresh press required.",session,m->name,percent);
+                // Keep a recoverable stop responsive; log only its rejected frame.
+            } else fault_stop("QUADRATURE_VS_C1_C2_EDGE_SUM_MISMATCH", j);
+            // Include the rejected frame, which is absent from the valid trace.
+            ESP_LOG_LEVEL((recoverable?ESP_LOG_WARN:ESP_LOG_ERROR),"encoder-check","ENCODER_FAULT_FRAME motor=%s action=%c direct_pwm=%d pwm_percent=%d recoverable=%d command_sign=%d forward_sign=%d dt_us=%lld elapsed_us=%lld q_prev=%d q_now=%d edge_prev=%d edge_now=%d dq=%lld forward_dq=%lld edges=%lld difference=%lld tolerance=%lld",
+                m->name,current_action,direct,percent,recoverable,m->command_sign,m->forward_sign,dt_us,now-run_started_us,
+                m->control_start.quadrature,sample[j].quadrature,m->control_start.edges,sample[j].edges,
+                q,forward_q,edges,forward_q-edges,8+edges/100);
+            return;
         }
         float raw=fmaxf(0, (float)(forward_q*1000000.0/dt_us));
         if (speed_target_guard(&overspeed_frames[j], raw, manual_pwm())) {
@@ -639,7 +734,10 @@ static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
         }
         if(manual_pwm()) {
             m->pi.filtered_cps=raw;
-            m->pi.percent=(float)teleop.pwm_percent;
+            if(teleop.vector_mode) {
+                float step=VECTOR_SLEW_PERCENT_S*dt_us*0.000001f;
+                m->pi.percent=speed_clamp((float)abs(vector.desired[j]),m->pi.percent-step,m->pi.percent+step);
+            } else m->pi.percent=(float)teleop.pwm_percent;
         } else if(angle_key(current_action)) {
             // Outer angle feedback sets bounded PWM; encoder checks remain active.
             // No integral speed demand can accelerate the wheels near the target.
@@ -651,7 +749,9 @@ static void motor_poll(const encoder_sample_t sample[MOTOR_COUNT], int64_t now)
             .filtered_cps=m->pi.filtered_cps, .percent=m->pi.percent,.target_cps=target[j]};
     }
     for(unsigned j=0;j<MOTOR_COUNT;++j) {
-        teleop_feedback_t feedback=teleop_feedback(manual_pwm(),teleop.pwm_percent,now-motors[j].last_edge_us);
+        if(teleop.vector_mode&&!motors[j].command_sign)continue;
+        int percent=teleop.vector_mode?abs(vector.desired[j]):teleop.pwm_percent;
+        teleop_feedback_t feedback=teleop_feedback(manual_pwm(),percent,now-motors[j].last_edge_us);
         if(feedback==TELEOP_FEEDBACK_LOW_STOP) {low_pwm_stop(j);return;}
         if(feedback==TELEOP_FEEDBACK_FAULT) {fault_stop("NO_NEW_ENCODER_EDGES",j);return;}
     }
@@ -668,7 +768,7 @@ static void user_stop(const char *source)
     param_parser=(param_parser_t){0};
     bool was_running=running;
     bool already_still=!running&&!turn_report_pending&&!distance_move.report_pending&&!range_report_pending&&
-        esp_timer_get_time()-last_motion_us>=KEY_QUIET_US;
+        esp_timer_get_time()-last_motion_us>=motion_quiet_us();
     motor_stop();
     turn_report_pending=false;
     distance_move.report_pending=false;
@@ -677,7 +777,7 @@ static void user_stop(const char *source)
     ESP_ERROR_CHECK(uart_flush_input(UART_NUM_0));
     // An already confirmed idle STOP still acknowledges T and drains input,
     // but does not repeat a 350ms cooldown. Motion STOP still measures standstill.
-    last_stop_us=esp_timer_get_time()-(already_still?STOP_COOLDOWN_US:0);
+    last_stop_us=esp_timer_get_time()-(already_still?stop_cooldown_us():0);
     ready_reported=false;
     ESP_LOGI("vehicle", "VEHICLE_STOP source=%s was_running=%d fault=%d; no queued motion.", source, was_running, fault_latched);
 }
@@ -698,12 +798,13 @@ static void serial_poll(int64_t now)
         return;
     }
     if(packet.waiting&&!packet.commands)return;
-    if(packet.commands==1&&(packet.action=='h'||packet.action=='u')) {
+    if(packet.commands==1&&(packet.action=='h'||packet.action=='u'||packet.action=='v')) {
         bool was_active=teleop.active;
         bool idle=!running&&!turn_report_pending&&!distance_move.report_pending&&!range_report_pending&&
             !distance_cal.active&&motor_ready&&!fault_latched&&gpio_get_level(TEST_BUTTON)&&
-            now-last_stop_us>=STOP_COOLDOWN_US&&now-last_motion_us>=KEY_QUIET_US;
-        bool accepted=packet.action=='u'?teleop_accept_pwm(&teleop,(unsigned)packet.units,now,idle):
+            now-last_stop_us>=stop_cooldown_us()&&now-last_motion_us>=motion_quiet_us();
+        bool accepted=packet.action=='v'?vector_accept(&teleop,&vector,(unsigned)packet.units,now,idle):
+            packet.action=='u'?teleop_accept_pwm(&teleop,(unsigned)packet.units,now,idle):
             teleop_accept(&teleop,(unsigned)packet.units,now,idle);
         if(!accepted) {
             if(running)fault_stop("TELEOP_EXPIRED_OR_WRONG_SESSION",-1);
@@ -711,13 +812,17 @@ static void serial_poll(int64_t now)
         }
         if(!was_active) {
             static const char actions[]={0,'w','s','a','d'};
-            motor_start(actions[teleop.direction],0);
+            motor_start(teleop.vector_mode?'v':actions[teleop.direction],0);
             if(!running) {teleop_close(&teleop);return;}
             teleop.began=teleop.renewed=esp_timer_get_time();
             ESP_LOGI("vehicle","TELEOP_START session=%u direction=%d lease_ms=250 max_hold_ms=30000",teleop.session,teleop.direction);
         }
-        ESP_LOGI("vehicle","TELEOP_ACK session=%u direction=%d direct_pwm=%d pwm_percent=%d applied_a=%.1f applied_b=%.1f",
-            teleop.session,teleop.direction,teleop.direct_pwm,teleop.pwm_percent,motors[0].pi.percent,motors[1].pi.percent);
+        if(was_active&&teleop.vector_mode)vector_refresh(esp_timer_get_time());
+        if(!teleop.active)return;
+        ESP_LOGI("vehicle","TELEOP_ACK session=%u direction=%d direct_pwm=%d vector=%d pending=%d pwm_percent=%d applied_a=%.1f applied_b=%.1f",
+            teleop.session,teleop.direction,teleop.direct_pwm,teleop.vector_mode,vector.pending,teleop.pwm_percent,
+            motors[0].pi.percent*(teleop.vector_mode?motors[0].command_sign:1),
+            motors[1].pi.percent*(teleop.vector_mode?motors[1].command_sign:1));
         return;
     }
     uint8_t *bytes=packet.legacy;count=(int)packet.legacy_len;
@@ -762,8 +867,8 @@ static void serial_poll(int64_t now)
     last_motion_key_us=now;
     // No queued action, live reversal or deadline extension. Held-key repeats
     // remain ignored until a quiet interval, even after the motion has stopped.
-    if (running || turn_report_pending || range_report_pending || distance_move.report_pending || !fresh || now-last_stop_us<STOP_COOLDOWN_US ||
-        now-last_motion_us<KEY_QUIET_US || !gpio_get_level(TEST_BUTTON)) return;
+    if (running || turn_report_pending || range_report_pending || distance_move.report_pending || !fresh || now-last_stop_us<stop_cooldown_us() ||
+        now-last_motion_us<motion_quiet_us() || !gpio_get_level(TEST_BUTTON)) return;
     if (movement_keys!=1) {
         ESP_LOGW("vehicle", "Send ONE W/S/A/D/F/J/L key. Pasted multi-action packets ignored."); return;
     }
@@ -804,16 +909,22 @@ void app_main(void)
     ESP_LOGI("vehicle", "W heading hold: requires valid calibrated fixed BMI, level floor, still at start. Right/left targets=2200 +/-400cps, no reverse. BMI stale/reset, error>15deg or yaw rate>90dps stops. Distance not controlled.");
     ESP_LOGI("vehicle", "J/L angle trial: chassis on LEVEL FLOOR, BMI fixed, still for calibration. 90deg relative body yaw, <=3s PWM<=40%%. No yaw progress stops in 400ms; wheels raised cannot verify angle.");
     encoder_sample_t previous[MOTOR_COUNT];
-    encoders_read(previous);
+    bool previous_valid=encoders_read(previous);
     last_motion_us=last_stop_us=esp_timer_get_time();
     bool boot_was_pressed=false;
     int64_t last_sensor_print=0;
     while (true) {
         int64_t now=esp_timer_get_time();
         encoder_sample_t sample[MOTOR_COUNT];
-        encoders_read(sample);
+        if(!encoders_read(sample)) {
+            ready_reported=false;
+            if(running)fault_stop("ENCODER_SNAPSHOT_UNSTABLE",-1);
+            if(distance_cal.active)distance_cal_cancel("ENCODER_SNAPSHOT_UNSTABLE");
+            vTaskDelay(pdMS_TO_TICKS(5));continue;
+        }
         for (unsigned j=0; j<MOTOR_COUNT; ++j)
-            if (sample[j].edges!=previous[j].edges) last_motion_us=now;
+            if (!previous_valid || sample[j].edges!=previous[j].edges) last_motion_us=now;
+        previous_valid=true;
         if(turn_report_pending&&now>=turn_report_us)turn_report();
         // Report an idle BOOT press too: the PC may be waiting between P steps.
         bool boot_pressed=!gpio_get_level(TEST_BUTTON);
@@ -828,7 +939,7 @@ void app_main(void)
             ESP_LOGI("vehicle","VEHICLE_DONE action=r type=RANGE_APPROACH");
         }
         if(distance_cal.active)distance_cal_poll(esp_timer_get_time());
-        if (now-last_stop_us<STOP_COOLDOWN_US||param_parser.receiving||param_parser.discarding) ready_reported=false;
+        if (now-last_stop_us<stop_cooldown_us()||param_parser.receiving||param_parser.discarding) ready_reported=false;
         if (running) { ready_reported=false; motor_poll(sample, now); }
         else if (motor_ready && !fault_latched) {
             bool high=gpio_get_level(MOTOR_STBY);
@@ -836,10 +947,10 @@ void app_main(void)
                 high |= gpio_get_level(motors[j].in1)||gpio_get_level(motors[j].in2)||gpio_get_level(motors[j].pwm);
             if (high) fault_stop("IDLE_PADS_EXPECTED_LOW", -1);
             else if (!distance_cal.active && !range_report_pending && !distance_move.report_pending && !turn_report_pending && !param_parser.receiving && !param_parser.discarding && !ready_reported && gpio_get_level(TEST_BUTTON) &&
-                     now-last_stop_us>=STOP_COOLDOWN_US && now-last_motion_us>=KEY_QUIET_US &&
+                     now-last_stop_us>=stop_cooldown_us() && now-last_motion_us>=motion_quiet_us() &&
                      now-last_motion_key_us>=KEY_QUIET_US) {
                 ready_reported=true;
-                ESP_LOGI("vehicle", "VEHICLE_READY: firmware=1.9 protocol=PARAM2 build=pwm-stream-v3 teleop_pwm=1 boot_id=%08lx teleop_next=%u front_guard=%s tof=%s move_min_mm=50 move_max_mm=300 turn_min_tdeg=150 turn_max_tdeg=900; valid calibrated BMI required. T stops. No BOOT unlock.",(unsigned long)boot_id,teleop.closed+1,ROBOT_SUPERVISED_TEST?"OFF":"ON",ROBOT_TOF_ENABLED?"ON":"OFF");
+                ESP_LOGI("vehicle", "VEHICLE_READY: firmware=1.9 protocol=PARAM2 build=pwm-stream-v6 teleop_pwm=1 teleop_vector=1 boot_id=%08lx teleop_next=%u front_guard=%s tof=%s move_min_mm=50 move_max_mm=300 turn_min_tdeg=150 turn_max_tdeg=900; valid calibrated BMI required. T stops. No BOOT unlock.",(unsigned long)boot_id,teleop.closed+1,ROBOT_SUPERVISED_TEST?"OFF":"ON",ROBOT_TOF_ENABLED?"ON":"OFF");
             }
         }
         if (!running && now-last_sensor_print>=500000) {

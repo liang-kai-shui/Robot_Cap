@@ -592,30 +592,45 @@ class ControlDesk:
                 self.revision += 1
                 self.plan = None
 
-    def teleop_start(self, owner, direction, *, pwm_percent=None):
+    def joystick_start(self, owner, x, y, limit):
+        from robot.manual_control import mix_joystick
+        return self.teleop_start(owner,'joystick',wheels=mix_joystick(x,y,limit))
+
+    def joystick_pulse(self, owner, x, y, limit):
+        from robot.manual_control import mix_joystick
+        return self.teleop_pulse(owner,wheels=mix_joystick(x,y,limit))
+
+    def teleop_start(self, owner, direction, *, pwm_percent=None, wheels=None):
         with self.lock:
             self._claim(owner)
             if self._active() or self.holding: raise ValueError('任务运行中，持续控制不能排队')
             self._healthy()
-            result=self.backend.teleop_start(direction,**({'pwm_percent':pwm_percent} if pwm_percent is not None else {}))
+            extra={'wheels':wheels} if wheels is not None else {'pwm_percent':pwm_percent} if pwm_percent is not None else {}
+            result=self.backend.teleop_start(direction,**extra)
             self.plan=None;self.revision+=1
-            self.holding={'direction':direction,'session':result['session'],'pwm_percent':pwm_percent,'started_at':utc_now(),'_pulse_at':time.monotonic(),'_began':time.monotonic()}
+            self.holding={'direction':direction,'session':result['session'],'pwm_percent':pwm_percent,'wheels':wheels,'started_at':utc_now(),'_pulse_at':time.monotonic(),'_began':time.monotonic()}
             # Manual repositioning invalidates previous turn-back reference.
             self.tasks.append({'number':len(self.tasks)+1,'instruction':'按住手动控制 '+direction,
                 'execution_success':False,'trace':[{'kind':'action','phase':'started','capability_id':'manual.teleop'}]})
             return result
 
-    def teleop_pulse(self, owner, *, pwm_percent=None):
+    def teleop_pulse(self, owner, *, pwm_percent=None, wheels=None):
         with self.lock:
             if owner!=self.owner or not self.holding: raise ValueError('当前按键已失效，请重新按下')
             if time.monotonic()-self.holding['_pulse_at']>.2 or time.monotonic()-self.holding['_began']>=30:
                 self.teleop_release(owner,reason='按住超时');raise ValueError('持续控制已超时')
-            result=self.backend.teleop_pulse(**({'pwm_percent':pwm_percent} if pwm_percent is not None else {}))
+            if (wheels is not None)!=(self.holding['direction']=='joystick'):
+                raise ValueError('按住期间不能切换控制模式')
+            extra={'wheels':wheels} if wheels is not None else {'pwm_percent':pwm_percent} if pwm_percent is not None else {}
+            result=self.backend.teleop_pulse(**extra)
             if result.get('holding') is False:
                 self.holding=None
-                self.emit('task','warning','本次按住已停止；未检测到编码器运动，请检查供电、负载和接线，调整PWM后重新按下。不会自动提高PWM。')
+                code=(result.get('control_stop') or {}).get('code')
+                text='摇杆归中：已请求停止。' if code=='JOYSTICK_NEUTRAL' else '小幅编码器偏差：两轮已停止，检查轮子与接线后等停稳，再重新按下。' if code=='MANUAL_ENCODER_VARIATION' else '本次按住已停止；请检查供电、负载和接线后重新按下。不会自动提高PWM。'
+                self.emit('task','warning',text)
                 return result
             if pwm_percent is not None:self.holding['pwm_percent']=pwm_percent
+            if wheels is not None:self.holding['wheels']=wheels
             self.holding['_pulse_at']=time.monotonic()
             self.last_heartbeat=time.monotonic()
             return result

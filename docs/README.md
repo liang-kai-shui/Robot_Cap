@@ -16,8 +16,10 @@
 | --- | --- |
 | [WebUI 使用说明](WEBUI.md) | 双击启动、设备回传、按钮控制、自然语言、终端及构建 |
 | [手动 PWM](MANUAL_PWM.md) | 实际0–100%占空比、pwm-stream-v2、续租和闭环检查边界 |
+| [连续差速摇杆](JOYSTICK_CONTROL.md) | v6 的全向摇杆、左右轮有符号 PWM、快速手动停稳与反转处理 |
 | [调研路线第一轮落地](ROADMAP_OPTIMIZATION.md) | 逐动作预检、配置兼容策略复用、遥控分项延迟 |
 | [低 PWM 停止与重连](PWM_RECOVERY.md) | v3 的非锁定停止、严重故障复位、WebSocket 恢复 |
+| [编码器采样一致性](ENCODER_SNAPSHOT.md) | v4 修正分开读取造成的采样错位，增加被拒绝帧诊断；已烧录，运动结果待验证 |
 | [姿态与测距校正](POSE_RANGE_CALIBRATION.md) | 排针视角、偏移、航向有效性与恢复 |
 | [WebUI 设计方案](WEBUI_DESIGN.md) | 界面布局、视觉规范、设计参考和验证范围 |
 | [实车使用说明](ESP32_HARDWARE.md) | 环境、自然语言/连续/分段控制、上下文、停止和计时 |

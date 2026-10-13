@@ -7,6 +7,7 @@ let token = '', state = null, streamHealthy = false, receivedAt = performance.no
 let distance = 0.10, angle = 30, currentView = 'dashboard', paused = false;
 let events = [], eventCursor = 0, clearCursor = 0, toastTimer, stopOnLost = false;
 let historyPage = 0;
+let manualMode = 'four', fourAxisHold = true;
 let rangeOffsetDirty = false;
 let portCount = 0, portsError = '';
 const terminalHistory = []; let historyIndex = 0;
@@ -56,8 +57,11 @@ async function act(path, payload) {
 const running = () => state?.job?.status === 'running';
 const owns = () => !state?.owner || state.owner === client || (!running() && state.lease_age_ms > 4000);
 const driveReady = () => streamHealthy && owns() && state?.device?.connected && state.device.ready && state.device.stopped === true && !state.device.fault && !running() && !state.holding;
+const manualReady = () => streamHealthy && owns() && state?.device?.connected && !state.device.fault && !running() &&
+  (controlIdle!==null && performance.now()-ackAt<180 ? controlIdle : driveReady());
 function directionAvailable(direction) {
   const hold = $('hold-mode').checked;
+  if(hold && state.device.pwm_manual_available && manualReady()) return true;
   const action = hold ? state.device.pwm_manual_available ? 'manual_pwm' :
     direction === 'forward' ? 'manual_hold_forward' : 'manual_hold_other' :
     direction === 'backward' ? 'manual_reverse_timed' : direction === 'forward' ? 'move' : 'turn';
@@ -92,7 +96,7 @@ function render() {
   const pwmRevision = device.firmware_build?.match(/^pwm-stream-v(\d+)$/)?.[1];
   badge($('firmware-badge'), device.firmware ? `固件 v${device.firmware} / ${device.firmware === '1.9' ? 'PARAM2' : 'PARAM1'}${pwmRevision ? ' · PWM v'+pwmRevision : ''}` : '等待固件回传', device.firmware ? 'good' : 'neutral');
   const pwmZero = device.pwm_manual_available && $('hold-mode').checked && Number($('manual-pwm').value) === 0;
-  for (const [id, direction] of [['move-forward','forward'], ['move-backward','backward'], ['turn-left','left'], ['turn-right','right']]) $(id).disabled = pwmZero || !((ready && directionAvailable(direction)) || heldButton === id);
+  refreshManualInput();
   const availability = state.action_availability || {};
   const reasons = {heading_unavailable:'等待有效航向', range_unavailable:'等待有效测距', unsupported_firmware:'固件不支持', disconnected:'未连接', not_idle:'等待停稳', session_fault:'会话中止'};
   const statusOf = name => availability[name]?.available ? '可用' : reasons[availability[name]?.reason] || '等待设备恢复';
@@ -115,6 +119,9 @@ function render() {
   } else if (device.control_stop?.code === 'LOW_PWM_NO_ENCODER_EDGES') {
     $('notice').hidden = false;
     setText($('notice'), '当前 PWM 下未检测到编码器运动，两轮已停止。可能无法起转，也可能是供电或编码器问题；检查后调整 PWM，再重新按下。不会自动提高 PWM，无需因本次低 PWM 停止而复位。');
+  } else if (device.control_stop?.code === 'MANUAL_ENCODER_VARIATION') {
+    $('notice').hidden = false;
+    setText($('notice'), '手动控制检测到小幅编码器计数偏差，两轮已停止，固件未锁定。可能有回弹或信号干扰；检查轮子和接线，等停稳后松开并重新按下。不会自动继续；反复出现时应排查硬件。');
   } else if (job?.error) {
     $('notice').hidden = false; setText($('notice'), job.error);
   } else if (!owns()) {
@@ -186,7 +193,9 @@ function render() {
   $('range-offset-save').disabled = active || !!state.holding || !owns() || (device.connected && !idle);
   if(!rangeOffsetDirty && document.activeElement !== $('range-offset-mm')) $('range-offset-mm').value = state.range_offset_mm || 0;
   setText($('calibration-state'), '校正 ' + (state.range_offset_mm || 0) + ' mm · 原始值保留');
-  $('hold-mode').disabled = active || !!state.holding;
+  $('hold-mode').disabled = manualMode === 'joystick' || active || !!state.holding;
+  for (const button of document.querySelectorAll('[data-control-mode]'))
+    button.disabled = active && job.kind !== 'manual';
   setText($('reverse-label'), $('hold-mode').checked ? '按住' : '0.8秒');
   badge($('teleop-status'), state.holding ? '持续控制中' : $('hold-mode').checked ? '按住行走 · 松开停止' : '按一次走一步', state.holding ? 'running' : 'neutral');
   const error = (state.errors || []).at(-1);
@@ -370,6 +379,7 @@ async function generate() {
 $('refresh-ports').addEventListener('click', refreshPorts);
 $('connect-button').addEventListener('click', () => { releaseHold(); return state?.device.connected && !state.device.fault ? act('/api/disconnect', {}) : act('/api/connect', {port: $('port-select').value}); });
 $('stop-top').addEventListener('click', () => stop()); $('stop-pad').addEventListener('click', () => stop());
+$('joystick-stop').addEventListener('click', () => stop());
 $('move-forward').addEventListener('click', () => { if (!$('hold-mode').checked) act('/api/manual', {action: 'move', value: distance}); });
 $('move-backward').addEventListener('click', () => { if (!$('hold-mode').checked) act('/api/manual', {action: 'reverse', value: .8}); });
 $('turn-left').addEventListener('click', () => { if (!$('hold-mode').checked) act('/api/manual', {action: 'turn', value: angle}); });
@@ -423,11 +433,11 @@ document.addEventListener('keydown', e => {
   if (!$('keyboard-enabled').checked || e.target.closest('textarea,select,[contenteditable="true"],input:not([type="checkbox"]):not([type="radio"])') || $('settings-dialog').open || $('document-dialog').open) return;
   const key = e.key.toLowerCase();
   if (key === 't') { e.preventDefault(); stop(); }
-  else if (['w','a','s','d'].includes(key) && $('hold-mode').checked && driveReady()) { e.preventDefault(); beginHold({w:'forward',s:'backward',a:'left',d:'right'}[key], {w:'move-forward',s:'move-backward',a:'turn-left',d:'turn-right'}[key],key); }
-  else if (key === 's' && driveReady() && directionAvailable('backward')) { e.preventDefault(); act('/api/manual', {action: 'reverse', value: .8}); }
-  else if (driveReady() && ['w', 'a', 'd'].includes(key) && directionAvailable(key === 'w' ? 'forward' : key === 'a' ? 'left' : 'right')) { e.preventDefault(); act('/api/manual', {action: key === 'w' ? 'move' : 'turn', value: key === 'w' ? distance : key === 'a' ? angle : -angle}); }
+  else if (manualMode === 'four' && ['w','a','s','d'].includes(key) && $('hold-mode').checked && driveReady()) { e.preventDefault(); beginHold({w:'forward',s:'backward',a:'left',d:'right'}[key], {w:'move-forward',s:'move-backward',a:'turn-left',d:'turn-right'}[key],key); }
+  else if (manualMode === 'four' && key === 's' && driveReady() && directionAvailable('backward')) { e.preventDefault(); act('/api/manual', {action: 'reverse', value: .8}); }
+  else if (manualMode === 'four' && driveReady() && ['w', 'a', 'd'].includes(key) && directionAvailable(key === 'w' ? 'forward' : key === 'a' ? 'left' : 'right')) { e.preventDefault(); act('/api/manual', {action: key === 'w' ? 'move' : 'turn', value: key === 'w' ? distance : key === 'a' ? angle : -angle}); }
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden && (running() || heldButton)) stop(true); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { if(running()||heldButton)stop(true);else releaseHold(); } });
 window.addEventListener('pagehide', () => { if (running() || heldButton) stop(true); });
 window.addEventListener('blur', () => { releaseHold(); if (running() && $('keyboard-enabled').checked && state.job.kind === 'manual') stop(true); });
 
@@ -445,8 +455,24 @@ async function boot() {
 boot();
 
 // Hold channel: one in-flight heartbeat, no motion queue, expiring server challenge.
-let teleopSocket=null, challenge=null, wsSeq=0, inFlight=false, sentAt=0, ackAt=0;
+let teleopSocket=null, challenge=null, wsSeq=0, inFlight=false, sentAt=0, ackAt=0, controlIdle=null;
 let heldButton=null, heldKey=null, heldDirection=null, holdBegan=0, startWanted=false, startedHold=false, heldPwm=false;
+let joyPointer=null, joyX=0, joyY=0;
+function vectorPayload() { return {x:joyX,y:joyY,limit:Number($('manual-pwm').value)}; }
+function currentPayload() { return heldDirection==='joystick' ? vectorPayload() : pwmPayload(); }
+function startControl() { return sendControl(heldDirection==='joystick'?'vector_start':'start',heldDirection==='joystick'?vectorPayload():{direction:heldDirection,...pwmPayload()}); }
+function refreshManualInput() {
+  if(!state)return;
+  const ready=$('hold-mode').checked?manualReady():driveReady();
+  const zero=state.device.pwm_manual_available && $('hold-mode').checked && Number($('manual-pwm').value)===0;
+  for(const [id,direction] of [['move-forward','forward'],['move-backward','backward'],['turn-left','left'],['turn-right','right']])
+    $(id).disabled=zero || !((ready&&directionAvailable(direction))||heldButton===id);
+  const supported=state.device.vector_manual_available;
+  const enabled=manualMode==='joystick'&&supported&&$('hold-mode').checked&&!zero&&(manualReady()||heldDirection==='joystick');
+  $('joystick-pad').classList.toggle('disabled',!enabled);
+  $('joystick-pad').setAttribute('aria-disabled',String(!enabled));
+  setText($('joystick-status'),!supported?'需要 PWM v6':heldDirection==='joystick'?'连续差速控制':enabled?'拖动控制 · 松开停止':'等待停稳');
+}
 function pwmPayload() { return heldPwm ? {pwm_percent:Number($('manual-pwm').value)} : {}; }
 function sendControl(action,extra={}) {
   if (!teleopSocket || teleopSocket.readyState!==WebSocket.OPEN || !challenge) return false;
@@ -459,7 +485,7 @@ function sendControl(action,extra={}) {
 function openTeleop() {
   if (teleopSocket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(teleopSocket.readyState)) return;
   // A fresh channel starts idle with a fresh sequence; never replay a held key.
-  releaseHold();challenge=null;wsSeq=0;inFlight=false;ackAt=0;
+  releaseHold();challenge=null;wsSeq=0;inFlight=false;ackAt=0;controlIdle=null;
   const socket=new WebSocket('ws://'+location.host+'/api/teleop');
   teleopSocket=socket;
   socket.onopen=()=>socket.send(JSON.stringify({token,client}));
@@ -470,28 +496,32 @@ function openTeleop() {
     if (msg.seq<wsSeq) return;
     const now=performance.now();
     if(inFlight) setText($('control-latency'), `网页往返 ${Math.round(now-sentAt)} ms · 服务处理 ${fmt(msg.server_processing_ms, 1)} ms`);
-    challenge=msg.challenge;inFlight=false;ackAt=now;
+    challenge=msg.challenge;inFlight=false;ackAt=now;controlIdle=typeof msg.ready==='boolean'?msg.ready&&msg.stopped===true&&!msg.holding:null;
     if (msg.control_stop) {
       startedHold=false;releaseHold();
-      toast(msg.control_stop.code === 'LOW_PWM_NO_ENCODER_EDGES' ? '当前 PWM 未检测到运动，已停止。检查供电和编码器后调整 PWM，重新按下。' : '本次按住已停止，请松开后重新按下。');
+      if(msg.control_stop.code!=='JOYSTICK_NEUTRAL') toast(msg.control_stop.code === 'LOW_PWM_NO_ENCODER_EDGES' ? '当前 PWM 未检测到运动，已停止。检查供电和编码器后调整 PWM，重新按下。' : msg.control_stop.code === 'MANUAL_ENCODER_VARIATION' ? '小幅编码器偏差，两轮已停止且未锁定。检查后等停稳，再重新按下。' : '本次按住已停止，请松开后重新按下。');
     }
     if(startWanted && heldButton && now-holdBegan<180) {
-      startWanted=false;startedHold=sendControl('start',{direction:heldDirection,...pwmPayload()});
+      startWanted=false;startedHold=startControl();
     }
+    refreshManualInput();
   };
   socket.onclose=()=>{ if(teleopSocket !== socket) return; releaseHold(); challenge=null;inFlight=false; setText($('control-latency'), '遥控通道断开 · 设备恢复后重建'); };
   socket.onerror=()=>{ if(teleopSocket === socket) releaseHold(); };
 }
 function beginHold(direction,id,key=null) {
-  if(!driveReady() || heldButton || !directionAvailable(direction)) return;
+  if(!manualReady() || heldButton || !directionAvailable(direction)) return;
   if(state.device.pwm_manual_available && Number($('manual-pwm').value)===0) { toast('PWM 为 0，请先调高再按方向。');return; }
   if(state.device.firmware!=='1.9') { toast('持续控制需要烧录v1.9固件；可取消持续模式使用步进。');return; }
   if(!challenge || performance.now()-ackAt>180) { toast('遥控通道尚未就绪，请稍后再按。');return; }
   heldButton=id;heldKey=key;heldDirection=direction;holdBegan=performance.now();heldPwm=!!state.device.pwm_manual_available;
   $(id).classList.add('held'); startWanted=true;
-  if(!inFlight) { startWanted=false;startedHold=sendControl('start',{direction,...pwmPayload()}); }
+  if(!inFlight) { startWanted=false;controlIdle=false;startedHold=startControl(); }
 }
 function releaseHold() {
+  joyPointer=null;joyX=joyY=0;
+  $('joystick-thumb').style.transform='translate(0px,0px)';
+  setText($('joystick-x'),'0%');setText($('joystick-y'),'0%');
   startWanted=false;
   if(!heldButton) return;
   $(heldButton).classList.remove('held');
@@ -502,17 +532,65 @@ function releaseHold() {
 setInterval(()=>{
   if(!challenge || document.hidden) return;
   if(heldButton && (performance.now()-holdBegan>=30000 || performance.now()-ackAt>180)) { releaseHold();return; }
-  if(!inFlight) sendControl(startedHold?'pulse':'ping',startedHold?pwmPayload():{});
-},65);
+  if(!inFlight) sendControl(startedHold?(heldDirection==='joystick'?'vector_pulse':'pulse'):'ping',startedHold?currentPayload():{});
+},35);
+
+function moveJoystick(e) {
+  if(manualMode!=='joystick'||e.pointerId!==joyPointer)return;
+  const box=$('joystick-pad').getBoundingClientRect(),radius=box.width/2-30;
+  let x=(e.clientX-box.left-box.width/2)/radius,y=(e.clientY-box.top-box.height/2)/radius;
+  const length=Math.hypot(x,y),scale=length>1?1/length:1;x*=scale;y*=scale;
+  $('joystick-thumb').style.transform=`translate(${x*radius}px,${y*radius}px)`;
+  const magnitude=Math.hypot(x,y),gain=magnitude<=.08?0:(magnitude-.08)/(.92*magnitude);
+  joyX=Number((x*gain).toFixed(4));joyY=Number((y*gain).toFixed(4));
+  const r=-joyY-joyX,l=-joyY+joyX,divisor=Math.max(1,Math.abs(r),Math.abs(l)),limit=Number($('manual-pwm').value);
+  if(!Math.round(Math.abs(r)*limit/divisor)&&!Math.round(Math.abs(l)*limit/divisor))joyX=joyY=0;
+  setText($('joystick-x'),`${Math.round(joyX*100)}%`);setText($('joystick-y'),`${Math.round(-joyY*100)}%`);
+  if(!joyX&&!joyY) {
+    const pointer=joyPointer;if(heldDirection==='joystick')releaseHold();joyPointer=pointer;return;
+  }
+  if(!heldButton) {
+    if(!manualReady()||!challenge||performance.now()-ackAt>180)return; // No delayed movement queue.
+    heldButton='joystick-pad';heldDirection='joystick';heldPwm=true;holdBegan=performance.now();startWanted=true;
+    $('joystick-pad').classList.add('held');
+    if(!inFlight){startWanted=false;controlIdle=false;startedHold=startControl();}
+  } else if(heldDirection==='joystick'&&!inFlight&&performance.now()-sentAt>=35)sendControl('vector_pulse',vectorPayload());
+}
+$('joystick-pad').addEventListener('pointerdown',e=>{
+  if(manualMode!=='joystick'||e.button!==0||!state?.device.vector_manual_available||!$('hold-mode').checked||!manualReady()||heldButton||Number($('manual-pwm').value)===0)return;
+  e.preventDefault();joyPointer=e.pointerId;$('joystick-pad').setPointerCapture(e.pointerId);moveJoystick(e);
+});
+$('joystick-pad').addEventListener('pointermove',moveJoystick);
+for(const type of ['pointerup','pointercancel','lostpointercapture'])$('joystick-pad').addEventListener(type,e=>{if(e.pointerId===joyPointer)releaseHold();});
 for(const [id,direction] of [['move-forward','forward'],['move-backward','backward'],['turn-left','left'],['turn-right','right']]) {
   const button=$(id);
   button.addEventListener('pointerdown',e=>{
-    if(!$('hold-mode').checked || e.button!==0) return;
+    if(manualMode!=='four' || !$('hold-mode').checked || e.button!==0) return;
     e.preventDefault();button.setPointerCapture(e.pointerId);beginHold(direction,id);
   });
   for(const type of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(type,releaseHold);
 }
 document.addEventListener('keyup',e=>{ if(e.key.toLowerCase()===heldKey) {e.preventDefault();releaseHold();} });
+// Mode changes end the old gesture; displaying a control never starts motion.
+for (const button of document.querySelectorAll('[data-control-mode]')) button.addEventListener('click', () => {
+  const next = button.dataset.controlMode;
+  if (next === manualMode) return;
+  const localHold = !!heldButton;
+  releaseHold();
+  if (!localHold && owns() && (state?.holding || (running() && state.job.kind === 'manual'))) stop();
+  if (manualMode === 'four') fourAxisHold = $('hold-mode').checked;
+  manualMode = next;
+  $('hold-mode').checked = next === 'joystick' ? true : fourAxisHold;
+  $('keyboard-enabled').checked = false;
+  $('four-axis-controls').hidden = next !== 'four';
+  $('joystick-controls').hidden = next !== 'joystick';
+  for (const option of document.querySelectorAll('[data-control-mode]')) {
+    const selected = option.dataset.controlMode === next;
+    option.classList.toggle('selected', selected);
+    option.setAttribute('aria-pressed', String(selected));
+  }
+  render();
+});
 $('hold-mode').addEventListener('change',releaseHold);
 $('hold-mode').addEventListener('change',render);
 $('manual-pwm').addEventListener('input',()=>{

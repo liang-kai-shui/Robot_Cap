@@ -210,9 +210,12 @@ def test_real_websocket_hold_disconnect_and_expired_challenge_stop(tmp_path,pwm)
     try:
         sock,stream=open_channel()
         ack=send(stream,{'client':CLIENT,'token':server.token})
-        ack=send(stream,{'seq':1,'action':'start','direction':'forward','pwm_percent':pwm,'challenge':ack['challenge']})
+        time.sleep(.21)
+        ack=send(stream,{'seq':1,'action':'ping','challenge':ack['challenge']})
+        assert not ack['holding'] and desk.backend.stopped and not desk.holding
+        ack=send(stream,{'seq':2,'action':'start','direction':'forward','pwm_percent':pwm,'challenge':ack['challenge']})
         assert ack['holding'] and desk.holding
-        for seq in range(2,5):
+        for seq in range(3,6):
             ack=send(stream,{'seq':seq,'action':'pulse','pwm_percent':100 if pwm else None,'challenge':ack['challenge']})
         if pwm: assert desk.backend.snapshot()['manual_pwm_actual']=={'A':100,'B':100}
         stream.close();sock.close();stream=sock=None

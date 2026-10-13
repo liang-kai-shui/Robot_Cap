@@ -131,5 +131,19 @@ int main(void) {
     assert(teleop_feedback(false,20,150000)==TELEOP_FEEDBACK_FAULT);
     assert(teleop_feedback(true,0,150000)==TELEOP_FEEDBACK_FAULT);
     puts("PASS: low PWM stops without latch; closed-loop and >=40% no-feedback faults remain");
+    assert(teleop_encoder_recoverable(true,36,48)); // observed 40% frame
+    assert(teleop_encoder_recoverable(true,100,124)); // observed 100% frame
+    assert(!teleop_encoder_recoverable(false,36,48)); // all closed-loop actions retain latch
+    assert(!teleop_encoder_recoverable(true,0,48)); // absent/oscillating quadrature channel
+    assert(!teleop_encoder_recoverable(true,-12,48)); // opposite direction
+    assert(!teleop_encoder_recoverable(true,36,-48)); // accumulator/count error
+    assert(!teleop_encoder_recoverable(true,100,36)); // quadrature exceeds total edges
+    assert(!teleop_encoder_recoverable(true,36,80)); // excess >32
+    assert(!teleop_encoder_recoverable(true,12,28)); // excess >half of all edges
+    assert(!teleop_encoder_recoverable(true,36,36)); // normal samples are not stops
+    assert(!teleop_encoder_recoverable(true,36,44)); // existing tolerance remains normal
+    assert(teleop_encoder_recoverable(true,32,64)); // bounded stop boundary
+    assert(!teleop_encoder_recoverable(true,33,66));
+    puts("PASS: bounded manual count variation stops; gross and closed-loop mismatch still latch");
     return 0;
 }

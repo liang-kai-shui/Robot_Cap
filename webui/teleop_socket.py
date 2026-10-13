@@ -92,11 +92,21 @@ def serve(handler):
                     desk.teleop_release(owner); holding = False
                     handler.connection.settimeout(3)
                 else:
-                    if message.get('challenge') != challenge or time.monotonic()-issued > .2:
+                    # Idle ping only refreshes an authenticated challenge and
+                    # reads state; it never starts motion or renews its lease.
+                    if message.get('challenge') != challenge or (action!='ping' and time.monotonic()-issued > .2):
                         raise ValueError('Expired control challenge; release and press again')
                     if action == 'start' and not holding:
                         desk.teleop_start(owner, message.get('direction'),pwm_percent=message.get('pwm_percent')); holding = True
                         handler.connection.settimeout(.2)
+                    elif action == 'vector_start' and not holding:
+                        desk.joystick_start(owner,message.get('x'),message.get('y'),message.get('limit'));holding=True
+                        handler.connection.settimeout(.2)
+                    elif action == 'vector_pulse' and holding:
+                        result=desk.joystick_pulse(owner,message.get('x'),message.get('y'),message.get('limit'))
+                        if result.get('holding') is False:
+                            holding=False;control_stop=result.get('control_stop')
+                            handler.connection.settimeout(3)
                     elif action == 'pulse' and holding:
                         result=desk.teleop_pulse(owner,pwm_percent=message.get('pwm_percent'))
                         if result.get('holding') is False:
@@ -106,10 +116,12 @@ def serve(handler):
                         raise ValueError('Invalid hold state')
             challenge = secrets.token_urlsafe(12)
             issued = time.monotonic()
+            device=desk.backend.snapshot() if desk.backend else {}
             write_frame(handler.wfile, {'seq': seq, 'challenge': challenge, 'holding': holding,
                                         'server_processing_ms': (time.perf_counter()-processing_at)*1000,
                                         'control_stop': control_stop,
-                                        'lease_ms': 250, 'firmware': (desk.backend.snapshot() if desk.backend else {}).get('firmware')})
+                                        'ready':device.get('ready',False),'stopped':device.get('stopped'),
+                                        'lease_ms': 250, 'firmware': device.get('firmware')})
     except Exception as exc:
         # A socket failure must never escape without independently requesting STOP.
         try: write_frame(handler.wfile, {'error': desk.scrub(exc)})

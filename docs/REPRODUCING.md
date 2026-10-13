@@ -8,11 +8,11 @@
 python -m venv .venv
 # 激活环境后
 python -m pip install -e ".[dev,hardware]"
-python -m pytest -q
+python -m pytest -q -W error
 python scripts/check_repository.py
 ```
 
-测试使用mock模型、模拟后端和假串口；不会调用付费模型、连接COM5、烧录开发板或让轮子转动。2026-10-13 本次完整离线回归通过521项测试，包括已验证策略复用、航向恢复、CLI/WebUI共用Episode和模型审核用量；文件归档与文档检查另由检查脚本完成。模拟任务与评分协议未因实车策略库而改变。
+测试使用mock模型、模拟后端和假串口；不会调用付费模型、连接COM5、烧录开发板或让轮子转动。2026-10-13 本次完整离线回归通过542项测试（严格警告模式），包括已验证策略复用、航向恢复、CLI/WebUI共用Episode、模型审核用量、PWM恢复分类和摇杆协议；文件归档与文档检查另由检查脚本完成。模拟任务与评分协议未因实车策略库而改变。
 
 默认模拟入口：
 
@@ -29,11 +29,15 @@ python benchmark.py --provider mock
 
 ```bash
 mkdir -p .tmp
-gcc -std=c11 -O0 -Wall -Wextra -I firmware/esp32s3/main tests/firmware_param_check.c -lm -o .tmp/firmware_param_check
+gcc -std=c11 -O0 -Wall -Wextra -Werror -I firmware/esp32s3/main tests/firmware_param_check.c -lm -o .tmp/firmware_param_check
 .tmp/firmware_param_check
+gcc -std=c11 -O0 -Wall -Wextra -Werror -I firmware/esp32s3/main tests/firmware_encoder_snapshot_check.c -o .tmp/firmware_encoder_snapshot_check
+.tmp/firmware_encoder_snapshot_check
+gcc -std=c11 -O0 -Wall -Wextra -Werror -I firmware/esp32s3/main tests/firmware_vector_check.c -o .tmp/firmware_vector_check
+.tmp/firmware_vector_check
 ```
 
-Windows可创建`.tmp`后，用已安装的gcc.exe执行相同参数，并给输出文件加`.exe`。该检查覆盖参数帧、范围、分段/连读接收、停止优先、PWM 续租与闭环目标超速检查、转角控制，不使用串口，也不替代完整ESP-IDF构建。
+Windows可创建`.tmp`后，用已安装的gcc.exe执行相同参数，并给输出文件加`.exe`。这些检查覆盖参数帧、范围、分段/连读接收、停止优先、PWM 续租与闭环目标超速检查、转角控制、编码器采样窗口及全部40,401个有符号左右轮组合，不使用串口，也不替代完整ESP-IDF构建。
 
 ## 完整固件构建
 
@@ -49,9 +53,9 @@ idf.py -C firmware/esp32s3 build
 docker run --rm -v "$PWD:/project" -w /project espressif/idf:v5.1.2 idf.py -C firmware/esp32s3 build
 ```
 
-官方镜像用途见[Espressif Docker说明](https://github.com/espressif/esp-idf/blob/v5.1.2/docs/en/api-guides/tools/idf-docker-image.rst)。完整固件的关键默认配置见[sdkconfig.defaults](../firmware/esp32s3/sdkconfig.defaults)，实际构建信息见[固件说明](../firmware/esp32s3/README.md)。本次整理只构建，不烧录。
+官方镜像用途见[Espressif Docker说明](https://github.com/espressif/esp-idf/blob/v5.1.2/docs/en/api-guides/tools/idf-docker-image.rst)。完整固件的关键默认配置见[sdkconfig.defaults](../firmware/esp32s3/sdkconfig.defaults)，实际构建信息见[固件说明](../firmware/esp32s3/README.md)。本节构建命令不烧录；烧录需按固件说明由用户明确操作。
 
-2026-10-13 最新本地结果：Python 521项通过（严格警告模式），此前固件C检查PASS，`pwm-stream-v2`完整工程构建并烧录成功；本轮只更新电脑侧，不再次烧录；应用大小`0x4e7c0`、1MB分区剩余69%。烧录后确认READY、双轮静止和传感器回传，不作为高PWM运动验证。固件目录保留字节级归档属性，避免Windows/Linux换行转换破坏源码哈希。
+2026-10-13 最新本地结果：Python 542项通过（严格警告模式），三组固件C检查PASS；`pwm-stream-v6`完整工程已构建并烧录，应用大小`0x4fd80`、1MB分区剩余69%。烧录后确认READY、双轮静止和传感器回传，不作为运动验证。本次GitHub整理不再次烧录；网页控制方式只需刷新，默认四轴、摇杆可选。固件目录保留字节级归档属性，避免Windows/Linux换行转换破坏源码哈希。
 
 ## GitHub自动检查
 

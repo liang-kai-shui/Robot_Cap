@@ -49,6 +49,23 @@ def test_delayed_end_from_previous_press_cannot_stop_current_press():
     finally:backend.close()
 
 
+def test_manual_encoder_variation_requires_fresh_press_even_after_ready():
+    backend,port=fake_pwm_backend();backend.connect(timeout=.5)
+    try:
+        backend.teleop_start('forward',pwm_percent=40)
+        backend._on_line('TELEOP_END cause=MANUAL_ENCODER_VARIATION session=1 motor=A pwm_percent=40 fault=0 dq=36 edges=48 difference=12')
+        before=list(port.sent)
+        result=backend.teleop_pulse(pwm_percent=40)
+        assert result['holding'] is False and result['control_stop']['code']=='MANUAL_ENCODER_VARIATION'
+        assert backend.snapshot()['fault'] is None
+        backend._on_line(PWM_READY.strip()+' teleop_next=2')
+        assert backend.teleop_pulse(pwm_percent=40)['holding'] is False
+        assert port.sent==before
+        backend.teleop_start('forward',pwm_percent=40)
+        assert port.sent[-1]=='@U21040\n'
+    finally:backend.close()
+
+
 def test_latched_stop_handshake_fails_fast_with_reset_guidance():
     port=FakePort(handshake='VEHICLE_STOP source=T was_running=0 fault=1; no queued motion.\n')
     backend=ESP32SerialBackend(serial_factory=lambda:port)

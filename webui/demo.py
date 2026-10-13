@@ -28,6 +28,7 @@ class DemoBackend:
         self.teleop_direction=None
         self.teleop_session=0
         self.teleop_pwm=None
+        self.vector_wheels=None
         self._teleop_renewed=0
         self._range=None
 
@@ -43,7 +44,7 @@ class DemoBackend:
     def connect(self, **_kwargs):
         with self.lock:
             self.connected = self.ready = self.stopped = True
-            self.record('rx', line='[DEMO] VEHICLE_READY: firmware=1.9 protocol=PARAM2 build=pwm-stream-v1 teleop_pwm=1 boot_id=DEMOBOOT front_guard=OFF tof=ON')
+            self.record('rx', line='[DEMO] VEHICLE_READY: firmware=1.9 protocol=PARAM2 build=pwm-stream-v6 teleop_pwm=1 teleop_vector=1 boot_id=DEMOBOOT front_guard=OFF tof=ON')
         return self
 
     def sample(self):
@@ -60,6 +61,8 @@ class DemoBackend:
         for motor,side in [('A','RIGHT'),('B','LEFT')]:
             sign=({'forward':(1,1),'backward':(-1,-1),'left':(1,-1),'right':(-1,1)}.get(self.teleop_direction,(0,0)))[0 if motor=='A' else 1]
             velocity=sign*speed
+            if self.teleop_direction=='joystick' and self.vector_wheels is not None:
+                velocity=self.vector_wheels[0 if motor=='A' else 1]*2.5
             self.record('rx',line=f'[DEMO] WHEEL motor={motor} side={side} count=0 forward_count=0 speed_mm_s={velocity} cps={velocity*19.2} rpm={velocity*.44415} valid=1 dt_ms=250 age_ms=0')
 
     def zero_heading(self, *, cancel_event=None, **kwargs):
@@ -76,9 +79,9 @@ class DemoBackend:
         with self.lock:
             state = {'connected': self.connected, 'ready': self.ready, 'stopped': self.stopped,
                     'firmware': '1.9' if self.connected else None, 'front_guard': 'OFF' if self.connected else None,
-                    'firmware_build':'pwm-stream-v1','pwm_manual_available':True,
+                    'firmware_build':'pwm-stream-v6','pwm_manual_available':True,'vector_manual_available':True,
                     'manual_pwm_percent':self.teleop_pwm if self.teleop_direction else None,
-                    'manual_pwm_actual':{'A':self.teleop_pwm,'B':self.teleop_pwm} if self.teleop_direction and self.teleop_pwm is not None else None,
+                    'manual_pwm_actual':({'A':self.vector_wheels[0],'B':self.vector_wheels[1]} if self.teleop_direction=='joystick' and self.vector_wheels else {'A':self.teleop_pwm,'B':self.teleop_pwm} if self.teleop_direction and self.teleop_pwm is not None else None),
                     'pose_available': False, 'range_available': True, 'boot_id':'DEMOBOOT', 'teleop':bool(self.teleop_direction), 'collision': None,
                     'last_action': self.last_action, 'last_result': self.last_result,
                     'action_count': self.action_count, 'fault': self.fault}
@@ -151,18 +154,32 @@ class DemoBackend:
     def configure_range_offset(self,offset):
         self.range_offset=offset
 
-    def teleop_start(self,direction,*,pwm_percent=None):
+    def teleop_start(self,direction,*,pwm_percent=None,wheels=None):
         self.begin_task_check()
-        if direction not in ('forward','backward','left','right'):raise ValueError('Invalid direction')
+        if wheels is not None:
+            from robot.manual_control import validate_wheels
+            validate_wheels(*wheels)
+            if direction!='joystick' or not any(wheels) or pwm_percent is not None:raise ValueError('Invalid vector')
+        elif direction not in ('forward','backward','left','right'):raise ValueError('Invalid direction')
         if pwm_percent is not None and (type(pwm_percent) is not int or not 1<=pwm_percent<=100):raise ValueError('Invalid PWM')
         self.teleop_pwm=pwm_percent
+        self.vector_wheels=wheels
         self.teleop_direction=direction;self.teleop_session+=1
+        if wheels is not None:self.record('rx',line=f'[DEMO] JOYSTICK_OUTPUT session={self.teleop_session} right_pwm={wheels[0]} left_pwm={wheels[1]}')
         self.ready=self.stopped=False
         self._teleop_renewed=time.monotonic()
         return {'session':self.teleop_session,'lease_ms':250}
 
-    def teleop_pulse(self,*,pwm_percent=None):
+    def teleop_pulse(self,*,pwm_percent=None,wheels=None):
         if not self.teleop_direction: raise ValueError('Hold expired')
+        if wheels is not None:
+            from robot.manual_control import validate_wheels
+            validate_wheels(*wheels)
+            if self.teleop_direction!='joystick' or pwm_percent is not None:raise ValueError('Invalid vector mode')
+            if not any(wheels):
+                self.teleop_release();return {'holding':False,'control_stop':{'code':'JOYSTICK_NEUTRAL'}}
+            if wheels!=self.vector_wheels:self.record('rx',line=f'[DEMO] JOYSTICK_OUTPUT session={self.teleop_session} right_pwm={wheels[0]} left_pwm={wheels[1]}')
+            self.vector_wheels=wheels
         if pwm_percent is not None:
             if type(pwm_percent) is not int or not 1<=pwm_percent<=100 or self.teleop_pwm is None:raise ValueError('Invalid PWM/mode')
             self.teleop_pwm=pwm_percent
@@ -170,7 +187,9 @@ class DemoBackend:
         return {'firmware_ack_age_ms':0}
 
     def teleop_release(self):
+        if self.teleop_direction=='joystick':self.record('rx',line='[DEMO] JOYSTICK_RELEASE outputs=0')
         self.teleop_direction=None
+        self.vector_wheels=None
         self.ready=self.stopped=self.connected and not self.fault
 
     def turn(self, angle, *, cancel_event=None, deadline=None):

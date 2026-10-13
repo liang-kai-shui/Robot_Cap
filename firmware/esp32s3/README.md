@@ -1,8 +1,12 @@
 # 完整 ESP32-S3 小车固件
 
+当前板上 `pwm-stream-v6`：有符号左右轮 PWM、连续差速摇杆、停稳反转与缩短手动冷却。保留 v5 的可恢复停止分类和闭环保护。见 [摇杆协议与验证](../../docs/JOYSTICK_CONTROL.md)。
+
 **最新v1.9/PARAM2扩展**：[能力、低延迟遥控与验证边界](../../docs/ROVER_V19.md)。旧v1.8记录保留为兼容/历史说明；v1.9新增动作需要烧录新固件。
 
 `pwm-stream-v2` 构建支持 [实际 0–100% 手动 PWM](../../docs/MANUAL_PWM.md)，并修正同一次按住的心跳连读解析。模型动作接口保持原闭环控制。
+
+v4 阶段增加 [编码器窄窗口采样与故障帧诊断](../../docs/ENCODER_SNAPSHOT.md)，保留 v3 的低 PWM 停止分类、锁定状态握手及原计数保护阈值。已烧录并验证静止回传，运动效果待验证。
 
 这是可独立构建的 ESP-IDF 工程，源自当前小车使用的 v1.8/PARAM1 固件。包含双路电机、编码器、BMI323、VL53L1X 驱动和所有控制头文件；不依赖仓库外的 `0_HelloWorld` 工程。
 
@@ -26,16 +30,18 @@ idf.py -C firmware/esp32s3 build
 idf.py -C firmware/esp32s3 -p COM5 flash
 ```
 
-`build` 只编译；`flash` 会更新板上程序。已有 v1.8 小车使用本次新增的电脑端功能不必重新烧录。
+`build` 只编译；`flash` 会更新板上程序。旧 v1.8 可沿用原步进功能；持续遥控及当前摇杆需要支持对应能力的新固件。
 
-2026-10-12 已在新归档目录从默认配置完成一次完整构建：`robot_rover.bin` 为 `0x484c0` 字节，1MB应用分区剩余72%。未连接串口或烧录。启动日志的Project name/App version可能随工程名和Git版本改变；电脑端核对的是READY中的v1.8/PARAM1协议标记。
+2026-10-12 已在新归档目录从默认配置完成一次完整构建：`robot_rover.bin` 为 `0x484c0` 字节，1MB应用分区剩余72%。未连接串口或烧录。启动日志的Project name/App version可能随工程名和Git版本改变；该条为原归档历史；当前电脑端核对 READY 中的 v1.9/PARAM2、构建标记及遥控能力。
 
 ## 文件职责
 
 | 文件/目录 | 职责 |
 | --- | --- |
 | `main/main.c` | UART 命令、GPIO/PWM/PCNT、运动状态机、停止与故障处理 |
-| `main/command_parser.h` | PARAM1 参数帧解析、分段接收、超时和停止优先 |
+| `main/command_parser.h` | PARAM1/PARAM2 参数帧和 V 摇杆帧解析、分段接收、超时、停止优先 |
+| `main/encoder_snapshot.h` | 独立计数器窄窗口采样及有界重采样 |
+| `main/teleop_control.h`、`main/vector_control.h` | PWM 续租、可恢复停止分类、双轮向量及停稳换向 |
 | `main/speed_pi.h` | 按编码器反馈调节左右电机驱动 |
 | `main/distance_control.h` | 距离换算、轮子标定系数和检查 |
 | `main/heading_control.h`、`main/turn_control.h` | 方向保持与相对角度转弯 |
@@ -50,7 +56,7 @@ idf.py -C firmware/esp32s3 -p COM5 flash
 
 A=右轮：编码器10/11、方向12/13、PWM14；B=左轮：编码器4/5、方向16/17、PWM18；共同 STBY15。BMI323 SDA8/SCL9，VL53L1X SDA6/SCL7。电源及线色见 [硬件接口讲解](../../docs/HARDWARE_INTERFACES_GUIDE.md)。
 
-PARAM1：`@F100\n` 前进100mm，`@J300\n` 左转30.0°，`@L300\n` 右转30.0°；T/t优先停止。单次前进50–300mm，转弯15–90°。动作反馈顺序和电脑端调用见 [串口协议说明](../../docs/SERIAL_PROTOCOL.md)。
+PARAM1/PARAM2 共同动作示例：`@F100\n` 前进100mm，`@J300\n` 左转30.0°，`@L300\n` 右转30.0°；T/t优先停止。单次前进50–300mm，转弯15–90°。动作反馈顺序和电脑端调用见 [串口协议说明](../../docs/SERIAL_PROTOCOL.md)。
 
 `main/test_mode.h` 当前为 `ROBOT_SUPERVISED_TEST=1` / `ROBOT_TOF_ENABLED=1`：测距采集ON，前方停车保护OFF。两个开关独立，启用显示不会默默启用停车保护；保护ON而测距OFF的配置会在编译时被拒绝。编码器、BMI保护、运动时间上限及T/BOOT停止沿用原逻辑。
 

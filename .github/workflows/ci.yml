@@ -25,17 +25,22 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install -e ".[dev,hardware]"
-      - run: python -m pytest -q
+      - run: python -m pytest -q -W error
       - run: python scripts/check_repository.py
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - run: node --check webui/static/app.js
       - run: node tests/attitude_math_check.mjs
       - name: Firmware parser and turn control checks
         run: |
           mkdir -p .tmp
-          gcc -std=c11 -O0 -Wall -Wextra -I firmware/esp32s3/main tests/firmware_param_check.c -lm -o .tmp/firmware_param_check
+          gcc -std=c11 -O0 -Wall -Wextra -Werror -I firmware/esp32s3/main tests/firmware_param_check.c -lm -o .tmp/firmware_param_check
           .tmp/firmware_param_check
+          gcc -std=c11 -O0 -Wall -Wextra -Werror -I firmware/esp32s3/main tests/firmware_encoder_snapshot_check.c -o .tmp/firmware_encoder_snapshot_check
+          .tmp/firmware_encoder_snapshot_check
+          gcc -std=c11 -O0 -Wall -Wextra -Werror -I firmware/esp32s3/main tests/firmware_vector_check.c -o .tmp/firmware_vector_check
+          .tmp/firmware_vector_check
   firmware:
     runs-on: ubuntu-latest
     steps:

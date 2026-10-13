@@ -77,6 +77,7 @@ class ESP32SerialBackend(PhysicalBackend):
         self._firmware = self._guard = None
         self._build = None
         self._pwm_manual_available = False
+        self._vector_manual_available = False
         self._action_count = 0
         self._last_action = self._last_result = None
         self._logs = deque(maxlen=4096)
@@ -254,6 +255,7 @@ class ESP32SerialBackend(PhysicalBackend):
                 self._firmware, self._guard = fields.get("firmware"), fields.get("front_guard")
                 self._build = fields.get('build')
                 self._pwm_manual_available = fields.get('teleop_pwm') == '1'
+                self._vector_manual_available = fields.get('teleop_vector') == '1'
                 self._boot_id = fields.get('boot_id', self._boot_id)
                 try:
                     next_session=int(fields.get('teleop_next',self._teleop_next))
@@ -488,17 +490,27 @@ class ESP32SerialBackend(PhysicalBackend):
 
     def _teleop_wire(self):
         hold=self._teleop
+        if hold.get('vector_mode'):
+            from robot.manual_control import vector_wire
+            return vector_wire(hold['session'],hold['right'],hold['left'])
         if hold['direct_pwm']:
             return f"@U{hold['session']*10000+hold['digit']*1000+hold['pwm_percent']}\n"
         return f"@H{hold['session']*10+hold['digit']}\n"
 
-    def teleop_start(self, direction, *, pwm_percent=None):
+    def teleop_start(self, direction, *, pwm_percent=None, wheels=None):
         self._require_param2()
+        if wheels is not None:
+            from robot.manual_control import validate_wheels
+            validate_wheels(*wheels)
+            if direction!='joystick' or not any(wheels) or pwm_percent is not None:
+                raise RobotActionError('Invalid joystick start')
+            if not self._vector_manual_available:
+                raise RobotActionError('摇杆需要 PWM v6 固件，未发送运动')
         if pwm_percent is not None:
             self._pwm_percent(pwm_percent)
             if not self._pwm_manual_available:
                 raise RobotActionError('PWM滑块需要pwm-stream-v1固件；未发送运动')
-        if direction not in ('forward','backward','left','right'):
+        if direction not in ('forward','backward','left','right') and not (direction=='joystick' and wheels is not None):
             raise RobotActionError('Invalid teleop direction')
         if not self._action_lock.acquire(blocking=False):
             raise RobotActionError('Motion cannot queue')
@@ -507,12 +519,15 @@ class ESP32SerialBackend(PhysicalBackend):
                 if not self._ready or self._failure or self._aborted or self._stopped is not True:
                     raise RobotEmergencyStopError('持续控制必须从健康停稳 READY 开始')
                 session = self._teleop_next
+                if wheels is not None and session>9999:
+                    raise RobotActionError('摇杆会话编号已耗尽，请停止并复位')
                 if pwm_percent is not None and session>99999:
                     raise RobotActionError('本次开机的PWM会话编号已耗尽，请停止并复位开发板')
                 self._teleop_next += 1
-                digit = ('forward','backward','left','right').index(direction)+1
+                digit = 0 if wheels is not None else ('forward','backward','left','right').index(direction)+1
                 self._teleop = {'session':session,'digit':digit,'ending':False,
-                                'direct_pwm':pwm_percent is not None,'pwm_percent':pwm_percent,'actual_pwm':None,
+                                'direct_pwm':pwm_percent is not None or wheels is not None,'pwm_percent':pwm_percent,'actual_pwm':None,
+                                'vector_mode':wheels is not None,'right':wheels[0] if wheels else None,'left':wheels[1] if wheels else None,
                                 'sent_at':time.monotonic(),'first_ack_ms':None}
                 self._teleop_ack_at = 0
                 self._control_stop = None
@@ -522,15 +537,24 @@ class ESP32SerialBackend(PhysicalBackend):
         except BaseException:
             self._teleop=None;self._action_lock.release();raise
 
-    def teleop_pulse(self, *, pwm_percent=None):
+    def teleop_pulse(self, *, pwm_percent=None, wheels=None):
         with self._condition:
             if self._failure or self._aborted:
                 raise RobotEmergencyStopError('持续控制已结束，需要重新按下')
             if not self._teleop or self._teleop['ending']:
                 return {'holding':False, 'control_stop':self._control_stop or {'code':'HOLD_ENDED'}}
+            if wheels is not None:
+                from robot.manual_control import validate_wheels
+                validate_wheels(*wheels)
+                if not self._teleop.get('vector_mode') or pwm_percent is not None:
+                    raise RobotActionError('按住期间不能切换摇杆模式')
+                if not any(wheels):
+                    self.teleop_release()
+                    return {'holding':False,'control_stop':{'code':'JOYSTICK_NEUTRAL'}}
+                self._teleop['right'],self._teleop['left']=wheels
             if pwm_percent is not None:
                 self._pwm_percent(pwm_percent)
-                if not self._teleop['direct_pwm']:
+                if not self._teleop['direct_pwm'] or self._teleop.get('vector_mode'):
                     raise RobotActionError('不能在同一次按住期间更换控制模式')
                 self._teleop['pwm_percent']=pwm_percent
             self._write(self._teleop_wire())
@@ -661,6 +685,7 @@ class ESP32SerialBackend(PhysicalBackend):
                     "ready": self._ready, "stopped": self._stopped,
                     "firmware": self._firmware, "front_guard": self._guard, "boot_id":self._boot_id, "teleop": bool(self._teleop),
                     "firmware_build":self._build,"pwm_manual_available":self._pwm_manual_available,
+                    "vector_manual_available":self._vector_manual_available,
                     "firmware_fault_latched":self._firmware_fault_latched,"control_stop":self._control_stop,
                     "manual_pwm_percent":self._teleop.get('pwm_percent') if self._teleop else None,
                     "manual_pwm_actual":self._teleop.get('actual_pwm') if self._teleop else None,
