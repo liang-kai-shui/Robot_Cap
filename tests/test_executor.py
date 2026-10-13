@@ -53,3 +53,60 @@ def test_repeated_sub_resolution_move_stops_on_first_call():
     assert result.error_type == "MoveBelowResolutionError"
     assert result.final_state.action_count == 0
     assert len(result.logs) == 1
+
+
+# Spawnable workers reproduce exit cleanup delays independently of host speed.
+def delayed_exit_worker(*args):
+    import time
+    from runtime.worker import run_worker
+    run_worker(*args)
+    time.sleep(.2)
+
+
+def stuck_exit_worker(*args):
+    import time
+    from runtime.worker import run_worker
+    run_worker(*args)
+    while True:
+        time.sleep(1)
+
+
+def abnormal_exit_worker(*args):
+    import os
+    from runtime.worker import run_worker
+    run_worker(*args)
+    os._exit(7)
+
+
+def execute_demo_with_worker(monkeypatch, worker):
+    from webui.demo import DemoBackend
+    from robot.backends.esp32_serial import build_esp32_registry
+    from robot.runtime import RobotRuntime
+    monkeypatch.setattr('runtime.executor.run_worker', worker)
+    backend = DemoBackend().connect()
+    runtime = RobotRuntime(backend, registry=build_esp32_registry(backend))
+    outcome = PolicyExecutor().execute('robot.stop()', None, Pose(0, 0, 0), runtime=runtime)
+    return backend, outcome
+
+
+def test_completed_worker_slow_exit_does_not_poison_stopped_device(monkeypatch):
+    backend, outcome = execute_demo_with_worker(monkeypatch, delayed_exit_worker)
+    assert outcome.success
+    assert backend.snapshot()['ready'] and backend.snapshot()['stopped']
+    assert backend.fault is None
+    assert not any(event['capability_id'] == 'system.emergency_stop' for event in outcome.trace)
+
+
+def test_reported_success_with_stuck_worker_is_failure_and_emergency_stop(monkeypatch):
+    backend, outcome = execute_demo_with_worker(monkeypatch, stuck_exit_worker)
+    assert not outcome.success
+    assert outcome.error_type == 'PolicyExecutionError'
+    assert backend.fault == 'SESSION_STOPPED' and backend.stopped
+    assert any(event['capability_id'] == 'system.emergency_stop' for event in outcome.trace)
+
+
+def test_reported_success_with_abnormal_exit_is_failure_and_emergency_stop(monkeypatch):
+    backend, outcome = execute_demo_with_worker(monkeypatch, abnormal_exit_worker)
+    assert not outcome.success
+    assert outcome.error_type == 'PolicyExecutionError'
+    assert backend.fault == 'SESSION_STOPPED' and backend.stopped

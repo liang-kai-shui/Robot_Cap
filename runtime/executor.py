@@ -52,6 +52,7 @@ class PolicyExecutor:
         start = time.perf_counter()
         success, error_type, message = False, "PolicyExecutionError", "Worker exited without result"
         emergency = False
+        outcome_received = False
         try:
             process.start()
             child.close()
@@ -80,6 +81,7 @@ class PolicyExecutor:
                         compute_started = time.perf_counter()
                         continue
                     if packet.get("kind") == "outcome":
+                        outcome_received = True
                         success = bool(packet.get("success"))
                         error_type, message = packet.get("error_type"), packet.get("error_message")
                         break
@@ -107,14 +109,22 @@ class PolicyExecutor:
                 elif not process.is_alive():
                     emergency = True
                     break
-            process.join(timeout=0.05)
+            # A result can arrive before spawn/bootstrap teardown has finished.
+            # Give terminal workers bounded cleanup time; never wait here on
+            # compute timeouts or broken communication before stopping them.
+            process.join(timeout=1.0 if outcome_received and not emergency else 0.05)
             if process.is_alive():
+                emergency = True
+                if success:
+                    success, error_type, message = False, "PolicyExecutionError", "Worker did not exit after reporting outcome"
                 process.terminate()
                 process.join(timeout=0.2)
             if process.is_alive():
                 process.kill()
                 process.join(timeout=0.5)
             if emergency or process.exitcode not in (0, None):
+                if success:
+                    success, error_type, message = False, "PolicyExecutionError", f"Worker exited abnormally ({process.exitcode})"
                 runtime.emergency_stop()
             logs = getattr(runtime.backend, "logs", [])
             return WorkerOutcome(success, error_type, message, runtime.snapshot() or RobotState(initial),
